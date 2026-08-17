@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "digmore",
+  "description": "An LLM plugin that turns AI research into decision-ready data.",
+  "owner": {
+    "name": "Peter Naftaliev",
+    "url": "https://digmore.ai"
+  },
+  "plugins": [
+    {
+      "name": "digmore",
+      "description": "An LLM plugin that turns AI research into decision-ready data.",
+      "version": "0.1.0",
+      "source": "./plugin"
+    }
+  ]
+}

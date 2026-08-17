@@ -1,0 +1,8 @@
+.local/
+node_modules/
+package-lock.json
+
+# A research run's output, when the repo itself is the working directory.
+# Anchored on purpose: unanchored `digmore/` also matches plugin/skills/digmore/, which
+# would keep the committed plugin build out of git entirely.
+/digmore/

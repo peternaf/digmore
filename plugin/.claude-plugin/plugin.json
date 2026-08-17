@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "digmore",
+  "version": "0.1.0",
+  "description": "An LLM plugin that turns AI research into decision-ready data.",
+  "author": {
+    "name": "Peter Naftaliev"
+  },
+  "homepage": "https://digmore.ai",
+  "repository": "https://github.com/peternaf/digmore",
+  "license": "Apache-2.0",
+  "keywords": [
+    "research",
+    "market-research",
+    "competitor-analysis",
+    "business",
+    "claude-code",
+    "plugin"
+  ]
+}

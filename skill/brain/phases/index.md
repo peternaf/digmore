@@ -1,0 +1,71 @@
+# Phases — overview
+
+All five phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
+
+**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run with verdicts on the top-ranked claims (`audit_phase_e.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
+
+Each step announces itself with one line — `[3/5] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
+
+Re-read `../output.md` before any sub-agent dispatch or before writing any user-facing text. The writing-style rules apply *at output time*, not only in final deliverables.
+
+## Phase files
+
+- `scope_phase_a.md` — **Scope**: angles, the branches they make with each available source, written to `scope.json`.
+- `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then per-source notes.
+- `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped.
+- `synthesize_phase_d.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
+- `audit_phase_e.md` — **Audit**: top-50 deep verification + per-claim verdict log.
+
+Scope and Extract are separate because they differ in kind and in scale — Scope is a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `scope.json` is the only record of which branches this topic is meant to have.
+
+## What a sub-agent is (cross-phase)
+
+**One verb, one item, inline, with the tools it already has — then it returns what it found.** That is the whole shape. Fan-out, waiting and deciding belong to the orchestrator.
+
+The prompt that carries it — the whole thing, ready to send — is in `../dispatch.md`. Read that before dispatching anything.
+
+Why the shape is this tight:
+
+- **Inline, because the tools are the job.** digmore is a plugin, and its own files live in an install directory replaced on every update — anything a sub-agent writes there is invisible to the user and gone on the next upgrade. A run uses what it has and records what it could not reach.
+- **One item, because a batch invites a fan-out.** "Fetch these 12 URLs and extract from all 12" is a compound job over independent items, and it reads as an invitation to parallelise.
+- **Nothing to wait on, because there is nothing to wait with.** A sub-agent receives no completion notification for anything it starts, so whatever it starts it waits on forever.
+
+A missing capability is a finding, not a task. Note the gap in `audit.md` as a known-gap and say so in the run's closing message. The user decides what to do about it.
+
+### Heartbeat — how a sub-agent stays visible
+
+A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../dispatch.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
+
+The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. That makes the line diagnostic on its own — the orchestrator reads elapsed time off the file's modification time, so the line only has to say what, never how long.
+
+Caveat: on the way into the step, never on a schedule. Reporting every N seconds means sleeping in a loop.
+
+### When a sub-agent goes quiet
+
+Every sub-agent notifies on completion, so the signal is a notification that never arrives. Do not poll on a timer.
+
+1. **Wait 5 minutes** from dispatch with no notification before suspecting anything. The longest honest silence is one request chain: `hackernews.mjs` throttles HN to one request per 15s and backs off 5s + 15s + 45s on top of a 30s timeout, so roughly two minutes. Five is the margin.
+2. **Read every heartbeat at once**, not one agent at a time:
+   `tail -n 1 digmore/<slug>/cache/_progress/*.log`
+   The last line says what each agent is waiting on; the file's mtime says for how long.
+3. **Decide from the line, not the clock alone.** A fetch or a documented backoff is work — leave it. A line that has not changed while its subject should have completed, or a heartbeat that stopped mid-step, is stuck.
+4. **Confirm liveness** with `TaskOutput(task_id, block: false)`, which returns `running` / `success` / `killed` and nothing else. It reports that an agent is alive, never that it is progressing — the heartbeat is the only progress signal there is.
+5. **Stop it** with `TaskStop(task_id)` if it is still `running` at 10 minutes. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
+
+**Killing a working agent is an acceptable cost.** With one verb over one item, a wrong kill loses one URL rather than a batch, anything already fetched is on disk, and the drop is recorded rather than silent. That is cheaper than trying to detect stuckness from a signal that does not exist.
+
+## Salvage paths on phase failure (cross-phase)
+
+If a phase errors, runs out of context, or the process is killed, the run still produces the artifacts available at that point. Resume re-enters from the last completed phase boundary by scanning on-disk artifacts.
+
+- **Scope failure** → no `scope.json`, so nothing was fetched. Resume re-scopes from scratch; it costs one sub-agent.
+- **Extract failure** → `scope.json` holds the branch list; the cache holds whatever was fetched. Resume compares the two and runs only the branches with nothing on disk. It does not re-scope: new angles would not match the cache the half-finished run built.
+- **Vet failure** → handles seen so far are in `cache/`. Already-promoted experts are in `experts.csv`. Resume re-runs `vet_user` only on un-vetted handles.
+- **Synthesize failure** → `raw_research_outcomes.md` written from what was collected; partial summary with a `<!-- SYNTHESIZE-INCOMPLETE -->` header. Resume re-runs synthesis on the full claim set.
+- **Audit failure** → the summary exists without verification annotations; `audit.md` notes `audit-incomplete`. Resume re-runs Audit from scratch, which is cheap next to the phases before it.
+
+Resume infers progress from on-disk state. `scope.json` is the one checkpoint, and it is a plan rather than a progress marker — everything else is inferred by comparing that plan against the cache and the partial outputs.
+
+## When the harness runs out of web searches
+
+Claude Code caps web searches per session. If the run exhausts that quota mid-way, tell the user to start a new session and re-run the same command: the cache and partial outputs are the state, so resume picks up where the run stopped rather than starting over. The README explains how to raise the ceiling; the plugin never edits the user's settings to do it for them.

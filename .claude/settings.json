@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash .local/repo-inspect.sh *)",
+      "Bash(bash .local/repo-inspect.sh)",
+      "Bash(node --test)",
+      "Bash(node --test*)",
+      "Bash(npm test)",
+    "Bash(npm test*)",
+      "Bash(npm run test*)",
+      "PowerShell(node --test)",
+      "PowerShell(node --test*)",
+      "PowerShell(npm test)",
+      "PowerShell(npm test*)",
+      "PowerShell(npm run test*)",
+      "Read(../digmore-api/plans/openapi*.json)"
+    ],
+    "additionalDirectories": [
+      "../digmore-knowledge/wiki",
+      "../../rendi/rendi-backoffice/business_research/brain",
+      "../digmore-api/plans"
+    ],
+    "deny": [
+      "Edit(../digmore-knowledge/**)",
+      "Edit(../digmore-api/**)"
+    ]
+  }
+}

@@ -1,0 +1,182 @@
+import { test, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { Sandbox, repoRoot, script } from './helpers.mjs';
+
+let sandbox;
+beforeEach(() => (sandbox = new Sandbox()));
+afterEach(() => sandbox.cleanup());
+
+test('user caches as user-<handle>.json', async () => {
+  const base = await sandbox.apiReturning({ username: 'someone', followers_count: 1200 });
+  sandbox.configured(base);
+  const { json } = await sandbox.run('api.mjs', 'twitter', 'user', 'someone', '--topic', 'demo');
+  assert.equal(sandbox.requests[0].path, '/v1/twitter/user/someone');
+  assert.equal(json.followers_count, 1200);
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'user-someone.json')));
+});
+
+test('tweets caches as tweets-<handle>-<N>.json and defaults to 25', async () => {
+  const base = await sandbox.apiReturning({ tweets: [] });
+  sandbox.configured(base);
+  await sandbox.run('api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo');
+  assert.equal(sandbox.requests[0].path, '/v1/twitter/tweets/someone');
+  assert.equal(sandbox.requests[0].query.limit, '25', 'the documented default');
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'tweets-someone-25.json')));
+});
+
+test('tweets honours --limit, and each limit is its own cache file', async () => {
+  const base = await sandbox.apiReturning({ tweets: [] });
+  sandbox.configured(base);
+  await sandbox.run('api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo', '--limit', '100');
+  assert.equal(sandbox.requests[0].query.limit, '100');
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'tweets-someone-100.json')));
+});
+
+// 5-100 is the X API's own range for one timeline page, so anything outside it is a
+// guaranteed failed request. Refused before it becomes a round trip.
+test('tweets refuses a --limit outside 5-100 without calling the API', async () => {
+  const base = await sandbox.apiReturning({ tweets: [] });
+  sandbox.configured(base);
+  for (const limit of ['4', '0', '101', '1000', '-5', 'many', '25.5']) {
+    const { code, err } = await sandbox.run(
+      'api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo', '--limit', limit,
+    );
+    assert.notEqual(code, 0, limit);
+    assert.match(err, /5 to 100/, limit);
+  }
+  assert.equal(sandbox.requests.length, 0, 'nothing is fetched for a value that cannot work');
+});
+
+test('tweets accepts the boundaries', async () => {
+  const base = await sandbox.apiReturning({ tweets: [] });
+  sandbox.configured(base);
+  for (const limit of ['5', '100']) {
+    const { code } = await sandbox.run(
+      'api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo', '--limit', limit,
+    );
+    assert.equal(code, 0, limit);
+  }
+  assert.equal(sandbox.requests.length, 2);
+});
+
+// brain/sources/twitter.md — the only path to a quotable tweet body, because
+// WebSearch sees only the og:title.
+test('tweet fetches bodies by id, batched, one cache file per id', async () => {
+  const base = await sandbox.api((req, res, url) => {
+    const tweetIds = url.searchParams.get('tweet_ids').split(',');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({ tweets: tweetIds.map((tweetId) => ({ id: tweetId, text: `body of ${tweetId}` })) }),
+    );
+  });
+  sandbox.configured(base);
+  const { json } = await sandbox.run('api.mjs', 'twitter', 'tweet', '111', '222', '--topic', 'demo');
+  assert.equal(sandbox.requests.length, 1, 'one batched call, not one per id');
+  assert.equal(sandbox.requests[0].path, '/v1/twitter/tweet');
+  assert.equal(sandbox.requests[0].query.tweet_ids, '111,222');
+  assert.deepEqual(json.tweets.map((tweet) => tweet.id), ['111', '222']);
+  assert.equal(sandbox.cached('demo', 'twitter', 'tweet-111.json').text, 'body of 111');
+  assert.equal(sandbox.cached('demo', 'twitter', 'tweet-222.json').text, 'body of 222');
+});
+
+test('re-quoting a tweet across runs does not re-fetch it', async () => {
+  const base = await sandbox.api((req, res, url) => {
+    const tweetIds = url.searchParams.get('tweet_ids').split(',');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(
+      JSON.stringify({ tweets: tweetIds.map((tweetId) => ({ id: tweetId, text: `body of ${tweetId}` })) }),
+    );
+  });
+  sandbox.configured(base);
+  await sandbox.run('api.mjs', 'twitter', 'tweet', '111', '--topic', 'demo');
+  const { json } = await sandbox.run('api.mjs', 'twitter', 'tweet', '111', '222', '--topic', 'demo');
+  assert.equal(sandbox.requests.length, 2);
+  assert.equal(sandbox.requests[1].query.tweet_ids, '222', 'only the uncached id is asked for');
+  assert.deepEqual(json.tweets.map((tweet) => tweet.id), ['111', '222'], 'both are returned');
+});
+
+test('vet requires a tier and passes it through', async () => {
+  const base = await sandbox.apiReturning({ verdict: 'unknown', signals: {}, reason: '' });
+  sandbox.configured(base);
+
+  const missing = await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo');
+  assert.notEqual(missing.code, 0);
+  assert.match(missing.err, /tier/);
+  assert.equal(sandbox.requests.length, 0);
+
+  const { code, json } = await sandbox.run(
+    'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '2',
+  );
+  assert.equal(code, 0);
+  assert.equal(sandbox.requests[0].path, '/v1/twitter/vet/someone');
+  assert.equal(sandbox.requests[0].query.tier, '2');
+  assert.equal(json.verdict, 'unknown');
+});
+
+test('a bad tier is refused', async () => {
+  const base = await sandbox.apiReturning({});
+  sandbox.configured(base);
+  for (const tier of ['0', '4', 'high']) {
+    const { code } = await sandbox.run(
+      'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', tier,
+    );
+    assert.notEqual(code, 0, tier);
+  }
+  assert.equal(sandbox.requests.length, 0);
+});
+
+test('each tier caches separately — escalating re-fetches', async () => {
+  const base = await sandbox.apiReturning({ verdict: 'unknown' });
+  sandbox.configured(base);
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '1');
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '2');
+  assert.equal(sandbox.requests.length, 2, 'tier 2 is deeper data, not the same call');
+});
+
+// There is no user-side spend, so there is no verb for estimating one.
+test('there is no plan-vet verb', async () => {
+  const base = await sandbox.apiReturning({});
+  sandbox.configured(base);
+  const { code, err } = await sandbox.run(
+    'api.mjs', 'twitter', 'plan-vet', 'someone', '--tier', '1', '--topic', 'demo',
+  );
+  assert.notEqual(code, 0);
+  assert.match(err, /unknown/i);
+  assert.equal(sandbox.requests.length, 0);
+});
+
+test('the four verbs are exactly user, tweets, tweet and vet', async () => {
+  const base = await sandbox.apiReturning({});
+  sandbox.configured(base);
+  const { err } = await sandbox.run('api.mjs', 'twitter', 'nope', 'x', '--topic', 'demo');
+  const offered = err.match(/expected ([^"]+)"/)?.[1] ?? err;
+  for (const verb of ['user', 'tweets', 'tweet', 'vet']) {
+    assert.ok(offered.includes(verb), `${verb} should be offered`);
+  }
+  assert.ok(!offered.includes('plan-vet'));
+});
+
+// No money anywhere, in the script or in what it emits.
+test('no dollar figure survives, wherever the API puts it', async () => {
+  const base = await sandbox.apiReturning({
+    username: 'someone',
+    estimated_cost_usd: 0.135,
+    meta: { estimated_cost_usd: 0.01, tier: 2 },
+    tweets: [{ id: '1', estimated_cost_usd: 0.005 }],
+  });
+  sandbox.configured(base);
+  const { out } = await sandbox.run('api.mjs', 'twitter', 'user', 'someone', '--topic', 'demo');
+  assert.ok(!out.includes('estimated_cost_usd'), 'stripped at every depth');
+  assert.ok(!out.includes('0.135'));
+  assert.ok(!out.includes('0.005'));
+  assert.match(out, /"tier":2/, 'the rest of the payload survives');
+});
+
+test('the script itself carries no pricing', () => {
+  const source = readFileSync(script('api.mjs'), 'utf8');
+  assert.ok(!/\$[0-9]/.test(source), 'no dollar figures');
+  assert.ok(!/plan-vet/.test(source));
+});
