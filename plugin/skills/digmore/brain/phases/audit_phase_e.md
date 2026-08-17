@@ -4,6 +4,23 @@ Print `[5/5] Audit` when this phase starts (`../reporting.md`).
 
 Verifier posture: **default to `manual-verify-required` if uncertain.** Verification must be active confirmation, not absence of doubt.
 
+## 0. Did we answer what was asked
+
+Run this first, before ranking anything. Everything after it checks whether the claims are *true*; nothing else in this phase checks whether the report is *what the user wanted*. A run can pass all fifty verifications and still hand back the wrong deliverable.
+
+Dispatch one sub-agent with **no context from this run** — not the drafter, not the critic, and given only two things: the user's original request (`topic.json.originating_prompt`) and the finished summary. Ask it:
+
+> Read this request, then read this report. For each thing the request asks for, is it here, and is it usable as asked? Answer per item, quoting the part of the report that serves it. If something is named but not usable in the form requested — a list whose entries cannot be reached, a comparison with nothing to compare, a "who" question answered without naming anyone — say so.
+
+A fresh context is the point. The drafter cannot see this failure, because it knows what it meant. Reading the report cold is the only way to notice that twelve communities were named and none of them can be visited.
+
+Cross-check against `scope.json.deliverables`: every enumeration declared in Scope has a section, and every section's entries match its CSV row set (`synthesize_phase_d.md` §3.6).
+
+What comes back:
+
+- **Something asked for is missing or unusable** → fix it now if the data is already on disk, which is the common case: the rows exist and the section never rendered them. Re-render and move on.
+- **Fixing it needs research the run did not do** → record it in `audit.md` as `unanswered`, and name it in Issues. Never quietly ship a report that does not answer its own question.
+
 ## 1. Rank
 
 Rank all claims in the summary by `importance × source-quality`. Importance is primary; source quality is the tiebreaker.
@@ -44,6 +61,7 @@ Reason: prevents the summary from being papered with manual-verify flags the use
 Per-claim verdict log. Replace the file entirely (not append) — see "Re-run behavior" below.
 
 Sections:
+- **Unanswered** — from §0: anything the request asked for that the report does not deliver, or delivers in an unusable form. One line each: what was asked, what is there instead, and why it was not fixed in this run. Empty is the expected state; an entry here is the run telling the user it fell short of its own brief.
 - **Verdicts** — one line per top-50 claim: `verdict: <verified | url-broken | content-changed | uncited | manual-verify-required | low-confidence-unverified | refuted>`, the claim text, the source URL, and the `importance × source-quality` score that placed it in the top 50.
 - **Verification ranking** — which 50 claims got the deep check, in rank order, with their scores.
 - **Assumptions made without the user** — anything decided on the user's behalf in auto mode, or under uncertainty in either mode: one line each, what was assumed and what it changed. No questions here; see `../reporting.md` §"Questions for the user".

@@ -72,6 +72,21 @@ For each row:
 
 A row with no identifiable presence at all is a research error — record it in `audit.md` and name it in Issues.
 
+## 3.6. Enumeration sections are rendered from the CSV, not written from memory
+
+Any summary section that **lists things** — hubs, communities, players, accounts, tools, leaderboards — is produced by reading the finished CSV and emitting one entry per row. It is not composed from recollection with the file sitting beside it.
+
+The distinction matters because the two linking jobs are different, and only one of them was ever enforced. A **citation** proves a claim: it points at the page where the evidence lives. A **destination** answers "where is this thing?": it points at the thing itself. Cite-or-drop (`../output.md` rule 5) demands the first and says nothing about the second, so a section that names twelve communities can satisfy every rule in the brain while leaving the reader unable to reach a single one of them.
+
+How to render:
+
+- **One row, one entry.** The row set decides what appears. An entity you would have mentioned that has no row is a data error: add the row in §3.5 first, then render.
+- **The name is the link** — `[r/LocalLLaMA](https://old.reddit.com/r/LocalLLaMA)`, `[Rhasspy forum](https://community.rhasspy.org)` — taken from the row's `url`. Never a separate URL column, and never a bare name.
+- **Keep the sections apart.** Rows carry their kind, so people render into the people section and communities into theirs. Rendering from one file does not merge them.
+- **A row whose `url` is genuinely unknown** renders its name unlinked and is recorded in `audit.md` as a known-gap. It is never quietly dropped, and the gap is never hidden by omitting the entity.
+
+Citations still attach to the claims made *about* each entity, exactly as before. This section adds the destination; it replaces nothing.
+
 ## 4. Critic pass (before Audit)
 
 Dispatch one cheap sub-agent that reads the draft summary and asks:
@@ -90,10 +105,11 @@ Sub-agent over the draft summary:
 > 1. **Jargon.** Rewrite sentences using LLM-shorthand ("load-bearing", "category-level", "X-shaped", "X-lens", "thesis", "adoption gate", "founder-lens") into plain English.
 > 2. **Hubs "Community value" cells.** Must start with His/Her/Their + noun AND name a specific artifact (repo, project, blog series). One-word values and generic phrases fail. If depth is insufficient: `—`, and record the gap in `audit.md`. No placeholders.
 > 3. **Hubs handles.** Linked per spec template (`[u/handle](url)`, etc). Bare text fails.
-> 4. **Obscurity.** Rewrite any sentence a non-domain reader would have to re-read or guess at — concrete subject, single clause, define domain terms inline on first use.
-> 5. **Brevity.** Cut any sentence shorter without losing meaning. No "in summary", no transitional padding, no repeating prior context.
+> 4. **Enumeration sections reach their subjects.** In every section that lists things, each named entity is a link to the thing itself, and the entries match the CSV rows one for one — nothing named that has no row, no row silently missing. A citation beside the name does not satisfy this: it points at evidence, not at the thing. Unlinked names are only allowed where `audit.md` records the missing URL as a known-gap. See §3.6.
+> 5. **Obscurity.** Rewrite any sentence a non-domain reader would have to re-read or guess at — concrete subject, single clause, define domain terms inline on first use.
+> 6. **Brevity.** Cut any sentence shorter without losing meaning. No "in summary", no transitional padding, no repeating prior context.
 
-Apply rewrites in place. Rules 1, 4 and 5 govern digmore's own prose only — never a quoted source. See `../output.md`.
+Apply rewrites in place. Rules 1, 5 and 6 govern digmore's own prose only — never a quoted source. See `../output.md`.
 
 ## 4.6. Dedup pass (before Audit)
 

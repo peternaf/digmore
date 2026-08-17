@@ -12,6 +12,17 @@ Good angles rest on the vocabulary the subject's own people use (every branch qu
 
 Record how you got there in `scope.json` under `orientation`. In `--quick` there is less time for this, not none.
 
+## What the user asked for — things, or an understanding
+
+Decide this before the angles, and record it. Two requests that look alike want different deliverables:
+
+- **An enumeration.** "List the online hubs for TTS", "which vendors ship X", "who are the people worth following". The deliverable is a **set of records** the user will act on one by one. Success means the set is complete, each entry is reachable, and nothing is missing.
+- **An understanding.** "Why do people dislike X", "is X worth adopting", "how is X being promoted". The deliverable is an **argument** built from evidence. Success means the reasoning holds and every claim is sourced.
+
+Most runs are some of both, so record the enumerations the request contains rather than picking one label for the whole run: `deliverables: ["hubs", "influencers"]` in `scope.json`. Each named enumeration becomes a CSV row set and its own summary section, rendered per `synthesize_phase_d.md` §3.6.
+
+This matters because the rest of the pipeline is built for the second kind. Extract mines claims, Vet judges handles, Audit checks claims against sources — all of it assumes the deliverable is an argument. An enumeration that is never declared here gets narrated as prose at the end, and the user is handed a paragraph naming twelve communities they cannot reach. Declaring it is what makes the list a list.
+
 ## Angles
 
 Decompose the topic into 3–6 complementary angles, **built on what orientation surfaced** — its vocabulary, its recurring names, its live arguments. Angles are domain-aware:
@@ -41,6 +52,7 @@ Write the plan before dispatching anything:
     "vocabulary": ["voice cloning", "niqqud", "streaming latency"],
     "recurring_names": ["ElevenLabs", "Cartesia", "Kokoro"]
   },
+  "deliverables": ["hubs", "influencers"],
   "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
   "sources": ["websearch", "hackernews", "forums"],
   "sources_unavailable": [{"source": "reddit", "reason": "no API key"}],
