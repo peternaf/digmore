@@ -59,7 +59,7 @@ The angle sweeps these platforms by name, regardless of person:
 
 Output: one row per platform with URL + status (active / dormant / absent). Lands in the topic directory as `online_presence.md`, referenced from the summary's §2.
 
-## 1. `<topic-slug>.md` — the summary
+## 1. The summary
 
 Sections in this exact order.
 

@@ -32,7 +32,7 @@ Three phases carry command-specific weight:
 - **Synthesize** — build the promoter network as a cross-source identity graph. Replies to insider promoters by `legit` handles are top-tier evidence.
 - **Audit** — every "X did Y" tactic-attribution claim must resolve to a URL where Y is visible. The `manual-verify-required` cap is reserved for tactic attributions.
 
-## 1. `<topic-slug>.md` — the summary
+## 1. The summary
 
 Sections in this exact order.
 

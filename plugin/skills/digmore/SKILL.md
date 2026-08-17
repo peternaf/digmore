@@ -76,7 +76,7 @@ Full rules in `brain/modes.md`.
 
 ## Where the output goes
 
-`digmore/<topic-slug>/` in the user's working directory, with the summary at `digmore/<topic-slug>/<topic-slug>.md`. Never write anywhere else, and never write inside the plugin's own directory — it is an install cache that a plugin update replaces.
+`digmore/<topic-slug>/` in the user's working directory, with the summary at `digmore/<topic-slug>/<topic-slug>-executive-summary.md`. Never write anywhere else, and never write inside the plugin's own directory — it is an install cache that a plugin update replaces.
 
 ## What a run must never do
 

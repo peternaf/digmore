@@ -1,6 +1,6 @@
 # Cross-agent JSON schemas
 
-Six shapes, one per kind of sub-agent. They are the format agents hand data back in — plumbing between agents, not user-facing output, and they do not vary by topic or by command. Markdown files (`<topic-slug>.md`, `audit.md`, etc.) and the CSVs are what the user reads; those *do* vary, and nothing here constrains them.
+Six shapes, one per kind of sub-agent. They are the format agents hand data back in — plumbing between agents, not user-facing output, and they do not vary by topic or by command. Markdown files (the summary, `audit.md`, etc.) and the CSVs are what the user reads; those *do* vary, and nothing here constrains them.
 
 **Nothing enforces these shapes at the point of return.** A sub-agent hands back text; there is no mechanism that makes a wrong shape impossible. So each block below is paste-ready into the dispatch prompt — `dispatch.md` is where it goes, as the middle of its three slots — and every returned payload is checked afterwards, see "Checking what comes back" at the end of this file. Skip the check and a malformed return flows into the report looking exactly like a good one.
 

@@ -41,7 +41,7 @@ Search fans across the same sources as landscape, but every query is competitor-
 
 Phase weights: Extract and Synthesize carry the most signal. Vet is usually cheap when chained from a parent, because `experts.csv` arrives pre-populated.
 
-## 1. `<topic-slug>.md` — the summary
+## 1. The summary
 
 Sections in this exact order.
 

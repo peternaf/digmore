@@ -14,14 +14,13 @@ called "deep research".
 Digmore is built the other way round. It runs a five-phase pipeline — scope, extract, vet,
 synthesize, audit — and the phases are the point:
 
+- **It reads places a generic LLM cannot.** Reddit threads, Hacker News, Twitter — not just whatever
+- **Tailored for executive research.** Digmore doesn't only rely on the non-deterministic nature of LLMs, baked into the skill there are hand made deterministic sections that make sure you will receive exactly the results you are looking for. So that the research will provide decision ready information for you to act on each time.
 - **Sources get vetted before they get quoted.** Every handle carries a quality tag; anonymous or
   brand-new accounts are quoted with a caveat or not at all.
-- **Claims get audited after they are written.** The highest-value claims in the summary are
+- **Claims get audited after they are written.** Claims in the summary are
   re-checked against their source URL. Anything that no longer resolves, or no longer says what was
   claimed, is flagged in the report rather than left to look solid.
-- **What it could not reach is written down.** Branches that returned nothing, URLs dropped at the
-  fetch cap, and gaps in coverage go in the output. A thin result says it is thin.
-- **It reads places a generic LLM cannot.** Reddit threads, Hacker News, Twitter — not just whatever
   a search engine surfaces.
 
 ## Commands
@@ -87,7 +86,7 @@ the project it belongs to:
 
 | File | What's in it |
 |---|---|
-| `<topic>.md` | The report. Fixed sections, every substantive claim carrying an in-text citation |
+| `<topic>-executive-summary.md` | The report. Fixed sections, every substantive claim carrying an in-text citation |
 | `players.csv` | The companies or people found, one row each, with the fields that matter for the question |
 | `experts.csv` | The voices worth listening to, with why each one qualifies |
 | `raw_research_outcomes.md` | The unsummarized findings, kept whole |

@@ -10,7 +10,7 @@ Every file written *during* a research run lives under `digmore/<topic-slug>/`, 
 
 ```
 digmore/<topic-slug>/
-  <topic-slug>.md                # user-facing summary, named after the topic
+  <topic-slug>-executive-summary.md   # the user-facing summary
   topic.json                     # identity + run history
   scope.json                     # the plan: angles, sources, branches
   experts.csv                    # curated experts (legit verdict only)
@@ -29,14 +29,16 @@ digmore/<topic-slug>/
 |---|---|
 | `scope.json` | Scope, once |
 | `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
-| `players.csv`, `promoter_network.csv`, `raw_research_outcomes.md`, `<topic-slug>.md` | Synthesize's single synthesizer |
+| `players.csv`, `promoter_network.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
 | `audit.md`, `topic.json` | the orchestrator |
 | `source_notes/<source>.md` | one sub-agent per source, each to its own file |
 | `cache/**` | whichever sub-agent fetched it, each to its own filename |
 
 Anything new that writes a shared file needs a lock or a single writer. A step that fans out writers to one of the rows above will lose rows silently — no error, no trace.
 
-The summary is named after the topic rather than a fixed filename, so a user who opens `digmore/` sees what each folder holds without opening anything. Everywhere these files refer to "the summary", they mean `<topic-slug>.md`.
+The summary carries both the topic and what it is: the slug so it stays findable once it has been moved or shared out of its folder, and `-executive-summary` so the name says what the file holds. Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`.
+
+**It is an executive summary, and that is a kind of document, not just a filename.** It is written for someone who has to decide something and will not read the sources — a founder, an operator, a board member. So it leads with what is true and what follows from it, and every section earns its place by changing a decision. Background the reader can infer, methodology, and the story of how the research went do not belong in it; the findings, the numbers, the disagreements and the gaps do. The reader should be able to act after the first screen and read the rest only to check the work. Depth without shape belongs in `raw_research_outcomes.md`, which is the LLM-facing record and has no length limit.
 
 **Any temp files generated during the run go under `cache/<source>/` (or `cache/_misc/` if source-agnostic).** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all under the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`.
 

@@ -49,12 +49,12 @@ A command's reference file lists the footer as its last section and says nothing
 
 When a research run finishes, print exactly four sections to the terminal — no preamble, no recap, no congratulations, no fluff:
 
-1. **Answer:** 1–3 sentences answering what the user actually asked. **The Answer block is the answer only — no caveats, no questions, no hedging.** Caveats live in `<topic-slug>.md`; questions live in Follow-up research ideas.
+1. **Answer:** 1–3 sentences answering what the user actually asked. **The Answer block is the answer only — no caveats, no questions, no hedging.** Caveats live in the summary; questions live in Follow-up research ideas.
 2. **Issues:** bulleted list of run-time problems (failed fetches, capped sections, deferred items, lint violations, sources that were unavailable, items dropped after a failed output check) and of anything you decided on the user's behalf in auto mode. `Issues: none.` when clean.
 3. **Skill + output:** one line. `<command-name> · output: digmore/<topic-slug>/`
 4. **Follow-up research ideas:** numbered list (max 10) of one-sentence research questions pulled from the summary's complaints and adjacent-spaces sections.
 
-The Answer block is the same shape for every command. For `ask` it is section 1 of `<topic-slug>.md` copied verbatim. For `landscape`, `competitor` and `gtm`, compose it at the end of the run against the same rule — answering the request the user actually made, drawn from what the summary already establishes, introducing nothing new.
+The Answer block is the same shape for every command. For `ask` it is section 1 of the summary copied verbatim. For `landscape`, `competitor` and `gtm`, compose it at the end of the run against the same rule — answering the request the user actually made, drawn from what the summary already establishes, introducing nothing new.
 
 Nothing else reaches the terminal beyond these four sections and the progress markers above. Detailed findings and audit verdicts live in files.
 

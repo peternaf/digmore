@@ -7,7 +7,7 @@ Inputs: Extract's structured claims (from the Search Source extractors) + Source
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
 - `digmore/<topic-slug>/players.csv` — full player matrix. Columns and the player-inclusion test are command-specific (see the command's reference file).
-- `digmore/<topic-slug>/<topic-slug>.md` — the user-facing summary. Sections are command-specific.
+- the summary — user-facing, named per `../topic.md`. Sections are command-specific.
 
 Re-read `../output.md` before writing any output. Read `../vetting.md` for the verdict schema and the confidence-tag rule.
 
@@ -108,7 +108,7 @@ Apply the dedup in place.
 Synthesize is complete when:
 - `raw_research_outcomes.md` exists and contains every surviving claim.
 - `players.csv` exists with the command's required columns.
-- `<topic-slug>.md` exists with every required section drafted (no `<!-- SYNTHESIZE-INCOMPLETE -->` header).
+- the summary exists with every required section drafted (no `<!-- SYNTHESIZE-INCOMPLETE -->` header).
 - All three passes have run: §4 critic (gaps), §4.5 readability (jargon rewrite), §4.6 dedup (cross-section dedup). Each is mandatory; none is optional.
 
 No marker file. Resume infers state from these artifacts.

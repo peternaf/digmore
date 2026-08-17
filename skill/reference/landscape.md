@@ -22,7 +22,7 @@ Breadth over depth on any one player. Each player gets coverage; none gets exhau
 
 Phase weights: Extract and Synthesize carry the most signal. Vet is cheap when `experts.csv` is pre-populated (chained topics), expensive when fresh. Audit is bounded by its claim cap either way.
 
-## 1. `<topic-slug>.md` — the summary
+## 1. The summary
 
 Sections in this exact order.
 
