@@ -19,14 +19,9 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/preflight.mjs"
 
 Its stdout tells you which of six states the run is in and what to do about it. Follow it. Nothing else in the plugin checks configuration, so skipping this means a run that discovers halfway through that a source was never available.
 
-Two things only you can do, when the user responds to it:
+**If it reports `NO_KEY`, or ends with `Could not confirm these are raised`, read `reference/first-run.md` and follow it before anything else** — before Step 2, before any command file, before any research. Those are first-run gates that stop and wait for an answer; the file holds them so this one does not carry setup text every user has already answered.
 
-| The user says | Run |
-|---|---|
-| gives you an API key | `node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/config.mjs" set-key <value>` |
-| says they don't want one | `node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/config.mjs" decline` |
-
-On a `NO_KEY` run, state **both** options. A user with no intention of joining the waitlist otherwise sees the same offer on every run with no way to stop it. Never write the settings file any other way, and never touch the user's own Claude Code settings.
+Read it too if the user supplies or declines a key at any later point. It owns every write to the settings file. Never write that file any other way, and never touch the user's own Claude Code settings.
 
 ## Step 2 — pick the command
 
