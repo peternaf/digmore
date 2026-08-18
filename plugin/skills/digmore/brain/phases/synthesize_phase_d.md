@@ -7,7 +7,7 @@ Inputs: Extract's structured claims (from the Search Source extractors) + Source
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
 - `digmore/<topic-slug>/players.csv` — full player matrix. Columns and the player-inclusion test are command-specific (see the command's reference file).
-- the summary — user-facing, named per `../topic.md`. Sections are command-specific.
+- the summary — user-facing, named per `../research_plan.md`. Sections are command-specific.
 
 Re-read `../output.md` before writing any output. Read `../vetting.md` for the verdict schema and the confidence-tag rule.
 
@@ -18,7 +18,7 @@ Re-pass Extract's datapoints. Drop low-quality:
 - Sources tagged `unreliable` are dropped.
 - Sources tagged `forum` from `unknown` handles are dropped.
 
-**Carryover revalidation.** When the topic was branched from a sibling (`topic.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
+**Carryover revalidation.** When the topic was branched from a sibling (`research_plan.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
 
 Within each thread, prioritize **answering** comments — high-upvote replies, OP "this worked / thanks" responses, marked answers — not generic discussion.
 
@@ -32,7 +32,7 @@ Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert ex
 
 Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
 
-Dispatch ONE synthesizer sub-agent. The synthesizer returns the Synthesizer schema (see `../schemas.md`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../schemas.md`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 

@@ -1,6 +1,10 @@
-# Dispatching a sub-agent
+# Dispatching a structured sub-agent
 
-The prompt. Every sub-agent in every phase gets this, assembled here so a dispatch is one read instead of four. `phases/index.md` says why the shape is what it is.
+The prompt for a sub-agent that **returns structured output** — anything whose return has a shape in `schemas.md`. Assembled here so a dispatch is one read instead of four. `phases/index.md` says why the shape is what it is.
+
+The phase file dispatching one points here; this file names none of them, so a new kind of structured sub-agent needs no edit to it.
+
+**It does not apply to a sub-agent that returns no shape** — one writing prose to its own file, or editing the draft summary in place. There is no block to paste, nothing to write to `_returns/`, and nothing for `validate.mjs` to check. Those carry their instructions in the phase file that dispatches them.
 
 ## The template
 
@@ -13,6 +17,10 @@ Do the work inline with the tools you already have: one kind of work over one it
 return what you found. Log a line before each step. Anything you cannot do yourself is a
 finding to report back — never a script to write, an agent to dispatch, or something to
 wait on.
+
+Run from the directory you were started in. Never cd. Every script builds its own paths
+from there as digmore/<slug>/..., so stepping into the topic directory first makes it
+nest a second copy inside itself — the scripts now refuse rather than do it silently.
 
 Before each step you take, append one line to
 digmore/<slug>/cache/_progress/<your-label>.log: the time, and what you are about to do.

@@ -59,7 +59,7 @@ The heuristic floor never returns `legit` — only confident negatives (`spammer
 
 **The vet response says when judgment is needed: `needs_llm_judgment: true`.** Read the flag; do not re-derive it from the verdict and the tier. It is true exactly when the verdict is `unknown` and tweets were sampled, and the rule belongs to whatever produced the verdict rather than to you.
 
-When it is set, dispatch a sub-agent that reads the cached tweets and classifies the voice per the rubric: real expert / marketer / content-seller / agenda-pusher. Map the result to the shared verdict schema. The judgment is always the plugin's to make — nothing upstream makes it.
+When it is set, dispatch a sub-agent per `../dispatch_structured_subagent.md` that reads the cached tweets and classifies the voice per the rubric: real expert / marketer / content-seller / agenda-pusher. Map the result to the shared verdict schema. The judgment is always the plugin's to make — nothing upstream makes it.
 
 ## Incremental persistence
 

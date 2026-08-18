@@ -71,6 +71,29 @@ export function isInsideTopicCache(outPath, cwd = process.cwd()) {
   return parts.length >= 3 && parts[1] === 'cache';
 }
 
+/**
+ * Every script builds its paths as <cwd>/digmore/<slug>/..., which is right only when the
+ * cwd is the directory the user is working in. A caller that has stepped into the topic
+ * directory first gets digmore/<slug>/digmore/<slug>/... — created without complaint by a
+ * recursive mkdir, so the run looks fine while its cache lands in a tree nothing else
+ * reads, and resume re-fetches everything.
+ *
+ * Refuse it instead. The same reasoning as a missing --topic: a silent no-op leaves a run
+ * that looks complete having saved nothing where anyone will look for it.
+ */
+export function assertWorkspaceRoot(cwd = process.cwd()) {
+  const parts = resolve(cwd).split(sep);
+  const index = parts.lastIndexOf('digmore');
+  // A 'digmore' segment with a slug under it means we are inside a topic directory.
+  // A trailing 'digmore' is just the research root, which is fine to sit in.
+  if (index !== -1 && index < parts.length - 1) {
+    throw new Error(
+      `run from the directory you are working in, not from inside ${parts.slice(index).join(sep)} — ` +
+        'paths are built as digmore/<slug>/... and would nest a second copy under this one',
+    );
+  }
+}
+
 class FetchError extends Error {
   constructor(payload, exitCode) {
     super(payload.error);
@@ -94,7 +117,45 @@ export function parseArgs(argv) {
   return { url, out };
 }
 
-/** Stream url to outPath. Raises on non-2xx, and leaves no file behind when it does. */
+/**
+ * What the response actually is, as a file extension — or '' when we would be guessing.
+ *
+ * Only the types a research run fetches are mapped. An unrecognised type keeps the name
+ * it was given rather than acquiring a wrong extension, which would be worse than none.
+ */
+export function extensionFor(contentType) {
+  const type = String(contentType).split(';')[0].trim().toLowerCase();
+  return {
+    'text/html': '.html',
+    'application/xhtml+xml': '.html',
+    'text/plain': '.txt',
+    'application/json': '.json',
+    'text/xml': '.xml',
+    'application/xml': '.xml',
+    'application/pdf': '.pdf',
+    'text/markdown': '.md',
+  }[type] ?? '';
+}
+
+/**
+ * A caller passes a slug — `engadget-elevenlabs-banned-biden` — and nothing downstream can
+ * then tell a 600KB HTML page from a 5KB text extract without opening it. So the response's
+ * own content type names the file.
+ *
+ * Only when the caller left the extension off. `…-p2.html` and `…-notes.md` are deliberate
+ * and are kept. The test is a dot plus one to five alphanumerics, so a slug that merely
+ * contains a dot — `mux.com-pricing` — is not mistaken for an extension.
+ */
+export function withExtension(outPath, contentType) {
+  if (/\.[a-z0-9]{1,5}$/i.test(outPath)) return outPath;
+  return outPath + extensionFor(contentType);
+}
+
+/**
+ * Stream url to outPath. Raises on non-2xx, and leaves no file behind when it does.
+ * The extension may be appended from the content type, so read the written name off the
+ * returned `path` rather than assuming the one passed in.
+ */
 export async function fetchToPath(url, outPath) {
   let response;
   try {
@@ -114,7 +175,11 @@ export async function fetchToPath(url, outPath) {
     );
   }
 
-  mkdirSync(dirname(outPath), { recursive: true });
+  // The content type is only known now, so the final name is settled here rather than by
+  // the caller. The returned `path` is what was actually written.
+  const target = withExtension(outPath, response.headers.get('content-type') ?? '');
+
+  mkdirSync(dirname(target), { recursive: true });
   let written = 0;
   try {
     const counter = new TransformStream({
@@ -125,10 +190,10 @@ export async function fetchToPath(url, outPath) {
     });
     await pipeline(
       Readable.fromWeb(response.body.pipeThrough(counter)),
-      createWriteStream(outPath),
+      createWriteStream(target),
     );
   } catch (err) {
-    rmSync(outPath, { force: true });
+    rmSync(target, { force: true });
     throw new FetchError({ error: 'transport', detail: String(err?.message ?? err) }, 2);
   }
 
@@ -138,7 +203,7 @@ export async function fetchToPath(url, outPath) {
     status: response.status,
     content_type: response.headers.get('content-type') ?? '',
     bytes: written,
-    path: outPath,
+    path: target,
   };
 }
 

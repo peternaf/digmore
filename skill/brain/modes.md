@@ -19,7 +19,7 @@ Three things trigger a prompt:
 
 1. **Vetting batches that cross a per-tier confirmation threshold.** Twitter examples: more than 20 handles at Tier 1 or 2, more than 5 at Tier 3. Surface the handle count and which tier they would be vetted at, then wait for approval.
 2. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
-3. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `topic.md` step 3.
+3. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `research_plan.md` step 3.
 
 ## Auto mode (`--auto`)
 
@@ -59,7 +59,7 @@ Per-phase reductions vs full mode:
 
 | Phase | Full | Quick |
 |---|---|---|
-| **Scope — angles** | 3–6 | 2 |
+| **Plan — angles** | 3–6 | 2 |
 | **Search — URLs per branch** | `fetchesPerBranch`, 20 by default | 5, or `fetchesPerBranch` if that is lower |
 | **Search — Twitter** | Tier 1/2/3 per the rules | Tier 1 only, max 5 handles. Tier 2/3 + LLM-judgment layer skipped. |
 | **Source notes** | one per source | one per source (reads the smaller Search dataset, naturally faster) |

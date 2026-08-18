@@ -168,7 +168,7 @@ test('every shipped script is executable by node', () => {
 test('the plugin directory is not empty of the brain', () => {
   const brain = join(SKILL_IN_PLUGIN, 'brain');
   assert.ok(statSync(join(brain, 'index.md')).size > 0);
-  assert.ok(existsSync(join(brain, 'phases', 'scope_phase_a.md')));
+  assert.ok(existsSync(join(brain, 'phases', 'plan_phase_a.md')));
   assert.ok(existsSync(join(brain, 'phases', 'extract_phase_b.md')));
   assert.ok(existsSync(join(brain, 'sources', 'local.md')));
 });

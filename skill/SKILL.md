@@ -7,7 +7,7 @@ argument-hint: "[landscape|competitor|ask|gtm] [topic] [--auto] [--quick]"
 
 # Digmore
 
-Five-phase business research: scope, extract, vet, synthesize, audit. Every substantive claim carries the source it came from, and a run states what it could not reach.
+Five-phase business research: plan, extract, vet, synthesize, audit. Every substantive claim carries the source it came from, and a run states what it could not reach.
 
 ## Step 1 — always, before anything else
 
@@ -48,7 +48,7 @@ Two cases, and they are different:
 
 Wait for the answer. If they pick a different command, load that reference file instead; nothing about the request needs restating.
 
-One question, not an interrogation. Do not also ask about the topic, the depth or the sources in the same breath — those belong to the reference file, and `brain/topic.md` already has its own confirmation before Scope.
+One question, not an interrogation. Do not also ask about the topic, the depth or the sources in the same breath — those belong to the reference file, and `brain/research_plan.md` already has its own confirmation inside Plan.
 
 **In `--auto`, do not prompt.** State the command you picked and why, and run. `brain/modes.md` already has auto mode skip confirmation of detected intent and proceed on the best parse; this is the same rule. Name the pick in the run's Issues, so a wrong guess is visible in the output instead of silent.
 

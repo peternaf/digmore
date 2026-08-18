@@ -8,13 +8,13 @@ Verifier posture: **default to `manual-verify-required` if uncertain.** Verifica
 
 Run this first, before ranking anything. Everything after it checks whether the claims are *true*; nothing else in this phase checks whether the report is *what the user wanted*. A run can pass all fifty verifications and still hand back the wrong deliverable.
 
-Dispatch one sub-agent with **no context from this run** — not the drafter, not the critic, and given only two things: the user's original request (`topic.json.originating_prompt`) and the finished summary. Ask it:
+Dispatch one sub-agent with **no context from this run** — not the drafter, not the critic, and given only two things: the user's original request (`research_plan.json.originating_prompt`) and the finished summary. Ask it:
 
 > Read this request, then read this report. For each thing the request asks for, is it here, and is it usable as asked? Answer per item, quoting the part of the report that serves it. If something is named but not usable in the form requested — a list whose entries cannot be reached, a comparison with nothing to compare, a "who" question answered without naming anyone — say so.
 
 A fresh context is the point. The drafter cannot see this failure, because it knows what it meant. Reading the report cold is the only way to notice that twelve communities were named and none of them can be visited.
 
-Cross-check against `scope.json.deliverables`: every enumeration declared in Scope has a section, and every section's entries match its CSV row set (`synthesize_phase_d.md` §3.6).
+Cross-check against `research_plan.json.scope.deliverables`: every enumeration declared in Plan has a section, and every section's entries match its CSV row set (`synthesize_phase_d.md` §3.6).
 
 What comes back:
 
@@ -30,7 +30,7 @@ Rank all claims in the summary by `importance × source-quality`. Importance is 
 
 ## 2. Verify the top 50
 
-Dispatch one Verifier sub-agent per top-50 claim. The sub-agent returns the Verifier schema (see `../schemas.md`): `{verdict, evidence, refuted?, counterSource?}`.
+Dispatch one Verifier sub-agent per top-50 claim, per `../dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../schemas.md`): `{verdict, evidence, refuted?, counterSource?}`.
 
 For each claim, the Verifier must:
 - Confirm the URL still resolves and the cited content matches the claim. Use `fetch.mjs` (not `WebFetch`) for any URL likely to be long-form.

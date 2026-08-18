@@ -30,6 +30,70 @@ test('streams a page to the --output path and reports it on stdout', async () =>
   assert.equal(json.url, `${base}/thread`);
 });
 
+// A caller passes a slug, and nothing downstream can then tell a 600KB page from a 5KB
+// text extract without opening it. The response's own content type names the file.
+test('a name with no extension gets one from the content type', async () => {
+  const base = await site((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+    res.end('<html><body>a page</body></html>');
+  });
+  const bare = join('digmore', 'demo', 'cache', 'websearch', 'engadget-elevenlabs-biden');
+  const { code, json } = await sandbox.run('fetch.mjs', `${base}/a`, '--output', bare);
+  assert.equal(code, 0);
+  assert.ok(existsSync(join(sandbox.cwd, `${bare}.html`)), 'written with the extension');
+  assert.ok(!existsSync(join(sandbox.cwd, bare)), 'and not under the bare name');
+  assert.match(json.path, /engadget-elevenlabs-biden\.html$/, 'stdout reports what was written');
+});
+
+test('an extension the caller chose is kept, whatever the content type says', async () => {
+  const base = await site((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('# notes');
+  });
+  const named = join('digmore', 'demo', 'cache', 'websearch', 'hand-written-notes.md');
+  const { code, json } = await sandbox.run('fetch.mjs', `${base}/a`, '--output', named);
+  assert.equal(code, 0);
+  assert.ok(existsSync(join(sandbox.cwd, named)));
+  assert.ok(!json.path.endsWith('.md.html'), 'no second extension is stacked on');
+});
+
+// Guessing an extension is worse than leaving it off — a wrong one misleads every reader.
+test('an unrecognised content type leaves the name alone', async () => {
+  const base = await site((req, res) => {
+    res.writeHead(200, { 'content-type': 'application/octet-stream' });
+    res.end('bytes');
+  });
+  const bare = join('digmore', 'demo', 'cache', 'websearch', 'mystery-payload');
+  const { code, json } = await sandbox.run('fetch.mjs', `${base}/a`, '--output', bare);
+  assert.equal(code, 0);
+  assert.ok(existsSync(join(sandbox.cwd, bare)), 'written under the name it was given');
+  assert.ok(!/\.[a-z0-9]+$/i.test(json.path), 'and gained nothing');
+});
+
+// A dot inside a slug is not an extension.
+test('a slug containing a dot still gets its extension', async () => {
+  const base = await site((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<html></html>');
+  });
+  const dotted = join('digmore', 'demo', 'cache', 'websearch', 'mux.com-pricing-page');
+  const { json } = await sandbox.run('fetch.mjs', `${base}/a`, '--output', dotted);
+  assert.match(json.path, /mux\.com-pricing-page\.html$/);
+});
+
+test('the content-type map covers what a run fetches, and guesses at nothing else', async () => {
+  const { extensionFor, withExtension } = await import('../skill/scripts/fetch.mjs');
+  assert.equal(extensionFor('text/html; charset=utf-8'), '.html');
+  assert.equal(extensionFor('application/xhtml+xml'), '.html');
+  assert.equal(extensionFor('TEXT/PLAIN'), '.txt', 'case and whitespace do not matter');
+  assert.equal(extensionFor('application/json'), '.json');
+  assert.equal(extensionFor('application/pdf'), '.pdf');
+  assert.equal(extensionFor('image/png'), '', 'unmapped types get nothing');
+  assert.equal(extensionFor(''), '');
+  assert.equal(withExtension('a/b/page.html', 'text/plain'), 'a/b/page.html');
+  assert.equal(withExtension('a/b/page', 'text/plain'), 'a/b/page.txt');
+});
+
 test('--output is the only form of the flag', async () => {
   const base = await site((req, res) => res.end('x'));
   const { code } = await sandbox.run('fetch.mjs', `${base}/a`, '--output', OUT);

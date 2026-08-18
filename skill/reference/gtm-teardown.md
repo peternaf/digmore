@@ -6,15 +6,15 @@ A five-phase pass focused on ONE company's go-to-market behavior. Name every tac
 
 ## Input framing and chaining
 
-Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/topic.md` §"Branched topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
+Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/research_plan.md` §"Branched topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
 
-`topic.json.kind` is `gtm-teardown`.
+`research_plan.json.kind` is `gtm-teardown`.
 
 ## What this command emphasizes
 
 Behavior, not capability. "How do they show up in front of buyers, and what happens when they do?"
 
-Scope's angles replace the generic set:
+Plan's angles replace the generic set:
 
 1. **Channel mapping** — where they appear; per occurrence date · URL · upvotes/comments/views.
 2. **Tactics** — repeated go-to-market moves (see the Tactics inventory below for the open list to populate).

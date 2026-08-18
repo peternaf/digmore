@@ -9,23 +9,23 @@ Answer a specific business question with evidence pulled from every source digmo
 A free-form question. Examples:
 
 - `/digmore ask how does paperswithcode's founder make money from paperswithcode`
-- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/topic.md`)
+- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/research_plan.md`)
 - `/digmore ask --quick what are the recurring complaints about whisper.cpp on CPU?`
 - `/digmore ask --auto is paperswithcode still being maintained`
 
-`topic.json.kind` is `inquiry`. `scope_notes.question` holds the original question verbatim; `scope_notes.angles` holds the approved angle list after Scope.
+`research_plan.json.kind` is `inquiry`. The question itself is already on record as `originating_prompt` — do not copy it into a second field. `scope.angles` holds the approved angle list once Plan settles it.
 
 ## Topic slug
 
-The Scope agent generates a 2–4-word kebab slug from the question alongside the angles:
+Plan generates a 2–4-word kebab slug from the question:
 
 - `how does paperswithcode's founder make money from paperswithcode` → `paperswithcode-founder-monetization`
 - `what alternatives are there to gstreamer that people use` → `gstreamer-alternatives`
 - `what are the questions people online ask about computer vision benchmarks` → `cv-benchmark-questions`
 
-## Scope — command-specific
+## Plan — command-specific
 
-The Scope agent reads the question and produces two angle sets:
+Plan reads the question and produces two angle sets:
 
 - **Recommended angles** — the angles you'd actually run. Each is `{label, query, rationale}`.
 - **Bonus angles** — free-form angles you came up with that the user might find interesting but you wouldn't run by default.
@@ -47,7 +47,7 @@ The angle set is approved before searching — a step no other command has. Wher
 
 ### Person-inquiry rule — the digital-footprint angle is mandatory
 
-When the subject is a person (a named individual, not a company or product), the Scope agent MUST emit a `digital-footprint` angle on top of whatever substantive angles fit the question. It is non-optional in both depth modes — in `--quick` it displaces one of the two recommended angles rather than being added to them.
+When the subject is a person (a named individual, not a company or product), Plan MUST emit a `digital-footprint` angle on top of whatever substantive angles fit the question. It is non-optional in both depth modes — in `--quick` it displaces one of the two recommended angles rather than being added to them.
 
 Person-inquiries have a known failure mode: commercial and published angles surface the bios and miss the social footprint. This angle exists to close that gap. Skipping it is the same class of error as substituting WebSearch for a dedicated source tool (`../brain/phases/extract_phase_b.md` §"Source-tool discipline") — it produces a plausible-looking result that quietly underreports the truth.
 

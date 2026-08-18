@@ -4,8 +4,8 @@
 
 - Be extremely brief and to the point. Avoid fluff, repetitions, and unnecessary words.
 - Parallelize independent work.
-- **Build and test once, at the end.** Run `node scripts/build.js` and `npm test` after the work is
-  confirmed finished, not between edits.
+- **Propose before editing `skill/`.** Say what changes, where, and why. Wait for approval.
+- **Build and test only when asked.**
 - **Full variable names, never single characters or aliases.** Name a variable for what it holds or
   what it is for — `response`, `timeWindow`, `sandbox`, `index` — not `r`, `t`, `s`, `i`. Applies
   everywhere: loop counters, callback parameters, catch bindings, import aliases, destructured

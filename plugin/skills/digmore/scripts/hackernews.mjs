@@ -20,7 +20,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { browserHeaders } from './fetch.mjs';
+import { browserHeaders, assertWorkspaceRoot } from './fetch.mjs';
 
 export const ALGOLIA_BASE = 'https://hn.algolia.com/api/v1';
 export const HN_USER_BASE = 'https://news.ycombinator.com/user';
@@ -146,6 +146,7 @@ function createClient(options) {
 
 /** The working directory, never the plugin's own directory. */
 export function cacheDirFor(topic) {
+  assertWorkspaceRoot();
   return join(process.cwd(), 'digmore', topic, 'cache', 'hackernews');
 }
 

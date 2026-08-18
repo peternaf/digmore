@@ -2,33 +2,38 @@
 
 Six shapes, one per kind of sub-agent. They are the format agents hand data back in — plumbing between agents, not user-facing output, and they do not vary by topic or by command. Markdown files (the summary, `audit.md`, etc.) and the CSVs are what the user reads; those *do* vary, and nothing here constrains them.
 
-**Nothing enforces these shapes at the point of return.** A sub-agent hands back text; there is no mechanism that makes a wrong shape impossible. So each block below is paste-ready into the dispatch prompt — `dispatch.md` is where it goes, as the middle of its three slots — and every returned payload is checked afterwards, see "Checking what comes back" at the end of this file. Skip the check and a malformed return flows into the report looking exactly like a good one.
+**Nothing enforces these shapes at the point of return.** A sub-agent hands back text; there is no mechanism that makes a wrong shape impossible. So each block below is paste-ready into the dispatch prompt — `dispatch_structured_subagent.md` is where it goes, as the middle of its three slots — and every returned payload is checked afterwards, see "Checking what comes back" at the end of this file. Skip the check and a malformed return flows into the report looking exactly like a good one.
 
 The same shapes live in machine-readable form at `scripts/schemas.json`, which is what the checker reads. If you edit a block here, edit that file too: they are compared in the test suite and a mismatch fails the build.
 
-## Scope agent
+## Orientation agent
 
-Decomposes the topic into 3–6 angles. The floor in the shape below is **2**, not 3, because `--quick` runs exactly two (`modes.md`) — the shape has to accept the shallower run, and the prompt is what asks for 3–6 in a full one.
+Reads the open web to find out what the subject actually is, and returns only what the angles get built from. Dispatched once, in Plan (`phases/plan_phase_a.md` §2).
+
+It returns no angles. Those are the orchestrator's — it is the one that will use them, and building them needs the topic's identity and mode, which this agent never sees.
 
 ```json
 {
   "type": "object",
-  "required": ["topic", "angles"],
+  "required": ["queries", "vocabulary", "recurring_names"],
   "properties": {
-    "topic": {"type": "string", "description": "The slugged topic in its canonical phrasing."},
-    "angles": {
+    "queries": {
       "type": "array",
-      "minItems": 2,
-      "maxItems": 6,
-      "items": {
-        "type": "object",
-        "required": ["label", "query", "rationale"],
-        "properties": {
-          "label": {"type": "string", "description": "Short kebab-case angle name, e.g. 'incumbents', 'pricing-tiers'."},
-          "query": {"type": "string", "description": "Concrete search-ready phrasing for this angle."},
-          "rationale": {"type": "string", "description": "Why this angle matters for the topic."}
-        }
-      }
+      "minItems": 1,
+      "items": {"type": "string", "description": "A search this agent actually ran, so the route to the answer is on the record."}
+    },
+    "vocabulary": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "description": "A term the subject's own people use. Every later branch query inherits this wording."}
+    },
+    "recurring_names": {
+      "type": "array",
+      "items": {"type": "string", "description": "A name that came up repeatedly — company, project, product or person."}
+    },
+    "live_arguments": {
+      "type": "array",
+      "items": {"type": "string", "description": "A disagreement active in the subject's discussion right now. Omit when nothing is contested."}
     }
   }
 }

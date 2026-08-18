@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadOrCreateConfig, MALFORMED } from './config.mjs';
+import { assertWorkspaceRoot } from './fetch.mjs';
 
 export const REQUEST_TIMEOUT_MS = 30000;
 
@@ -93,6 +94,7 @@ export function parseArgs(argv) {
  * the plugin lives in an install cache that an update replaces.
  */
 export function cacheDir(topic, source) {
+  assertWorkspaceRoot();
   return join(process.cwd(), 'digmore', topic, 'cache', source);
 }
 

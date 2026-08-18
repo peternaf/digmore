@@ -27,6 +27,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertWorkspaceRoot } from './fetch.mjs';
 
 /**
  * vetting.md: "Schema (column order is load-bearing)".
@@ -145,6 +146,7 @@ export function parseCsv(text) {
 
 /** The topic directory sits under the working directory. */
 export function topicCsvPath(topicSlug) {
+  assertWorkspaceRoot();
   return join(process.cwd(), 'digmore', topicSlug, 'experts.csv');
 }
 

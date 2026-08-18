@@ -11,8 +11,7 @@ Every file written *during* a research run lives under `digmore/<topic-slug>/`, 
 ```
 digmore/<topic-slug>/
   <topic-slug>-executive-summary.md   # the user-facing summary
-  topic.json                     # identity + run history
-  scope.json                     # the plan: angles, sources, branches
+  research_plan.json             # the topic: identity, run history, and this run's plan
   experts.csv                    # curated experts (legit verdict only)
   raw_research_outcomes.md       # LLM-facing structured claims index
   players.csv                    # competitor / subject matrix
@@ -27,10 +26,10 @@ digmore/<topic-slug>/
 
 | File | Written by |
 |---|---|
-| `scope.json` | Scope, once |
+| `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled |
 | `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
 | `players.csv`, `promoter_network.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
-| `audit.md`, `topic.json` | the orchestrator |
+| `audit.md` | the orchestrator |
 | `source_notes/<source>.md` | one sub-agent per source, each to its own file |
 | `cache/**` | whichever sub-agent fetched it, each to its own filename |
 
@@ -44,7 +43,7 @@ The summary carries both the topic and what it is: the slug so it stays findable
 
 `_misc` is for what belongs to no source. **Anything a source produced goes under that source**, at the filename its own file gives it. That is where resume looks for it.
 
-## `topic.json` schema
+## `research_plan.json` schema
 
 ```json
 {
@@ -55,22 +54,40 @@ The summary carries both the topic and what it is: the slug so it stays findable
   "parent_slug": "video-infra-overview",
   "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
   "run_history": [
-    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "research B2B video API providers — pricing tiers and recent moves", "phases_completed": "scope,extract,vet,synthesize,audit"},
-    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "re-run focusing on B2C providers and self-serve onboarding", "phases_completed": "scope,extract,vet"}
-  ]
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "research B2B video API providers — pricing tiers and recent moves", "phases_completed": "plan,extract,vet,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "re-run focusing on B2C providers and self-serve onboarding", "phases_completed": "plan,extract,vet"}
+  ],
+  "scope": {
+    "orientation": {"queries": [], "vocabulary": [], "recurring_names": []},
+    "deliverables": ["hubs"],
+    "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
+    "sources": ["websearch", "hackernews"],
+    "sources_unavailable": [{"source": "reddit", "reason": "no API key"}],
+    "branches": ["pricing-tiers × websearch"],
+    "fetchesPerBranch": 20
+  }
 }
 ```
 
-Fields:
+Identity fields, set once and then left alone:
 - `slug` — kebab-case directory name (matches the folder, and the summary filename).
 - `title` — human-readable full title; what shows up when listing topics.
 - `kind` — command identity. Allowed values: `landscape`, `competitor`, `inquiry`, `gtm-teardown`.
 - `created_at` — ISO timestamp of topic creation.
 - `parent_slug` — null for fresh topics, set for branched/chained ones.
 - `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
+
+History, appended to and never rewritten:
 - `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch` — a topic branched from a parent), `prompt` (verbatim user prose for THIS run, may differ from `originating_prompt`), and `phases_completed`. Storing the per-run prompt lets the model see how intent shifted across re-runs.
 
-Written by the command's flow at topic creation, updated at the end of each run.
+The plan, which belongs to the current run:
+- `scope` — what this run goes looking for: `orientation`, `deliverables`, `angles`, `sources`, `sources_unavailable`, `branches`, `fetchesPerBranch`. Field-by-field in `phases/plan_phase_a.md`.
+
+**`scope` is `{}` until Plan settles it**, and an empty one is a real state rather than a missing file: a fresh topic has it, and so does a topic being deliberately re-planned. Extract's resume reads it that way — no `scope`, nothing was fetched.
+
+**Identity and history outlive the plan.** That is why they share a file but not a lifetime: `run_history` must never lose an entry, while `scope` describes one run and is replaced when a run is re-planned. Anything that rewrites `scope` leaves the rest untouched.
+
+Written by the orchestrator: identity at the start of Plan, `scope` once the plan is settled, and a `run_history` entry appended at the end of each run.
 
 ## Slugging
 
@@ -83,7 +100,7 @@ When the user invokes a command, parse intent from the prose and slug the topic:
    - the run is being treated as a re-run or a branch and the user did not say so;
    - the topic stayed underspecified after the questions in step 1.
 
-   Otherwise say what you detected in a line or two and go straight into Scope. A confirmation that only ever repeats what the user typed teaches them to say yes without reading, which is the state in which a wrong parent slips through.
+   Otherwise say what you detected in a line or two and go straight into the rest of Plan. A confirmation that only ever repeats what the user typed teaches them to say yes without reading, which is the state in which a wrong parent slips through.
 
    In auto mode there is no stop at all: state the reading, proceed, and record it in the run's Issues.
 
@@ -96,7 +113,7 @@ Slug rules:
 
 1. **Incremental update of an existing topic.** User extends `experts.csv` (or experts get auto-added in a later run). Re-running re-vets old datapoints against the new expert list and surfaces new datapoints introduced by those experts.
 
-2. **Branched topic.** A new related topic spins off from a parent. The new topic inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can diverge cleanly without affecting the parent. `topic.json.parent_slug` records the link. Cached data may also be copied if the model judges it relevant.
+2. **Branched topic.** A new related topic spins off from a parent. The new topic inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can diverge cleanly without affecting the parent. `research_plan.json.parent_slug` records the link. Cached data may also be copied if the model judges it relevant.
 
    **Player numeric carryover.** When a player from the parent's `players.csv` survives carryover-revalidation (see `phases/synthesize_phase_d.md` §1) and enters the child, copy the parent's `monthly_visits` and `funding_stage` directly — no re-fetch. If either is missing on the parent row, the parent was incomplete: fix the parent first, then re-copy. UNAVAILABLE in the child because the parent didn't have it is NOT acceptable.
 

@@ -10,19 +10,19 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 
 ## Phase files
 
-- `scope_phase_a.md` — **Scope**: angles, the branches they make with each available source, written to `scope.json`.
+- `plan_phase_a.md` — **Plan**: the topic, its angles, the branches they make with each available source, written to `research_plan.json`.
 - `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then per-source notes.
 - `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped.
 - `synthesize_phase_d.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
 - `audit_phase_e.md` — **Audit**: top-50 deep verification + per-claim verdict log.
 
-Scope and Extract are separate because they differ in kind and in scale — Scope is a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `scope.json` is the only record of which branches this topic is meant to have.
+Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
 
 ## What a sub-agent is (cross-phase)
 
 **One verb, one item, inline, with the tools it already has — then it returns what it found.** That is the whole shape. Fan-out, waiting and deciding belong to the orchestrator.
 
-The prompt that carries it — the whole thing, ready to send — is in `../dispatch.md`. Read that before dispatching anything.
+When what comes back has a shape in `../schemas.md`, the prompt that carries it — the whole thing, ready to send — is in `../dispatch_structured_subagent.md`. Read that before dispatching one. A sub-agent that returns no shape, writing prose to its own file or editing the draft in place, takes its instructions from the phase file dispatching it.
 
 Why the shape is this tight:
 
@@ -34,7 +34,7 @@ A missing capability is a finding, not a task. Note the gap in `audit.md` as a k
 
 ### Heartbeat — how a sub-agent stays visible
 
-A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../dispatch.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
+A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../dispatch_structured_subagent.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
 
 The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. That makes the line diagnostic on its own — the orchestrator reads elapsed time off the file's modification time, so the line only has to say what, never how long.
 
@@ -58,13 +58,13 @@ Every sub-agent notifies on completion, so the signal is a notification that nev
 
 If a phase errors, runs out of context, or the process is killed, the run still produces the artifacts available at that point. Resume re-enters from the last completed phase boundary by scanning on-disk artifacts.
 
-- **Scope failure** → no `scope.json`, so nothing was fetched. Resume re-scopes from scratch; it costs one sub-agent.
-- **Extract failure** → `scope.json` holds the branch list; the cache holds whatever was fetched. Resume compares the two and runs only the branches with nothing on disk. It does not re-scope: new angles would not match the cache the half-finished run built.
+- **Plan failure** → an empty or absent `scope` in `research_plan.json`, so nothing was fetched. Resume re-plans from scratch; it costs one sub-agent.
+- **Extract failure** → `research_plan.json` holds the branch list; the cache holds whatever was fetched. Resume compares the two and runs only the branches with nothing on disk. It does not re-scope: new angles would not match the cache the half-finished run built.
 - **Vet failure** → handles seen so far are in `cache/`. Already-promoted experts are in `experts.csv`. Resume re-runs `vet_user` only on un-vetted handles.
 - **Synthesize failure** → `raw_research_outcomes.md` written from what was collected; partial summary with a `<!-- SYNTHESIZE-INCOMPLETE -->` header. Resume re-runs synthesis on the full claim set.
 - **Audit failure** → the summary exists without verification annotations; `audit.md` notes `audit-incomplete`. Resume re-runs Audit from scratch, which is cheap next to the phases before it.
 
-Resume infers progress from on-disk state. `scope.json` is the one checkpoint, and it is a plan rather than a progress marker — everything else is inferred by comparing that plan against the cache and the partial outputs.
+Resume infers progress from on-disk state. `research_plan.json` is the one checkpoint, and it is a plan rather than a progress marker — everything else is inferred by comparing that plan against the cache and the partial outputs.
 
 ## When the harness runs out of web searches
 

@@ -9,7 +9,7 @@ A five-phase research pass over a market or space. The goal is a fact-checked, e
 Free-form prose. Examples:
 
 - `/digmore landscape video API providers — pricing tiers and recent moves`
-- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/topic.md`)
+- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/research_plan.md`)
 - `/digmore landscape --auto serverless OLAP databases B2B`
 
 ## What this command emphasizes
@@ -77,7 +77,7 @@ Wide-table CSV of every player × every dimension. Renders cleanly in a spreadsh
 
 **Who counts as a player.** A player is anyone whose product, platform, or service the user would have to know about to operate in this market — competitors, the platforms users ship into, the channels they distribute through, the integrators who package their work, and incumbents reaching in from adjacent markets. The test: does what this entity ships, charges, or roadmaps materially affect a builder in this market? If yes, it's a player. Being "the platform users build on" is NOT a reason to exclude — if it also ships first-party products in the same space, it's a player too.
 
-**Inclusion cross-check (run before finalizing).** List every entity mentioned 5+ times across `raw_research_outcomes.md` and the source notes. Each one is either a row in `players.csv` OR an entry in `topic.json.scope_notes.explicitly_out_of_scope` with a reason. If neither, add it as a player.
+**Inclusion cross-check (run before finalizing).** List every entity mentioned 5+ times across `raw_research_outcomes.md` and the source notes. Each one is either a row in `players.csv` OR excluded on purpose — and an exclusion is written into `audit.md` with the entity and the reason. If it is neither, add it as a player.
 
 Required columns (in this order):
 - `name`

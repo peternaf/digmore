@@ -1,38 +1,73 @@
 {
-  "scope": {
+  "orientation": {
     "type": "object",
-    "required": ["topic", "angles"],
+    "required": [
+      "queries",
+      "vocabulary",
+      "recurring_names"
+    ],
     "properties": {
-      "topic": {"type": "string", "description": "The slugged topic in its canonical phrasing."},
-      "angles": {
+      "queries": {
         "type": "array",
-        "minItems": 2,
-        "maxItems": 6,
+        "minItems": 1,
         "items": {
-          "type": "object",
-          "required": ["label", "query", "rationale"],
-          "properties": {
-            "label": {"type": "string", "description": "Short kebab-case angle name, e.g. 'incumbents', 'pricing-tiers'."},
-            "query": {"type": "string", "description": "Concrete search-ready phrasing for this angle."},
-            "rationale": {"type": "string", "description": "Why this angle matters for the topic."}
-          }
+          "type": "string",
+          "description": "A search this agent actually ran, so the route to the answer is on the record."
+        }
+      },
+      "vocabulary": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "description": "A term the subject's own people use. Every later branch query inherits this wording."
+        }
+      },
+      "recurring_names": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "A name that came up repeatedly — company, project, product or person."
+        }
+      },
+      "live_arguments": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "A disagreement active in the subject's discussion right now. Omit when nothing is contested."
         }
       }
     }
   },
   "branch-searcher": {
     "type": "object",
-    "required": ["results"],
+    "required": [
+      "results"
+    ],
     "properties": {
       "results": {
         "type": "array",
         "items": {
           "type": "object",
-          "required": ["url", "title", "relevance"],
+          "required": [
+            "url",
+            "title",
+            "relevance"
+          ],
           "properties": {
-            "url": {"type": "string", "format": "uri"},
-            "title": {"type": "string"},
-            "relevance": {"type": "number", "minimum": 0, "maximum": 1, "description": "The branch searcher's 0..1 estimate of how on-topic this URL is for its direction."}
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "title": {
+              "type": "string"
+            },
+            "relevance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "The branch searcher's 0..1 estimate of how on-topic this URL is for its direction."
+            }
           }
         }
       }
@@ -40,28 +75,83 @@
   },
   "source-extractor": {
     "type": "object",
-    "required": ["sourceQuality", "claims"],
+    "required": [
+      "sourceQuality",
+      "claims"
+    ],
     "properties": {
       "sourceQuality": {
         "type": "string",
-        "enum": ["primary-self", "primary-3p", "secondary", "blog", "forum", "internal", "unreliable"]
+        "enum": [
+          "primary-self",
+          "primary-3p",
+          "secondary",
+          "blog",
+          "forum",
+          "internal",
+          "unreliable"
+        ]
       },
-      "publishDate": {"type": "string", "format": "date", "description": "ISO date if visible on page; omit otherwise."},
+      "publishDate": {
+        "type": "string",
+        "format": "date",
+        "description": "ISO date if visible on page; omit otherwise."
+      },
       "claims": {
         "type": "array",
         "items": {
           "type": "object",
-          "required": ["claim", "quote", "importance", "kind"],
+          "required": [
+            "claim",
+            "quote",
+            "importance",
+            "kind"
+          ],
           "requiredWhen": [
-            {"field": "kind", "equals": "quantitative", "require": ["value", "unit"]}
+            {
+              "field": "kind",
+              "equals": "quantitative",
+              "require": [
+                "value",
+                "unit"
+              ]
+            }
           ],
           "properties": {
-            "claim": {"type": "string", "description": "One-line checkable statement."},
-            "quote": {"type": "string", "description": "Verbatim supporting quote from the page."},
-            "importance": {"type": "string", "enum": ["central", "supporting", "tangential"]},
-            "kind": {"type": "string", "enum": ["quantitative", "qualitative"]},
-            "value": {"type": ["number", "string"], "description": "Required if kind=quantitative."},
-            "unit": {"type": "string", "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."}
+            "claim": {
+              "type": "string",
+              "description": "One-line checkable statement."
+            },
+            "quote": {
+              "type": "string",
+              "description": "Verbatim supporting quote from the page."
+            },
+            "importance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "quantitative",
+                "qualitative"
+              ]
+            },
+            "value": {
+              "type": [
+                "number",
+                "string"
+              ],
+              "description": "Required if kind=quantitative."
+            },
+            "unit": {
+              "type": "string",
+              "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."
+            }
           }
         }
       }
@@ -69,67 +159,169 @@
   },
   "vet-judgment": {
     "type": "object",
-    "required": ["verdict", "reason"],
+    "required": [
+      "verdict",
+      "reason"
+    ],
     "properties": {
-      "verdict": {"type": "string", "enum": ["legit", "unknown", "promoter", "troll", "spammer"]},
-      "reason": {"type": "string", "description": "Short justification, no fluff."},
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "legit",
+          "unknown",
+          "promoter",
+          "troll",
+          "spammer"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "description": "Short justification, no fluff."
+      },
       "evidence": {
         "type": "array",
-        "items": {"type": "string", "description": "Short verbatim excerpts from the read tweets that support the verdict."}
+        "items": {
+          "type": "string",
+          "description": "Short verbatim excerpts from the read tweets that support the verdict."
+        }
       }
     }
   },
   "synthesizer": {
     "type": "object",
-    "required": ["findings", "stats"],
+    "required": [
+      "findings",
+      "stats"
+    ],
     "properties": {
       "findings": {
         "type": "array",
         "items": {
           "type": "object",
-          "required": ["claim", "confidence", "sources"],
+          "required": [
+            "claim",
+            "confidence",
+            "sources"
+          ],
           "properties": {
-            "claim": {"type": "string"},
-            "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
-            "section": {"type": "string", "description": "Which summary section this finding belongs to (command-specific)."},
+            "claim": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            },
+            "section": {
+              "type": "string",
+              "description": "Which summary section this finding belongs to (command-specific)."
+            },
             "sources": {
               "type": "array",
               "minItems": 1,
               "items": {
                 "type": "object",
-                "required": ["url", "sourceQuality"],
+                "required": [
+                  "url",
+                  "sourceQuality"
+                ],
                 "properties": {
-                  "url": {"type": "string", "format": "uri"},
-                  "sourceQuality": {"type": "string", "enum": ["primary-self", "primary-3p", "secondary", "blog", "forum", "internal", "unreliable"]},
-                  "handle": {"type": "string", "description": "e.g. 'u/foo', 'gh/foo', 'hn/foo', 'x/foo'. Omit if no commenter."},
-                  "verdict": {"type": "string", "enum": ["legit", "unknown", "promoter"]}
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "sourceQuality": {
+                    "type": "string",
+                    "enum": [
+                      "primary-self",
+                      "primary-3p",
+                      "secondary",
+                      "blog",
+                      "forum",
+                      "internal",
+                      "unreliable"
+                    ]
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "e.g. 'u/foo', 'gh/foo', 'hn/foo', 'x/foo'. Omit if no commenter."
+                  },
+                  "verdict": {
+                    "type": "string",
+                    "enum": [
+                      "legit",
+                      "unknown",
+                      "promoter"
+                    ]
+                  }
                 }
               }
             },
-            "evidence": {"type": "string", "description": "Verbatim quote that anchors the claim."},
-            "surprise": {"type": "boolean", "description": "True if this is a surprise / contrarian / misconception finding."}
+            "evidence": {
+              "type": "string",
+              "description": "Verbatim quote that anchors the claim."
+            },
+            "surprise": {
+              "type": "boolean",
+              "description": "True if this is a surprise / contrarian / misconception finding."
+            }
           }
         }
       },
       "stats": {
         "type": "object",
         "properties": {
-          "totalClaimsConsidered": {"type": "integer"},
-          "claimsDroppedLowQuality": {"type": "integer"},
-          "claimsMerged": {"type": "integer"}
+          "totalClaimsConsidered": {
+            "type": "integer"
+          },
+          "claimsDroppedLowQuality": {
+            "type": "integer"
+          },
+          "claimsMerged": {
+            "type": "integer"
+          }
         }
       }
     }
   },
   "verifier": {
     "type": "object",
-    "required": ["verdict"],
+    "required": [
+      "verdict"
+    ],
     "properties": {
-      "verdict": {"type": "string", "enum": ["verified", "url-broken", "content-changed", "uncited", "manual-verify-required", "low-confidence-unverified", "refuted"]},
-      "evidence": {"type": "string", "description": "What the verifier found at the URL (verbatim excerpt or short summary)."},
-      "refuted": {"type": "boolean", "description": "True if the claim was actively refuted by another source."},
-      "counterSource": {"type": "string", "format": "uri", "description": "URL of the contradicting source, if any."},
-      "reason": {"type": "string", "description": "Short human-readable explanation when verdict ≠ verified."}
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "verified",
+          "url-broken",
+          "content-changed",
+          "uncited",
+          "manual-verify-required",
+          "low-confidence-unverified",
+          "refuted"
+        ]
+      },
+      "evidence": {
+        "type": "string",
+        "description": "What the verifier found at the URL (verbatim excerpt or short summary)."
+      },
+      "refuted": {
+        "type": "boolean",
+        "description": "True if the claim was actively refuted by another source."
+      },
+      "counterSource": {
+        "type": "string",
+        "format": "uri",
+        "description": "URL of the contradicting source, if any."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Short human-readable explanation when verdict ≠ verified."
+      }
     }
   }
 }

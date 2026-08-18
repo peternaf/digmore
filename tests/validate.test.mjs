@@ -30,13 +30,11 @@ const paths = (result) => (result.json?.errors ?? []).map((error) => error.path)
 
 // ------------------------------------------------------------------ payloads
 
-const scope = () => ({
-  topic: 'video-api-providers',
-  angles: [
-    { label: 'incumbents', query: 'video api providers', rationale: 'who is already here' },
-    { label: 'pricing-tiers', query: 'video api pricing', rationale: 'what they charge' },
-    { label: 'pain-points', query: 'video api complaints', rationale: 'where it hurts' },
-  ],
+const orientation = () => ({
+  queries: ['video api providers 2026', 'video api pricing complaints'],
+  vocabulary: ['per-minute billing', 'live-to-VOD', 'ingest latency'],
+  recurring_names: ['Mux', 'Cloudflare Stream', 'Livepeer'],
+  live_arguments: ['whether per-minute pricing survives at scale'],
 });
 
 const sourceExtract = () => ({
@@ -60,7 +58,7 @@ test('every shape in schemas.json has a name the CLI will accept', async () => {
 });
 
 test('a well-formed payload exits 0 and says so', async () => {
-  const result = await check('scope', scope());
+  const result = await check('orientation', orientation());
   assert.equal(result.code, 0);
   assert.equal(result.json.valid, true);
   assert.deepEqual(result.json.errors, []);
@@ -74,20 +72,23 @@ test('optional fields may be absent', async () => {
 // ------------------------------------------------------------------ what it catches
 
 test('a missing required key is named by path', async () => {
-  const payload = scope();
-  delete payload.topic;
-  const result = await check('scope', payload);
+  const payload = orientation();
+  delete payload.vocabulary;
+  const result = await check('orientation', payload);
   assert.equal(result.code, 1);
   assert.equal(result.json.valid, false);
-  assert.deepEqual(result.json.errors, [{ path: 'topic', message: 'required' }]);
+  assert.deepEqual(result.json.errors, [{ path: 'vocabulary', message: 'required' }]);
 });
 
 test('a required key nested in an array item carries its index', async () => {
-  const payload = scope();
-  delete payload.angles[1].query;
-  const result = await check('scope', payload);
+  // Two claims, and the second is the broken one — an error that named only the key
+  // would leave the caller opening every item to find which.
+  const payload = sourceExtract();
+  payload.claims.push({ claim: 'Livepeer is cheaper', quote: 'about a tenth', importance: 'supporting', kind: 'qualitative' });
+  delete payload.claims[1].importance;
+  const result = await check('source-extractor', payload);
   assert.equal(result.code, 1);
-  assert.deepEqual(paths(result), ['angles[1].query']);
+  assert.deepEqual(paths(result), ['claims[1].importance']);
 });
 
 test('an empty string is missing, not present', async () => {
@@ -110,12 +111,12 @@ test('a bad enum value lists what was allowed', async () => {
 });
 
 test('the wrong JSON type is reported with both types', async () => {
-  const payload = scope();
-  payload.angles = 'incumbents, pricing';
-  const result = await check('scope', payload);
+  const payload = orientation();
+  payload.vocabulary = 'per-minute billing, live-to-VOD';
+  const result = await check('orientation', payload);
   assert.equal(result.code, 1);
   assert.deepEqual(result.json.errors, [
-    { path: 'angles', message: 'expected array, got string' },
+    { path: 'vocabulary', message: 'expected array, got string' },
   ]);
 });
 
@@ -200,19 +201,21 @@ test('internal is allowed on a synthesized finding source too', async () => {
 
 // ------------------------------------------------------------------ quick mode
 
-test('two angles pass, because that is what --quick returns', async () => {
-  const payload = scope();
-  payload.angles = payload.angles.slice(0, 2);
-  const result = await check('scope', payload);
+test('one query is enough — orientation is not measured by volume', async () => {
+  const payload = orientation();
+  payload.queries = payload.queries.slice(0, 1);
+  const result = await check('orientation', payload);
   assert.equal(result.code, 0);
 });
 
-test('one angle fails', async () => {
-  const payload = scope();
-  payload.angles = payload.angles.slice(0, 1);
-  const result = await check('scope', payload);
+// Coming back with no vocabulary means the agent never found out what the subject calls
+// itself — which is the one thing every later branch query inherits.
+test('an empty vocabulary fails', async () => {
+  const payload = orientation();
+  payload.vocabulary = [];
+  const result = await check('orientation', payload);
   assert.equal(result.code, 1);
-  assert.match(result.json.errors[0].message, /at least 2 items/);
+  assert.match(result.json.errors[0].message, /at least 1 item/);
 });
 
 // ------------------------------------------------------------------ bad invocations
@@ -221,7 +224,7 @@ test('a payload that is not JSON exits 2 — there is nothing to repair', async 
   const sandbox = new Sandbox();
   try {
     writeFileSync(join(sandbox.cwd, 'payload.json'), 'Here are the results I found:');
-    const result = await sandbox.run('validate.mjs', 'scope', 'payload.json');
+    const result = await sandbox.run('validate.mjs', 'orientation', 'payload.json');
     assert.equal(result.code, 2);
     assert.match(result.err, /is not JSON/);
     assert.equal(result.out, '');
@@ -240,7 +243,7 @@ test('an unknown shape name exits 2 and lists the real ones', async () => {
 test('a missing file exits 2', async () => {
   const sandbox = new Sandbox();
   try {
-    const result = await sandbox.run('validate.mjs', 'scope', 'nothing-here.json');
+    const result = await sandbox.run('validate.mjs', 'orientation', 'nothing-here.json');
     assert.equal(result.code, 2);
     assert.match(result.err, /cannot read/);
   } finally {

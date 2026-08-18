@@ -67,7 +67,7 @@ Defined in all four cells, per `../modes.md`:
 
 | | Full | Quick |
 | --- | --- | --- |
-| **Manual** | Read every file the user named, in full. If they mention material they have not given you a path to, ask for it once before Scope. | Read every file the user named, in full. Files are the user's own and usually few; there is nothing to cap. Do not ask for more. |
+| **Manual** | Read every file the user named, in full. If they mention material they have not given you a path to, ask for it once before Plan settles the angles. | Read every file the user named, in full. Files are the user's own and usually few; there is nothing to cap. Do not ask for more. |
 | **Auto** | Read every file the user named, in full. Never prompt for more — name anything referred to but not supplied in the run's Issues. | Same as auto + full. |
 
 The source is never skipped for depth. A user who hands over a document expects it read, and reading local files costs nothing but context.

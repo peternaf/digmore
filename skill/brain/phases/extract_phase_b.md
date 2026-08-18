@@ -2,7 +2,7 @@
 
 Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/5] Extract · Search`, `[2.2/5] Extract · Read`, `[2.3/5] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/source_notes/`.
 
-The branches come from `scope.json`, written by the phase before this one (`scope_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
+The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
 Read `../output.md` before any sub-agent dispatch. Read the relevant `../sources/<source>.md` before issuing requests through that source.
 
@@ -21,15 +21,15 @@ When it happens:
 
 3. Record it in `audit.md` alongside the other caps, so the summary's Run footer can name it.
 
-Which sources are in play was settled in Scope and is listed in `scope.json`. The `local` source issues no query — its searchers read the handed-over material through each angle instead (`../sources/local.md`).
+Which sources are in play was settled in Plan and is listed in `research_plan.json`. The `local` source issues no query — its searchers read the handed-over material through each angle instead (`../sources/local.md`).
 
-**A source missing from the plan was unavailable, not empty.** Scope already left it out — with no API key there are no Reddit or Twitter branches. Carry `sources_unavailable` from `scope.json` through to the summary and the terminal output; a source nobody queried must never read as a source that came back with nothing.
+**A source missing from the plan was unavailable, not empty.** Plan already left it out — with no API key there are no Reddit or Twitter branches. Carry `sources_unavailable` from `research_plan.json` through to the summary and the terminal output; a source nobody queried must never read as a source that came back with nothing.
 
 Each searcher:
 1. Reads the relevant `../sources/<source>.md` before issuing requests.
 2. Uses that source's own tool — its script where it has one, `WebSearch` for the web source.
 3. **Must pass `--topic <slug>` on every source-script call.** The scripts refuse to run without it, because without a topic there is nowhere to cache and the run would look complete having saved nothing. Same rule for `fetch.mjs`: the `--output` path must resolve under `digmore/<slug>/cache/<source>/<safe-name>`, and the script enforces it.
-4. Returns the Branch searcher schema (see `../schemas.md`): `{results[{url, title, relevance}]}`.
+4. Returns the Branch searcher schema (see `../schemas.md`), dispatched per `../dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
 
 ### Source-tool discipline — no WebSearch substitutes
 
@@ -57,9 +57,9 @@ On Reddit the API separates the last two for you: it detects a wall, retries on 
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent that reads the cached content and returns structured claims (Source extractor schema in `../schemas.md`).
+Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../schemas.md`).
 
-**One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../dispatch.md` for the prompt.
+**One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../dispatch_structured_subagent.md` for the prompt.
 
 ## Incremental persistence
 
