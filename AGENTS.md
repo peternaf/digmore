@@ -5,11 +5,15 @@
 - Be extremely brief and to the point. Avoid fluff, repetitions, and unnecessary words.
 - Parallelize independent work.
 - **Propose before editing `skill/`.** Say what changes, where, and why. Wait for approval.
-- **Build and test only when asked.**
 - **Full variable names, never single characters or aliases.** Name a variable for what it holds or
   what it is for — `response`, `timeWindow`, `sandbox`, `index` — not `r`, `t`, `s`, `i`. Applies
   everywhere: loop counters, callback parameters, catch bindings, import aliases, destructured
   names, and shell scripts. No exceptions.
+- **New network code must not identify the user.** Any script or API endpoint we add that makes
+  an outbound request sets its `User-Agent` from `BROWSER_USER_AGENTS` in
+  `skill/scripts/fetch.mjs`, and sends nothing that identifies the user — no company or product
+  name in a query string, payload, `Referer` or custom header. The harness's own WebSearch and
+  WebFetch are outside this; we do not build those requests.
 
 ## Brain vs command files
 

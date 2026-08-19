@@ -15,6 +15,7 @@ digmore/<topic-slug>/
   experts.csv                    # curated experts (legit verdict only)
   raw_research_outcomes.md       # LLM-facing structured claims index
   players.csv                    # competitor / subject matrix
+  <section-name>.csv             # one per invented enumerable section — sections.md
   audit.md                       # Audit verdict log
   source_notes/<source>.md       # free-flow notes per source
   cache/<source>/<file>          # raw fetched content, per-source
@@ -28,7 +29,7 @@ digmore/<topic-slug>/
 |---|---|
 | `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled |
 | `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
-| `players.csv`, `promoter_network.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
+| `players.csv`, `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
 | `audit.md` | the orchestrator |
 | `source_notes/<source>.md` | one sub-agent per source, each to its own file |
 | `cache/**` | whichever sub-agent fetched it, each to its own filename |
@@ -54,17 +55,18 @@ The summary carries both the topic and what it is: the slug so it stays findable
   "parent_slug": "video-infra-overview",
   "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
   "run_history": [
-    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "research B2B video API providers — pricing tiers and recent moves", "phases_completed": "plan,extract,vet,synthesize,audit"},
-    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "re-run focusing on B2C providers and self-serve onboarding", "phases_completed": "plan,extract,vet"}
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "fetchesPerBranch": 20, "vetHandleCap": 50, "phases_completed": "plan,extract,vet,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "fetchesPerBranch": 5, "vetHandleCap": 20, "phases_completed": "plan,extract,vet"}
   ],
   "scope": {
-    "orientation": {"queries": [], "vocabulary": [], "recurring_names": []},
-    "deliverables": ["hubs"],
+    "vocabulary": ["voice cloning", "streaming latency"],
+    "recurring_names": ["ElevenLabs", "Cartesia"],
+    "deliverables": {"Players": "reference/landscape.md §1.1", "Licensing deals": {"type": "chart", "description": "…"}},
+    "sections": {"Licensing deals": {"type": "chart", "csv": "licensing-deals.csv", "row_is": "…", "fields": [{"name": "…", "description": "…"}], "sort": "…", "render": "…"}},
     "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
     "sources": ["websearch", "hackernews"],
     "sources_unavailable": [{"source": "reddit", "reason": "no API key"}],
-    "branches": ["pricing-tiers × websearch"],
-    "fetchesPerBranch": 20
+    "branches": ["pricing-tiers × websearch"]
   }
 }
 ```
@@ -78,10 +80,12 @@ Identity fields, set once and then left alone:
 - `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
 
 History, appended to and never rewritten:
-- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch` — a topic branched from a parent), `prompt` (verbatim user prose for THIS run, may differ from `originating_prompt`), and `phases_completed`. Storing the per-run prompt lets the model see how intent shifted across re-runs.
+- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch` — a topic branched from a parent), `prompt` (verbatim user prose for THIS run, may differ from `originating_prompt`), `mode`, the two ceilings the run actually applied (`fetchesPerBranch`, `vetHandleCap`), and `phases_completed`. Storing the per-run prompt lets the model see how intent shifted across re-runs; storing the ceilings is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the ceilings that applied, not the ones configured** — `--fast` lowers both, and the entry records what the run really used.
 
 The plan, which belongs to the current run:
-- `scope` — what this run goes looking for: `orientation`, `deliverables`, `angles`, `sources`, `sources_unavailable`, `branches`, `fetchesPerBranch`. Field-by-field in `phases/plan_phase_a.md`.
+- `scope` — what this run goes looking for: `vocabulary`, `recurring_names`, `deliverables`, `sections`, `angles`, `sources`, `sources_unavailable`, `branches`. Field-by-field in `phases/plan_phase_a.md`; the two section fields in `sections.md`.
+  - `deliverables` — every section of the summary, in order. Key is the title, value is either a pointer to the file that defines it or, for a section this run invented, `{type, description}`.
+  - `sections` — the full spec for each invented enumerable section: `csv`, `row_is`, `fields`, `sort`, `render`. Empty when the run invented none.
 
 **`scope` is `{}` until Plan settles it**, and an empty one is a real state rather than a missing file: a fresh topic has it, and so does a topic being deliberately re-planned. Extract's resume reads it that way — no `scope`, nothing was fetched.
 
@@ -119,6 +123,3 @@ Slug rules:
 
 3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary — specifically the "Non-trivial insights" and "Adjacent spaces" sections. The user decides what's worth a follow-up; the command does NOT pre-suggest. The loop — research → user reads → user picks a follow-up → new run → repeat — is the intended way to use digmore over time.
 
-## Anonymity
-
-Topic creation must not leak the user's identifying terms into external request bodies, query strings, or headers. See `anonymity.md`.

@@ -22,7 +22,7 @@ Plan and Extract are separate because they differ in kind and in scale — Plan 
 
 **One verb, one item, inline, with the tools it already has — then it returns what it found.** That is the whole shape. Fan-out, waiting and deciding belong to the orchestrator.
 
-When what comes back has a shape in `../schemas.md`, the prompt that carries it — the whole thing, ready to send — is in `../dispatch_structured_subagent.md`. Read that before dispatching one. A sub-agent that returns no shape, writing prose to its own file or editing the draft in place, takes its instructions from the phase file dispatching it.
+When what comes back has a shape in `../../scripts/subagent_returns.json`, the prompt that carries it — the whole thing, ready to send — is in `../dispatch_structured_subagent.md`. Read that before dispatching one. A sub-agent that returns no shape, writing prose to its own file or editing the draft in place, takes its instructions from the phase file dispatching it.
 
 Why the shape is this tight:
 

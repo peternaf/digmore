@@ -71,4 +71,4 @@ Karma replaces "distinct sub count" — Algolia's recent-comments slice often cl
 
 ## Anonymity
 
-UA from the shared pool in `scripts/fetch.mjs`. Algolia doesn't care; the HN web page sees a normal Chrome string. Nothing identifying the user is sent. See `../anonymity.md`.
+UA from the shared pool in `scripts/fetch.mjs`. Algolia doesn't care; the HN web page sees a normal Chrome string.

@@ -29,7 +29,7 @@ Each searcher:
 1. Reads the relevant `../sources/<source>.md` before issuing requests.
 2. Uses that source's own tool — its script where it has one, `WebSearch` for the web source.
 3. **Must pass `--topic <slug>` on every source-script call.** The scripts refuse to run without it, because without a topic there is nowhere to cache and the run would look complete having saved nothing. Same rule for `fetch.mjs`: the `--output` path must resolve under `digmore/<slug>/cache/<source>/<safe-name>`, and the script enforces it.
-4. Returns the Branch searcher schema (see `../schemas.md`), dispatched per `../dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
+4. Returns the Branch searcher schema (see `../../scripts/subagent_returns.json`), dispatched per `../dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
 
 ### Source-tool discipline — no WebSearch substitutes
 
@@ -57,7 +57,7 @@ On Reddit the API separates the last two for you: it detects a wall, retries on 
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../schemas.md`).
+Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../../scripts/subagent_returns.json`).
 
 **One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../dispatch_structured_subagent.md` for the prompt.
 

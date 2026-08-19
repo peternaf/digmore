@@ -32,7 +32,7 @@ Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert ex
 
 Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
 
-Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../schemas.md`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 

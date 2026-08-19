@@ -1,5 +1,5 @@
 /**
- * Check a sub-agent's returned JSON against one of the shared shapes in schemas.json.
+ * Check a sub-agent's returned JSON against one of the shared shapes in subagent_returns.json.
  *
  * Structure only: the right keys, the right JSON types, allowed enum values, array and
  * number bounds. It says nothing about whether a price is a price or a quote is real —
@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
-export const SCHEMAS_PATH = join(scriptDir, 'schemas.json');
+export const SUBAGENT_RETURNS_PATH = join(scriptDir, 'subagent_returns.json');
 
 /** One repair attempt. The constant exists so the limit is a fact, not a judgement call. */
 export const MAX_REPAIRS = 1;
@@ -34,7 +34,7 @@ export const MAX_REPAIRS = 1;
 let cachedSchemas;
 
 export function loadSchemas() {
-  if (!cachedSchemas) cachedSchemas = JSON.parse(readFileSync(SCHEMAS_PATH, 'utf8'));
+  if (!cachedSchemas) cachedSchemas = JSON.parse(readFileSync(SUBAGENT_RETURNS_PATH, 'utf8'));
   return cachedSchemas;
 }
 

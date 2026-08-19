@@ -9,8 +9,8 @@
  *
  * stdout JSON, stderr errors. Exit 1 on a non-2xx, 2 on a transport failure.
  *
- * This module also owns the shared user-agent pool (brain/anonymity.md), which the
- * other local source scripts import.
+ * This module also owns the shared user-agent pool, which the other local source
+ * scripts import. See AGENTS.md, "New network code must not identify the user".
  */
 
 import { createWriteStream } from 'node:fs';
@@ -23,10 +23,9 @@ import { fileURLToPath } from 'node:url';
 export const REQUEST_TIMEOUT_MS = 60000;
 
 /**
- * brain/anonymity.md — a small pool on purpose: "large pools are themselves a
- * fingerprint". These are current Chrome strings; anonymity.md's own list still says
- * Chrome 120-124 and is stale.
- * To rotate, replace the oldest entry with a current Chrome string. Don't grow past 6-8.
+ * A small pool on purpose: large pools are themselves a fingerprint. These are current
+ * Chrome strings. To rotate, replace the oldest entry with a current one. Don't grow
+ * past 6-8.
  */
 export const BROWSER_USER_AGENTS = Object.freeze([
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',

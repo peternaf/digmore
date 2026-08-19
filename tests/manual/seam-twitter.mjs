@@ -196,7 +196,7 @@ check(
   ]),
   JSON.stringify(keysOf(tierOne.json)),
 );
-// brain/schemas.md §B — the shared verdict vocabulary.
+// scripts/subagent_returns.json — the shared verdict vocabulary.
 check(
   'the verdict is in the shared vocabulary',
   ['legit', 'unknown', 'promoter', 'troll', 'spammer'].includes(tierOne.json?.verdict),

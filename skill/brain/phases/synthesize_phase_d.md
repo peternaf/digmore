@@ -32,7 +32,7 @@ Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert ex
 
 Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
 
-Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../schemas.md`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 
@@ -75,6 +75,8 @@ A row with no identifiable presence at all is a research error — record it in 
 ## 3.6. Enumeration sections are rendered from the CSV, not written from memory
 
 Any summary section that **lists things** — hubs, communities, players, accounts, tools, leaderboards — is produced by reading the finished CSV and emitting one entry per row. It is not composed from recollection with the file sitting beside it.
+
+Which file: `players.csv`, `experts.csv` and `promoter_network.csv` for the sections that already have one. A section this run invented has its own, named in `research_plan.json` under `scope.sections`, planned in Plan and written here. See `../sections.md`.
 
 The distinction matters because the two linking jobs are different, and only one of them was ever enforced. A **citation** proves a claim: it points at the page where the evidence lives. A **destination** answers "where is this thing?": it points at the thing itself. Cite-or-drop (`../output.md` rule 5) demands the first and says nothing about the second, so a section that names twelve communities can satisfy every rule in the brain while leaving the reader unable to reach a single one of them.
 

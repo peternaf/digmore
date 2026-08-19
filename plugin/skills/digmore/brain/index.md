@@ -10,7 +10,7 @@ The same for all four commands. A command's reference file names its deliverable
 2. **The five phases, in order** — Plan, Extract, Vet, Synthesize, Audit. `phases/index.md`. None of them is optional.
 3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
 4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output` must resolve under `digmore/<slug>/cache/<source>/`.
-5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `schemas.md`.
+5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `scripts/subagent_returns.json`.
 6. **End of run** — append the run to `research_plan.json.run_history`, then print the four terminal sections in `reporting.md`. Nothing else reaches the terminal.
 
 Two files are read on a rhythm rather than at a step. **`output.md`** is the writing style — re-read it before every piece of user-facing text and before every sub-agent dispatch; it is short so that costs little. **`reporting.md`** is what reaches the terminal — the progress lines, where a question for the user goes, the Run footer, the four end-of-run sections; read it once at the start of a run and once at the end. Read `sources/<source>.md` before issuing a request through that source.
@@ -25,12 +25,12 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | When | Read |
 | --- | --- |
 | Parsing the invocation, slugging the topic, deciding fresh / re-run / branched from a parent | `research_plan.md`, `modes.md` |
-| Before any external request | `anonymity.md`, `recency.md`, `long-form.md` |
-| Plan — the topic, the angles, and the branches they make | `phases/plan_phase_a.md`, `schemas.md` (Orientation schema) |
-| Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `schemas.md` (Branch searcher + Source extractor), `sources/<source>.md` per source involved |
-| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `sources/<source>.md` for source-specific signals, `schemas.md` (vet_user schema) |
-| Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `schemas.md` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
-| Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `schemas.md` (Verifier schema) |
+| Before any external request | `recency.md`, `long-form.md` |
+| Plan — the topic, the angles, and the branches they make | `phases/plan_phase_a.md`, `scripts/subagent_returns.json` (Orientation schema) |
+| Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `scripts/subagent_returns.json` (Branch searcher + Source extractor), `sources/<source>.md` per source involved |
+| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `sources/<source>.md` for source-specific signals, `scripts/subagent_returns.json` (vet_user schema) |
+| Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
+| Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `scripts/subagent_returns.json` (Verifier schema) |
 | Salvage paths, how Plan → Extract → Vet → Synthesize → Audit connect | `phases/index.md` |
 | Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `dispatch_structured_subagent.md` |
 | Writing ANY user-facing or sub-agent output (always) | `output.md` |

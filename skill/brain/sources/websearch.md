@@ -9,7 +9,6 @@ Claude Code's `WebSearch` tool. Free, no key — this source runs whether or not
 
 Every WebSearch query:
 - Includes the recency token: `... after:<YYYY-MM-DD>`. Cutoff = today minus 2 years. See `../recency.md`.
-- Does NOT include terms that identify the user. Search the topic generically. See `../anonymity.md`.
 - Quotes multi-word phrases for exact match. Drop quotes if results are too thin.
 
 ## When to use WebSearch alone vs. WebSearch + fetch

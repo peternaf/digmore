@@ -79,4 +79,4 @@ Resumable: if a cache file exists, the script returns it without re-fetching.
 
 ## Anonymity
 
-Nothing about the user reaches Reddit: the request goes to digmore's API, which owns whatever fetching discipline the source needs. The plugin sends a topic slug and a query and nothing else. See `../anonymity.md`.
+Nothing about the user reaches Reddit: the request goes to digmore's API, which owns whatever fetching discipline the source needs. The plugin sends a topic slug and a query and nothing else.

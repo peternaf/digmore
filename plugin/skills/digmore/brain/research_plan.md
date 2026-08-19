@@ -58,7 +58,8 @@ The summary carries both the topic and what it is: the slug so it stays findable
     {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "re-run focusing on B2C providers and self-serve onboarding", "phases_completed": "plan,extract,vet"}
   ],
   "scope": {
-    "orientation": {"queries": [], "vocabulary": [], "recurring_names": []},
+    "vocabulary": ["voice cloning", "streaming latency"],
+    "recurring_names": ["ElevenLabs", "Cartesia"],
     "deliverables": ["hubs"],
     "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
     "sources": ["websearch", "hackernews"],
@@ -81,7 +82,7 @@ History, appended to and never rewritten:
 - `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch` — a topic branched from a parent), `prompt` (verbatim user prose for THIS run, may differ from `originating_prompt`), and `phases_completed`. Storing the per-run prompt lets the model see how intent shifted across re-runs.
 
 The plan, which belongs to the current run:
-- `scope` — what this run goes looking for: `orientation`, `deliverables`, `angles`, `sources`, `sources_unavailable`, `branches`, `fetchesPerBranch`. Field-by-field in `phases/plan_phase_a.md`.
+- `scope` — what this run goes looking for: `vocabulary`, `recurring_names`, `deliverables`, `angles`, `sources`, `sources_unavailable`, `branches`, `fetchesPerBranch`. Field-by-field in `phases/plan_phase_a.md`.
 
 **`scope` is `{}` until Plan settles it**, and an empty one is a real state rather than a missing file: a fresh topic has it, and so does a topic being deliberately re-planned. Extract's resume reads it that way — no `scope`, nothing was fetched.
 
@@ -119,6 +120,3 @@ Slug rules:
 
 3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary — specifically the "Non-trivial insights" and "Adjacent spaces" sections. The user decides what's worth a follow-up; the command does NOT pre-suggest. The loop — research → user reads → user picks a follow-up → new run → repeat — is the intended way to use digmore over time.
 
-## Anonymity
-
-Topic creation must not leak the user's identifying terms into external request bodies, query strings, or headers. See `anonymity.md`.

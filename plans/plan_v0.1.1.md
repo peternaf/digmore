@@ -15,12 +15,26 @@ edits to the design land.
 - [ ] **Does `--fast` cap the player count.** Blocks 10.
 - [ ] **Schema naming** — after the agent, or after the content. Blocks 02.
 
+## Sections — done in this pass
+
+- [x] **S1** New `brain/sections.md` — the three section types, how an invented enumerable section
+      plans its CSV, who fills it, how it renders.
+- [x] **S2** `plan_phase_a.md` §3 rewritten: `scope.deliverables` is every section in order, key is
+      the title, value is a pointer or a definition. Predefined first, invented after.
+- [x] **S3** `plan_phase_a.md` §3.1 added: manual mode presents the plan and waits; sections are
+      raised only when one was dropped or invented; `--auto` states and proceeds.
+- [x] **S4** `research_plan.md` — `scope` gains `deliverables` (map) and `sections`; run ceilings
+      move into each `run_history` entry, recording what actually applied.
+- [x] **S5** `subagent_returns.json` — the `scope` shape returns the section list.
+- [x] **S6** `synthesize_phase_d.md` §3.6 — an invented enumeration renders from its own file.
+- [x] **S7** `general-inquiry.md` — dropped the claim that angle approval is unique to `ask`.
+
 ## New agents
 
-- [ ] **01** Add the `handle-vetting` shape to `brain/schemas.md` and `scripts/schemas.json`.
-- [ ] **02** Rename the `scope` shape reference at `brain/schemas.md:205` to `orientation`; it
-      names a shape that no longer exists, so the Subject Scout's return is never checked.
-- [ ] **03** Add the `player-profile` shape to `brain/schemas.md` and `scripts/schemas.json`.
+- [ ] **01** Add the `handle-vetting` shape to `scripts/subagent_returns.json`.
+- [ ] **02** ~~Rename the stale `scope` shape reference~~ — done: the markdown copy is gone and
+      `dispatch_structured_subagent.md` now names `scope`.
+- [ ] **03** Add the `player-profile` shape to `scripts/subagent_returns.json`.
 - [ ] **04** Rewrite `vet_phase_c.md` steps 3–5 as one Handle Vetter dispatch per handle.
 - [ ] **05** Fold the topical-relevance check (`vet_phase_c.md:34`) into the Handle Vetter.
 - [ ] **06** Fold the Twitter voice judgment (`vet_phase_c.md:62`) into the Handle Vetter;
@@ -54,8 +68,6 @@ edits to the design land.
       report without the writing-style rules.
 - [ ] **17** Pass `recency.md` to the Branch Researcher; it writes the queries and the
       `after:<date>` rule lives there.
-- [ ] **18** Pass `anonymity.md` to the Subject Scout and the Branch Researcher; both put the
-      user's own terms into searches.
 - [ ] **19** Pass `vetting.md`'s source-quality definitions to the Document Analyst and Expert
       Document Analyst; the schema gives them the seven words, not what they mean.
 - [ ] **20** Pass `vetting.md`'s confidence-tag rule to the Report Writer.
@@ -69,7 +81,7 @@ edits to the design land.
       per branch and expansion has no branch, so 10 URLs × up to 50 experts is unbounded.
 - [ ] **24** Bound the Gap Reviewer loop in §4 — "gaps closed cheaply go back into step 3" has
       no limit.
-- [ ] **25** Budget or cap the Subject Scout, the only unbudgeted searcher in a run.
+- [ ] **25** Budget or cap the Scoping agent, the only unbudgeted searcher in a run.
 
 ## Duplication
 
@@ -119,8 +131,7 @@ edits to the design land.
 
 ## Verification gates — manual, once
 
-- [ ] `npm test` passes, including the test comparing `brain/schemas.md` against
-      `scripts/schemas.json`.
+- [ ] `npm test` passes.
 - [ ] `node scripts/build.js && git diff --exit-code plugin/` is clean.
 - [ ] One full run per command, `--fast` and full, keyed and keyless.
 - [ ] `cache/_progress/` holds one log per dispatched agent, including the five that write none

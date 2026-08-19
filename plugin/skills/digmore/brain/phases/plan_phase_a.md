@@ -4,7 +4,7 @@ Print `[1/5] Plan` when this phase starts (`../reporting.md`).
 
 This phase settles two things and writes them to one file: **which topic this is**, and **what the run will go looking for**. Every later phase inherits both.
 
-Almost all of it is yours. One sub-agent is dispatched, for orientation only — see below for why the split falls there.
+Almost all of it is yours. One sub-agent is dispatched, to scout the subject — see below for why the split falls there.
 
 ## 1. The topic
 
@@ -16,17 +16,17 @@ Identity first, because the angles are built for a subject and the file they lan
 
 This part cannot be a sub-agent: it talks to the user, and a sub-agent has no channel to them.
 
-## 2. Orient before deciding — the one sub-agent
+## 2. Scout the subject before deciding — the one sub-agent
 
-Do not build the angles out of what you already know: planning cold produces `incumbents`, `pricing`, `pain points` — true of every market, useful for none. Find out what the subject actually is first.
+Do not build the angles out of what you already know: writing them cold produces `incumbents`, `pricing`, `pain points` — true of every market, useful for none. Find out what the subject actually is first.
 
-Dispatch **ONE orientation sub-agent**, per `../dispatch_structured_subagent.md`. It goes out to the open web — unbudgeted here — and returns the Orientation schema (see `../schemas.md`): the queries it ran, the vocabulary the subject's own people use, and the names that recur.
+Dispatch **ONE Subject Scout**, per `../dispatch_structured_subagent.md`. It goes out to the open web — unbudgeted here — and returns the `scope` shape (see `../../scripts/subagent_returns.json`): the vocabulary the subject's own people use, and the names that recur.
 
-It is a sub-agent for one reason: orientation reads a lot of the open web to produce a short answer, and none of that raw reading is worth carrying for the rest of the run. What comes back is small; what it read is not.
+It is a sub-agent for one reason: scouting reads a lot of the open web to produce a short answer, and none of that raw reading is worth carrying for the rest of the run. What comes back is small; what it read is not.
 
-It returns orientation and nothing else. The angles are yours, built from what it found — you are the one who will use them.
+It returns the vocabulary and the names and nothing else. The angles are yours, built from what it found — you are the one who will use them.
 
-Record what came back in `research_plan.json` under `scope.orientation`. In `--fast` there is less time for this, not none.
+Record what came back in `research_plan.json` under `scope`. In `--fast` there is less time for this, not none.
 
 ## 3. What the user asked for — things, or an understanding
 
@@ -41,7 +41,7 @@ This matters because the rest of the pipeline is built for the second kind. Extr
 
 ## 4. Angles
 
-Decompose the topic into 3–6 complementary angles, **built on what orientation surfaced** — its vocabulary, its recurring names, its live arguments. Angles are domain-aware:
+Decompose the topic into 3–6 complementary angles, **built on what the Subject Scout surfaced** — its vocabulary, its recurring names, its live arguments. Angles are domain-aware:
 
 - A B2B SaaS market gets angles like `incumbents`, `pricing tiers`, `pain points`, `alternatives`, `expert critiques`.
 - A hardware market gets different angles: `vendors`, `benchmarks`, `supply chain`, `firmware quirks`, `upgrade churn`.
@@ -71,11 +71,8 @@ One file for the topic and the plan. Identity at the top level, this run's plan 
   "originating_prompt": "research TTS API providers — pricing tiers and recent moves",
   "run_history": [{"ts": "…", "kind": "fresh", "prompt": "…", "phases_completed": "plan"}],
   "scope": {
-    "orientation": {
-      "queries": ["text to speech api pricing 2026", "tts latency complaints"],
-      "vocabulary": ["voice cloning", "niqqud", "streaming latency"],
-      "recurring_names": ["ElevenLabs", "Cartesia", "Kokoro"]
-    },
+    "vocabulary": ["voice cloning", "niqqud", "streaming latency"],
+    "recurring_names": ["ElevenLabs", "Cartesia", "Kokoro"],
     "deliverables": ["hubs", "influencers"],
     "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
     "sources": ["websearch", "hackernews", "forums"],
@@ -95,4 +92,4 @@ Two reasons the plan is a file rather than a step in your head:
 
 ## End of Plan
 
-Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch and an `orientation` block behind it. The plan is written, not approved: Extract follows immediately. What the user is asked to confirm, and when, is `../research_plan.md` step 3.
+Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch and the scouted vocabulary behind it. The plan is written, not approved: Extract follows immediately. What the user is asked to confirm, and when, is `../research_plan.md` step 3.

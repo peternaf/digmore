@@ -90,4 +90,4 @@ Either way the summary and the terminal output name Twitter as a source the run 
 
 ## Anonymity
 
-Nothing about the user reaches x.com: the request goes to digmore's API, which owns the credentials and the fetching. The plugin sends a handle or an ID and a topic slug. See `../anonymity.md`.
+Nothing about the user reaches x.com: the request goes to digmore's API, which owns the credentials and the fetching. The plugin sends a handle or an ID and a topic slug.

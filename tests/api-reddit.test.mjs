@@ -130,7 +130,7 @@ test('a long sub list collapses to a hash rather than a huge filename', async ()
   assert.equal(sandbox.requests[0].params.getAll('subreddits').length, 12, 'all 12 still reach the API');
 });
 
-// brain/schemas.md — Branch searcher: {results:[{url,title,relevance}]}
+// scripts/subagent_returns.json — branch-searcher: {results:[{url,title,relevance}]}
 test('search returns the Branch searcher shape', async () => {
   const base = await sandbox.apiReturning({
     results: [{ url: 'https://r.test/a', title: 'A', relevance: 1 }],

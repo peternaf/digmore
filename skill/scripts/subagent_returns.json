@@ -1,10 +1,11 @@
 {
-  "orientation": {
+  "scope": {
+    "description": "Returned by the Scoping agent, once, in Plan (phases/plan_phase_a.md §2). It searches the open web to find out what the subject actually is, then decomposes it into the angles the run will search. The orchestrator writes all of it into research_plan.json under scope, and decides the summary's sections itself — that needs the command's reference file and the user, neither of which this agent has.",
     "type": "object",
     "required": [
-      "queries",
       "vocabulary",
-      "recurring_names"
+      "recurring_names",
+      "angles"
     ],
     "properties": {
       "queries": {
@@ -30,16 +31,38 @@
           "description": "A name that came up repeatedly — company, project, product or person."
         }
       },
-      "live_arguments": {
+      "angles": {
         "type": "array",
+        "minItems": 2,
+        "maxItems": 6,
+        "description": "The research directions the run will search. 3–6 in a full run, exactly 2 in --fast; `ask` sets its own counts.",
         "items": {
-          "type": "string",
-          "description": "A disagreement active in the subject's discussion right now. Omit when nothing is contested."
+          "type": "object",
+          "required": [
+            "label",
+            "query",
+            "rationale"
+          ],
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Short kebab-case name. It names the branch, its log file and its records, so it is load-bearing."
+            },
+            "query": {
+              "type": "string",
+              "description": "Search-ready phrasing, written in the vocabulary above rather than in generic market language."
+            },
+            "rationale": {
+              "type": "string",
+              "description": "Why this angle matters for this request."
+            }
+          }
         }
       }
     }
   },
   "branch-searcher": {
+    "description": "Returned by a Branch Researcher, one per branch — one angle paired with one source. Carries the candidate URLs that branch found.",
     "type": "object",
     "required": [
       "results"
@@ -74,6 +97,7 @@
     }
   },
   "source-extractor": {
+    "description": "Returned by a Document Analyst, one per URL, after the page is in cache. Carries the claims pulled from that page, each with a verbatim quote. The Expert Document Analyst returns the same shape for a document a vetted expert wrote.",
     "type": "object",
     "required": [
       "sourceQuality",
@@ -158,6 +182,7 @@
     }
   },
   "vet-judgment": {
+    "description": "Returned by a Handle Vetter when a verdict needs a judgment the heuristics cannot make — on Twitter, when the API sets needs_llm_judgment and the sampled tweets have to be read. Distinct from the vet_user object the source scripts emit on stdout, which the script and the API enforce rather than this checker.",
     "type": "object",
     "required": [
       "verdict",
@@ -188,6 +213,7 @@
     }
   },
   "synthesizer": {
+    "description": "Returned by the Report Writer, once, in Synthesize. Carries every surviving finding plus the run's claim statistics.",
     "type": "object",
     "required": [
       "findings",
@@ -288,6 +314,7 @@
     }
   },
   "verifier": {
+    "description": "Returned by a Claim Fact Checker, one per top-ranked claim, in Audit.",
     "type": "object",
     "required": [
       "verdict"

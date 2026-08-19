@@ -2,7 +2,8 @@
  * validate.mjs — the shape check every sub-agent return goes through.
  *
  * Structure only. These tests pin what it catches, what it deliberately does not, and
- * that the shapes in brain/schemas.md and scripts/schemas.json have not drifted apart.
+ * scripts/subagent_returns.json is the single copy of every shape: the orchestrator pastes an
+ * entry into a dispatch prompt, and this checker reads the same file.
  */
 
 import { test } from 'node:test';
@@ -12,7 +13,7 @@ import { join } from 'node:path';
 import { Sandbox, repoRoot } from './helpers.mjs';
 
 const schemasJson = JSON.parse(
-  readFileSync(join(repoRoot, 'skill', 'scripts', 'schemas.json'), 'utf8'),
+  readFileSync(join(repoRoot, 'skill', 'scripts', 'subagent_returns.json'), 'utf8'),
 );
 
 /** Write the payload beside the sandbox cwd and check it, the way the skill does. */
@@ -30,7 +31,7 @@ const paths = (result) => (result.json?.errors ?? []).map((error) => error.path)
 
 // ------------------------------------------------------------------ payloads
 
-const orientation = () => ({
+const scoutReturn = () => ({
   queries: ['video api providers 2026', 'video api pricing complaints'],
   vocabulary: ['per-minute billing', 'live-to-VOD', 'ingest latency'],
   recurring_names: ['Mux', 'Cloudflare Stream', 'Livepeer'],
@@ -46,7 +47,7 @@ const sourceExtract = () => ({
 
 // ------------------------------------------------------------------ the happy path
 
-test('every shape in schemas.json has a name the CLI will accept', async () => {
+test('every shape in subagent_returns.json has a name the CLI will accept', async () => {
   const sandbox = new Sandbox();
   try {
     const result = await sandbox.run('validate.mjs', '--shapes');
@@ -58,7 +59,7 @@ test('every shape in schemas.json has a name the CLI will accept', async () => {
 });
 
 test('a well-formed payload exits 0 and says so', async () => {
-  const result = await check('orientation', orientation());
+  const result = await check('scope', scoutReturn());
   assert.equal(result.code, 0);
   assert.equal(result.json.valid, true);
   assert.deepEqual(result.json.errors, []);
@@ -72,9 +73,9 @@ test('optional fields may be absent', async () => {
 // ------------------------------------------------------------------ what it catches
 
 test('a missing required key is named by path', async () => {
-  const payload = orientation();
+  const payload = scoutReturn();
   delete payload.vocabulary;
-  const result = await check('orientation', payload);
+  const result = await check('scope', payload);
   assert.equal(result.code, 1);
   assert.equal(result.json.valid, false);
   assert.deepEqual(result.json.errors, [{ path: 'vocabulary', message: 'required' }]);
@@ -111,9 +112,9 @@ test('a bad enum value lists what was allowed', async () => {
 });
 
 test('the wrong JSON type is reported with both types', async () => {
-  const payload = orientation();
+  const payload = scoutReturn();
   payload.vocabulary = 'per-minute billing, live-to-VOD';
-  const result = await check('orientation', payload);
+  const result = await check('scope', payload);
   assert.equal(result.code, 1);
   assert.deepEqual(result.json.errors, [
     { path: 'vocabulary', message: 'expected array, got string' },
@@ -201,19 +202,19 @@ test('internal is allowed on a synthesized finding source too', async () => {
 
 // ------------------------------------------------------------------ fast mode
 
-test('one query is enough — orientation is not measured by volume', async () => {
-  const payload = orientation();
+test('one query is enough — the scout's return is not measured by volume', async () => {
+  const payload = scoutReturn();
   payload.queries = payload.queries.slice(0, 1);
-  const result = await check('orientation', payload);
+  const result = await check('scope', payload);
   assert.equal(result.code, 0);
 });
 
 // Coming back with no vocabulary means the agent never found out what the subject calls
 // itself — which is the one thing every later branch query inherits.
 test('an empty vocabulary fails', async () => {
-  const payload = orientation();
+  const payload = scoutReturn();
   payload.vocabulary = [];
-  const result = await check('orientation', payload);
+  const result = await check('scope', payload);
   assert.equal(result.code, 1);
   assert.match(result.json.errors[0].message, /at least 1 item/);
 });
@@ -224,7 +225,7 @@ test('a payload that is not JSON exits 2 — there is nothing to repair', async 
   const sandbox = new Sandbox();
   try {
     writeFileSync(join(sandbox.cwd, 'payload.json'), 'Here are the results I found:');
-    const result = await sandbox.run('validate.mjs', 'orientation', 'payload.json');
+    const result = await sandbox.run('validate.mjs', 'scope', 'payload.json');
     assert.equal(result.code, 2);
     assert.match(result.err, /is not JSON/);
     assert.equal(result.out, '');
@@ -243,7 +244,7 @@ test('an unknown shape name exits 2 and lists the real ones', async () => {
 test('a missing file exits 2', async () => {
   const sandbox = new Sandbox();
   try {
-    const result = await sandbox.run('validate.mjs', 'orientation', 'nothing-here.json');
+    const result = await sandbox.run('validate.mjs', 'scope', 'nothing-here.json');
     assert.equal(result.code, 2);
     assert.match(result.err, /cannot read/);
   } finally {
@@ -260,18 +261,4 @@ test('no arguments exits 2 with the usage line', async () => {
   } finally {
     await sandbox.cleanup();
   }
-});
-
-// ------------------------------------------------------------------ drift guard
-
-test('the shapes in brain/schemas.md are the shapes the checker uses', () => {
-  // The doc's blocks are what gets pasted into a dispatch prompt; schemas.json is what
-  // the checker reads. Two copies of one truth, so the build fails if they part ways.
-  const doc = readFileSync(join(repoRoot, 'skill', 'brain', 'schemas.md'), 'utf8');
-  const blocks = [...doc.matchAll(/```json\n([\s\S]*?)```/g)]
-    .map((match) => JSON.parse(match[1]))
-    // The vet_user block is an example of what a script prints, not a schema.
-    .filter((block) => block.type === 'object' && block.properties);
-
-  assert.deepEqual(blocks, Object.values(schemasJson));
 });

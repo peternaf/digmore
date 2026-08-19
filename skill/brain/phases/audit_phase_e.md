@@ -30,7 +30,7 @@ Rank all claims in the summary by `importance × source-quality`. Importance is 
 
 ## 2. Verify the top 50
 
-Dispatch one Verifier sub-agent per top-50 claim, per `../dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../schemas.md`): `{verdict, evidence, refuted?, counterSource?}`.
+Dispatch one Verifier sub-agent per top-50 claim, per `../dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../../scripts/subagent_returns.json`): `{verdict, evidence, refuted?, counterSource?}`.
 
 For each claim, the Verifier must:
 - Confirm the URL still resolves and the cited content matches the claim. Use `fetch.mjs` (not `WebFetch`) for any URL likely to be long-form.
@@ -69,7 +69,7 @@ Sections:
 - **Dropped-for-budget URLs** — per branch, from the fetch cap: the candidates that lost their place, and any document the budget cut short mid-pagination with the pages read and the fact that more existed.
 - **URL duplicates** — URLs encountered across multiple sources.
 - **Unavailable sources** — any source skipped for want of an API key, named plainly. A source that was never queried is not a source that came back empty, and the difference belongs in the record.
-- **Sub-agent output repairs and drops** — how many returned payloads failed their shape check, how many passed after the one repair attempt, and every item dropped because it still failed, with the checker's error. A shape failing on most returns is a broken dispatch prompt rather than bad luck, and that only shows in the counts. See `../schemas.md` §"Checking what comes back".
+- **Sub-agent output repairs and drops** — how many returned payloads failed their shape check, how many passed after the one repair attempt, and every item dropped because it still failed, with the checker's error. A shape failing on most returns is a broken dispatch prompt rather than bad luck, and that only shows in the counts. See `../../scripts/subagent_returns.json` §"Checking what comes back".
 - **Sub-agent dispatches** — how many were dispatched this run, split by kind: branch searchers, URL readers, vetting judgments, verifiers, review passes. Nothing is capped on this number; it is recorded because a run's real cost is only knowable after the fact, and an estimate is not a measurement.
 
 ## Re-run behavior
