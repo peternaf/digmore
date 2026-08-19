@@ -24,7 +24,7 @@ So Vet is bounded, and the bound is applied **after ranking, never by taking wha
 3. Vet down the ranked list until the cap is reached.
 4. Record in `audit.md`: how many distinct handles were found, how many were vetted, and that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community, and the summary must not read as though it had.
 
-The cap is `vetHandleCap` in `~/.digmore/settings.json`, **50** by default. Read it at the start of the run. `--quick` uses 20 (`../modes.md`); if the configured number is lower than that, the lower one wins in both modes.
+The cap is `vetHandleCap` in `~/.digmore/settings.json`, **50** by default. Read it at the start of the run. `--fast` uses 20 (`../modes.md`); if the configured number is lower than that, the lower one wins in both modes.
 
 ## Flow
 

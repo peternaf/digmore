@@ -10,7 +10,7 @@ A free-form question. Examples:
 
 - `/digmore ask how does paperswithcode's founder make money from paperswithcode`
 - `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/research_plan.md`)
-- `/digmore ask --quick what are the recurring complaints about whisper.cpp on CPU?`
+- `/digmore ask --fast what are the recurring complaints about whisper.cpp on CPU?`
 - `/digmore ask --auto is paperswithcode still being maintained`
 
 `research_plan.json.kind` is `inquiry`. The question itself is already on record as `originating_prompt` — do not copy it into a second field. `scope.angles` holds the approved angle list once Plan settles it.
@@ -30,7 +30,7 @@ Plan reads the question and produces two angle sets:
 - **Recommended angles** — the angles you'd actually run. Each is `{label, query, rationale}`.
 - **Bonus angles** — free-form angles you came up with that the user might find interesting but you wouldn't run by default.
 
-**How many of each** — this replaces `../brain/modes.md`'s angle counts for `ask` only: 3–6 recommended plus 2–3 bonus in full, exactly 2 recommended and no bonus in `--quick`. Every other reduction in that file applies here unchanged.
+**How many of each** — this replaces `../brain/modes.md`'s angle counts for `ask` only: 3–6 recommended plus 2–3 bonus in full, exactly 2 recommended and no bonus in `--fast`. Every other reduction in that file applies here unchanged.
 
 Recommended angles MAY draw from the lens-template menu below or be invented from scratch — pick what fits the question's shape:
 
@@ -47,7 +47,7 @@ The angle set is approved before searching — a step no other command has. Wher
 
 ### Person-inquiry rule — the digital-footprint angle is mandatory
 
-When the subject is a person (a named individual, not a company or product), Plan MUST emit a `digital-footprint` angle on top of whatever substantive angles fit the question. It is non-optional in both depth modes — in `--quick` it displaces one of the two recommended angles rather than being added to them.
+When the subject is a person (a named individual, not a company or product), Plan MUST emit a `digital-footprint` angle on top of whatever substantive angles fit the question. It is non-optional in both depth modes — in `--fast` it displaces one of the two recommended angles rather than being added to them.
 
 Person-inquiries have a known failure mode: commercial and published angles surface the bios and miss the social footprint. This angle exists to close that gap. Skipping it is the same class of error as substituting WebSearch for a dedicated source tool (`../brain/phases/extract_phase_b.md` §"Source-tool discipline") — it produces a plausible-looking result that quietly underreports the truth.
 

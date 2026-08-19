@@ -3,9 +3,9 @@
 Two orthogonal axes set how a research run behaves.
 
 - **Interaction axis** — `manual` (default) vs `--auto` (no prompts). Controls whether the run pauses for the user mid-run.
-- **Depth axis** — full (the default, ~2 hour run) vs `--quick` (10–15 minute run). Controls how much work each phase does.
+- **Depth axis** — full (the default, ~2 hour run) vs `--fast` (10–15 minute run). Controls how much work each phase does.
 
-Both flags are token-matched anywhere in the command's free-form args. Any combination is valid: `--auto`, `--quick`, `--auto --quick`, neither.
+Both flags are token-matched anywhere in the command's free-form args. Any combination is valid: `--auto`, `--fast`, `--auto --fast`, neither.
 
 # Interaction modes — manual and auto
 
@@ -43,21 +43,21 @@ If a main-source script fails for a reason that needs user intervention (a sourc
 
 A source that is unavailable because no API key is configured is not a failure and does not halt the run — the run proceeds without it and says so. See `sources/reddit.md` and `sources/twitter.md`.
 
-# Depth modes — full and quick
+# Depth modes — full and fast
 
-The literal token `--quick` anywhere in the args switches to quick mode. No flag → full (the default).
+The literal token `--fast` anywhere in the args switches to fast mode. No flag → full (the default).
 
 ## Full mode (default)
 
 Standard research run as described in the rest of the brain. Roughly 2 hours wall-clock. All phases run at their canonical parameters.
 
-## Quick mode (`--quick`)
+## Fast mode (`--fast`)
 
 10–15 minute wall-clock budget. Same five-phase shape, every phase scaled down. The output is still a complete summary + `players.csv` + `experts.csv` + `audit.md` — just shallower.
 
 Per-phase reductions vs full mode:
 
-| Phase | Full | Quick |
+| Phase | Full | Fast |
 |---|---|---|
 | **Plan — angles** | 3–6 | 2 |
 | **Search — URLs per branch** | `fetchesPerBranch`, 20 by default | 5, or `fetchesPerBranch` if that is lower |
@@ -70,35 +70,35 @@ Per-phase reductions vs full mode:
 | **Audit — claims verified** | top 50 | top 10 |
 | **Audit — `manual-verify-required` cap** | 15 | 5 |
 
-The summary includes a `quick mode` tag in the Run footer when this mode was used, so the user knows what depth produced it.
+The summary includes a `fast mode` tag in the Run footer when this mode was used, so the user knows what depth produced it.
 
-## Twitter in quick mode
+## Twitter in fast mode
 
-Quick mode runs Twitter at the shallowest tier only:
+Fast mode runs Twitter at the shallowest tier only:
 
 - Tier 1 (profile only): max 5 handles per run.
 - Tier 2 + Tier 3: skipped (they need tweet payloads, which take longer).
 - LLM-judgment vetting layer: skipped (it needs Tier 2/3 tweet data).
 
-## What quick mode is for
+## What fast mode is for
 
 - First-pass triage of a topic to decide whether a full run is worth it.
 - Interactive chained-follow-up loops: read one summary, pick a follow-up topic, get a 10-minute draft, iterate.
 - Repeat runs on the same topic to check what changed (cheap re-execution).
 
-## What quick mode is not for
+## What fast mode is not for
 
 - Final-deliverable competitor teardowns where confidence matters.
 - Topics where Twitter is central — Tier 1 profile data alone is too shallow to drive a teardown.
 - The first time you research a topic where you'll act on the result without re-reading.
 
-## Quick mode in auto + manual
+## Fast mode in auto + manual
 
-Quick mode is orthogonal to interaction. The same reduction table applies in both:
+Fast mode is orthogonal to interaction. The same reduction table applies in both:
 
-- `manual + quick`: prompts still fire (clarifying questions). Twitter confirmation gates don't trigger because Tier 1's 5-handle cap is below the >20 threshold.
-- `auto + quick`: no prompts, hard caps. Anything that would have prompted is decided by you and recorded as an assumption.
+- `manual + fast`: prompts still fire (clarifying questions). Twitter confirmation gates don't trigger because Tier 1's 5-handle cap is below the >20 threshold.
+- `auto + fast`: no prompts, hard caps. Anything that would have prompted is decided by you and recorded as an assumption.
 
 ## When a command changes these
 
-Everything above is the default. A command may replace any of it in its own reference file, and two do today: `gtm` narrows which sources `--quick` runs, and `ask` sets its own angle counts. Read the command's file alongside this one before applying the reductions — what it does not mention, it takes from here unchanged.
+Everything above is the default. A command may replace any of it in its own reference file, and two do today: `gtm` narrows which sources `--fast` runs, and `ask` sets its own angle counts. Read the command's file alongside this one before applying the reductions — what it does not mention, it takes from here unchanged.

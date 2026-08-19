@@ -8,7 +8,7 @@ The same for all four commands. A command's reference file names its deliverable
 
 1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, write `research_plan.json`. `research_plan.md`.
 2. **The five phases, in order** — Plan, Extract, Vet, Synthesize, Audit. `phases/index.md`. None of them is optional.
-3. **Mode** — `--auto` and `--quick`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
+3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
 4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output` must resolve under `digmore/<slug>/cache/<source>/`.
 5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `schemas.md`.
 6. **End of run** — append the run to `research_plan.json.run_history`, then print the four terminal sections in `reporting.md`. Nothing else reaches the terminal.

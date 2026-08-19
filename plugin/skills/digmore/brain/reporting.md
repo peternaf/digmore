@@ -37,10 +37,10 @@ Run problems are not questions either. A failed fetch, a capped section, a sourc
 
 ## The Run footer
 
-Every summary ends with one italic line, whatever the command. It records: the number of WebSearch queries run, any caps hit, any source the run could not reach, and the mode tags (`quick mode`, `auto mode`) when either applies.
+Every summary ends with one italic line, whatever the command. It records: the number of WebSearch queries run, any caps hit, any source the run could not reach, and the mode tags (`fast mode`, `auto mode`) when either applies.
 
 ```
-*4 WebSearch queries · no caps hit · Reddit and Twitter unavailable (no API key) · quick mode*
+*4 WebSearch queries · no caps hit · Reddit and Twitter unavailable (no API key) · fast mode*
 ```
 
 A command's reference file lists the footer as its last section and says nothing about its contents.

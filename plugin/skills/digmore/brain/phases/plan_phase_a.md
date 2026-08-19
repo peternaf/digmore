@@ -26,7 +26,7 @@ It is a sub-agent for one reason: orientation reads a lot of the open web to pro
 
 It returns orientation and nothing else. The angles are yours, built from what it found — you are the one who will use them.
 
-Record what came back in `research_plan.json` under `scope.orientation`. In `--quick` there is less time for this, not none.
+Record what came back in `research_plan.json` under `scope.orientation`. In `--fast` there is less time for this, not none.
 
 ## 3. What the user asked for — things, or an understanding
 
@@ -47,7 +47,7 @@ Decompose the topic into 3–6 complementary angles, **built on what orientation
 - A hardware market gets different angles: `vendors`, `benchmarks`, `supply chain`, `firmware quirks`, `upgrade churn`.
 - A niche dev tool gets others again: `maintainers`, `workflow friction`, `breaking changes`, `ecosystem dependencies`.
 
-`--quick` takes exactly 2; `ask` sets its own counts and approves them with the user (`../modes.md`).
+`--fast` takes exactly 2; `ask` sets its own counts and approves them with the user (`../modes.md`).
 
 ## 5. Branches
 

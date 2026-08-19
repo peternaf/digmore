@@ -63,19 +63,19 @@ If it has not been configured yet, it sorts that out first.
 Two flags, matched anywhere in the request — before the command, after it, in the middle of a
 sentence. All four combinations are valid:
 
-| | Default | `--quick` |
+| | Default | `--fast` |
 |---|---|---|
 | **Default** | Asks you at the decision points, full depth | Asks you, fewer sources, faster |
 | **`--auto`** | No questions, full depth | No questions, fewest sources, fastest |
 
 - `--auto` — runs end to end and answers its own questions. Say this up front if you are going to
   walk away.
-- `--quick` — fewer sources and shallower vetting. A first look, not a final answer.
+- `--fast` — fewer sources and shallower vetting. A first look, not a final answer.
 
 ```
-/digmore landscape ai video editing --quick
+/digmore landscape ai video editing --fast
 /digmore competitor descript --auto
-/digmore --auto --quick ask what do people hate about mailchimp
+/digmore --auto --fast ask what do people hate about mailchimp
 ```
 
 ## What you get

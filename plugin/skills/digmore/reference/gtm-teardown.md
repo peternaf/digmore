@@ -24,7 +24,7 @@ Plan's angles replace the generic set:
 
 Search queries are tactic-anchored, not capability-anchored.
 
-**What `--quick` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: Reddit and Hacker News, nothing else. Twitter and forums are skipped, because a tactic needs a worked example per occurrence and those two return the least of it per URL. Every other reduction in that file applies here unchanged. With no API key this leaves Hacker News alone — too thin a base for a teardown, and the summary says so at the top.
+**What `--fast` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: Reddit and Hacker News, nothing else. Twitter and forums are skipped, because a tactic needs a worked example per occurrence and those two return the least of it per URL. Every other reduction in that file applies here unchanged. With no API key this leaves Hacker News alone — too thin a base for a teardown, and the summary says so at the top.
 
 Three phases carry command-specific weight:
 

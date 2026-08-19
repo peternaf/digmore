@@ -25,7 +25,7 @@
   it replaces. The brain holds the defaults; a command that genuinely works differently says so in
   its own file, and the brain's file points out that commands may change it.
 - **Anything new has to work in all four kinds of run.** A run either asks the user things or does
-  not (`--auto`), and is either full or shallow (`--quick`) — four combinations. When you add a
+  not (`--auto`), and is either full or shallow (`--fast`) — four combinations. When you add a
   source, a phase step, a script or a sub-agent task, write down how it behaves in each one.
   If it cannot work in some of them — say it needs an answer from the user, so `--auto` is out —
   write down what happens instead: decide it yourself and note what you assumed, stop the run and

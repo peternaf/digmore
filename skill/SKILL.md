@@ -1,8 +1,8 @@
 ---
 name: digmore
-description: Business and market research with a vetted source behind every claim. Use when the user asks to research a market, a landscape, or a category; to look into a specific company, competitor or product; to find out what people say about something online; to work out how something is being marketed or promoted; or asks any business question that needs evidence from Reddit, Hacker News, Twitter, forums, the web, or their own documents. Also use for "who is winning in X", "what do people complain about in X", "is X any good", "who are the players in X", "how is X being promoted", "what is X's go-to-market", or a request to dig into a topic properly rather than answer from memory. Free-form request after the command; the literal token `--auto` runs without prompting, `--quick` runs a shallower pass.
+description: Business and market research with a vetted source behind every claim. Use when the user asks to research a market, a landscape, or a category; to look into a specific company, competitor or product; to find out what people say about something online; to work out how something is being marketed or promoted; or asks any business question that needs evidence from Reddit, Hacker News, Twitter, forums, the web, or their own documents. Also use for "who is winning in X", "what do people complain about in X", "is X any good", "who are the players in X", "how is X being promoted", "what is X's go-to-market", or a request to dig into a topic properly rather than answer from memory. Free-form request after the command; the literal token `--auto` runs without prompting, `--fast` runs a shallower pass.
 user-invocable: true
-argument-hint: "[landscape|competitor|ask|gtm] [topic] [--auto] [--quick]"
+argument-hint: "[landscape|competitor|ask|gtm] [topic] [--auto] [--fast]"
 ---
 
 # Digmore
@@ -65,7 +65,7 @@ Every command's reference file tells you to read `brain/index.md` first. That fi
 Two flags, token-matched anywhere in the free-form args. All four combinations are valid.
 
 - `--auto` — run end to end without prompting. Questions get logged to the summary instead of asked.
-- `--quick` — a shallower, faster pass. Fewer angles, fewer sources, shallower vetting.
+- `--fast` — a shallower, faster pass. Fewer angles, fewer sources, shallower vetting.
 
 Full rules in `brain/modes.md`.
 

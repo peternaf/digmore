@@ -199,7 +199,7 @@ test('internal is allowed on a synthesized finding source too', async () => {
   assert.equal(result.code, 0);
 });
 
-// ------------------------------------------------------------------ quick mode
+// ------------------------------------------------------------------ fast mode
 
 test('one query is enough — orientation is not measured by volume', async () => {
   const payload = orientation();
