@@ -20,7 +20,7 @@ Four rules, each learned the hard way:
   expensive` returns several. Narrow with one well-chosen noun, not a multi-word predicate.
 - **No `after:` filter.** On x.com it suppresses organic tweets and biases the top results toward
   indexed marketing accounts. Recency comes from each tweet's own `created_at` after it is fetched
-  (`../recency.md`).
+  (`../../recency.md`).
 - **OR both hosts.** `twitter.com` still holds older indexed content.
 - **Quote the phrase** for exact match, and drop the quotes if results come back thin.
 

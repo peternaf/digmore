@@ -1,6 +1,6 @@
 # Branch Searcher — the agent
 
-**Phase: Extract, sub-step `[2.1/5] Extract · Search`.** Dispatched by `../phases/extract_phase_b.md`.
+**Phase: Extract, sub-step `[2.1/5] Extract · Search`.** Dispatched by `../../phases/extract_phase_b.md`.
 
 One dispatch per **branch**: one angle paired with one source. A run with 5 angles and 5 available
 sources dispatches 25 of these, all at once.
@@ -20,7 +20,7 @@ Find what is worth reading for its one angle on its one source, rank it, and han
 
 ## What it returns
 
-The `branch-searcher` shape from `../../scripts/subagent_returns.json`:
+The `branch-searcher` shape from `../../../scripts/subagent_returns.json`:
 
 ```json
 {"results": [{"url": "…", "title": "…", "relevance": 0.0}]}
@@ -45,7 +45,7 @@ query rules, what comes back, where it caches.
 
 - **Never substitute a `site:` WebSearch for a source's own script.** Reddit blocks the harness's
   WebSearch UA at robots.txt, so `site:reddit.com` returns near-zero regardless of content, and the
-  emptiness looks like a finding. Full rule in `../phases/extract_phase_b.md` §"Source-tool
+  emptiness looks like a finding. Full rule in `../../phases/extract_phase_b.md` §"Source-tool
   discipline".
 - **Three states, three different sentences.** A source that was never queried, a source that was
   unavailable, and a source that came back empty are not the same thing, and the run says which.
@@ -54,5 +54,5 @@ query rules, what comes back, where it caches.
   `numericFilters`, Twitter by reading `created_at` off each tweet after the fetch. WebSearch's
   `after:` operator is not used: it is approximate on the open web, and on x.com it actively
   suppresses organic results in favour of indexed marketing accounts. So a plain web search runs
-  unfiltered and the date is judged when the page is read. See `../recency.md`.
-- **Writing style** — `../output.md`, before anything you return.
+  unfiltered and the date is judged when the page is read. See `../../recency.md`.
+- **Writing style** — `../../output.md`, before anything you return.

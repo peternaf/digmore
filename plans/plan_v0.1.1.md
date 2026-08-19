@@ -102,6 +102,40 @@ Neither changed; §1 now says outright that they are separate. Decide whether bo
 - [ ] **63** `sources/hackernews.md` documents `vet-<name>.json`, which `hackernews.mjs` has never
       written — the `vet` verb returns a verdict and caches nothing. Either cache it or drop the line.
 
+## One directory per sub-agent — done in this pass
+
+`brain/sources/` gave one file per source to four different agents at once: discovery rules the
+Branch Searcher needed, payload shapes the Page Analyst needed, vetting signals the Handle Vetter
+needed, SimilarWeb the Player Profiler needed. Every agent read all of it, and five instructions in
+those files named a destination without naming who writes there.
+
+Replaced by `brain/subagents/`, one directory per agent, each file self-contained.
+
+- [x] **71** `subagents/scoping_agent.md` — flat, one file. The 10-search cap is in it.
+- [x] **72** `subagents/branch_searcher_agent/` — index + all six sources.
+- [x] **73** `subagents/page_analyst_agent/` — index + all six sources. Absorbed `long-form.md`.
+- [x] **74** `subagents/source_analyst_agent/` — index + all six sources. Output renamed
+      `full_source_analysis/`.
+- [x] **75** `subagents/handle_vetter_agent/` — index + reddit, hackernews, twitter, forums. Not
+      websearch or local: a web page has an author, not an account, and a handed-over document has
+      nobody to vet.
+- [x] **76** `subagents/player_profiler_agent.md` — flat. Holds the SimilarWeb/WebFetch exception,
+      the one place in the skill where WebFetch beats `fetch.mjs`.
+- [x] **77** `brain/long-form.md` deleted, content absorbed, all four references repointed —
+      including two `fetch.mjs` comments that described behaviour the script no longer has.
+- [x] **78** `brain/sources/` deleted. Every reference repointed across `brain/`, `reference/` and
+      the two scripts; all relative links verified to resolve.
+- [x] **79** Recency settled: the scripts apply the window, WebSearch's `after:` is not used.
+
+Left open by this pass:
+
+- **`brain/vetting.md` is the next `long-form.md`.** Its parts now split three ways — source-quality
+  definitions to the Page Analyst, verdicts and topical relevance to the Handle Vetter, the
+  confidence-tag rule to the Report Writer. All three agent files point back at it rather than
+  carrying it.
+- **`brain/recency.md`** is in the same position, smaller.
+- **The remaining seven agents** — #7 to #13 — have no directory. #13 reads the Page Analyst's.
+
 ## New agents
 
 - [ ] **01** Add the `handle-vetting` shape to `scripts/subagent_returns.json`.

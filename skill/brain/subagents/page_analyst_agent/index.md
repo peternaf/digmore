@@ -1,6 +1,6 @@
 # Page Analyst — the agent
 
-**Phase: Extract, sub-step `[2.2/5]` Extract · Read.** Dispatched by `../phases/extract_phase_b.md`.
+**Phase: Extract, sub-step `[2.2/5]` Extract · Read.** Dispatched by `../../phases/extract_phase_b.md`.
 
 One dispatch per document: one URL, or one post from Reddit, Hacker News or Twitter. A single piece
 of online material, got and analysed.
@@ -96,7 +96,7 @@ The raw pages `fetch.mjs` wrote are deleted once the merged file exists.
 Every claim carries a verbatim quote. A claim you cannot quote is one you drop.
 
 Each claim needs four fields, and two more when it is quantitative — the shape is in
-`../../scripts/subagent_returns.json` under `source-extractor`, and the file for your source says
+`../../../scripts/subagent_returns.json` under `source-extractor`, and the file for your source says
 what that source's material looks like.
 
 ## What you write to disk
@@ -120,7 +120,7 @@ Plus `digmore/<slug>/cache/_returns/page-analyst-<filename>.json` — a copy of 
 The `source-extractor` shape: `sourceQuality`, `publishDate` where the page shows one, and
 `claims[]`.
 
-**`sourceQuality` is one of seven words, and `../vetting.md` says what each one means.** The schema
+**`sourceQuality` is one of seven words, and `../../vetting.md` says what each one means.** The schema
 gives you the list; read the definitions before choosing, and read your source's file — a forum post
 and a vendor pricing page are not judged the same way.
 
@@ -148,4 +148,4 @@ Read the one for your source before you start.
 
 ## Writing style
 
-`../output.md`, before anything you return. Your `claim` text reaches the report.
+`../../output.md`, before anything you return. Your `claim` text reaches the report.

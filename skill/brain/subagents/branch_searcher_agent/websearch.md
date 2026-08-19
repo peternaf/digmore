@@ -9,14 +9,14 @@ Claude Code's `WebSearch` tool. Free, no key, and the backbone of a run with no 
 - **Quote multi-word phrases** for exact match. Drop the quotes if results come back thin.
 - **No `after:` filter.** WebSearch's date operator is approximate — older content slips through
   either way — so the window is judged when the page is read, not asked for in the query. The
-  sources that can filter by date properly do it in their own scripts (`../recency.md`).
+  sources that can filter by date properly do it in their own scripts (`../../recency.md`).
 
 ## Spend the budget on angles, not on rewordings
 
 Claude Code caps web searches per session, and a deep run can reach it. Several angle-specific
 queries are worth more than one broad query run again with small variations. If the cap is hit
 mid-run the run does not fail — the user starts a new session and resumes from the cache
-(`../phases/index.md`).
+(`../../phases/index.md`).
 
 ## `site:` on a host with no source file
 

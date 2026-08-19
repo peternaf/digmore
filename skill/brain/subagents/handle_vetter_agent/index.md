@@ -1,6 +1,6 @@
 # Handle Vetter — the agent
 
-**Phase: Vet, `[3/5]`.** Dispatched by `../phases/vet_phase_c.md`, one per handle.
+**Phase: Vet, `[3/5]`.** Dispatched by `../../phases/vet_phase_c.md`, one per handle.
 
 Where it sits: Extract surfaced far more handles than a run can check — thousands on a busy topic.
 The orchestrator ranked them and cut the list at the cap. You get one of the survivors.
@@ -34,7 +34,7 @@ stops the report treating them as an authority.
 | `promoter` | selling something | quoted only as a promotional signal, labelled |
 | `troll` / `spammer` | neither | dropped, and not recorded |
 
-Definitions and the full rank order are in `../vetting.md`. Read it before your first verdict.
+Definitions and the full rank order are in `../../vetting.md`. Read it before your first verdict.
 
 ## Topical relevance
 
@@ -82,4 +82,4 @@ it over. Neither source dispatches this agent.
 
 ## Writing style
 
-`../output.md`, before anything you return. `reason` reaches the report next to the handle.
+`../../output.md`, before anything you return. `reason` reaches the report next to the handle.

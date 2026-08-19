@@ -8,7 +8,7 @@ Print `[3/5] Vet` when this phase starts (`../reporting.md`).
 
 **Hacker News works through its handles one at a time; put other work beside it, never more Hacker News.** Reddit and Twitter go through digmore's API and share no limit with it, so their handles cost nothing extra while HN waits. Synthesize's per-player enrichment (`synthesize_phase_d.md` §3.5) can also start here: it reads the entities Extract found and needs no verdict. The HN loop holds the shell, so the rest goes to sub-agents.
 
-For every handle seen in Extract, run `vet_user` (or the source equivalent). Read `../vetting.md` for the verdict schema and how cross-source identity / experts.csv inheritance work. Read `../sources/<source>.md` for source-specific signals.
+For every handle seen in Extract, run `vet_user` (or the source equivalent). Read `../vetting.md` for the verdict schema and how cross-source identity / experts.csv inheritance work. Read `../subagents/handle_vetter_agent/<source>.md` for source-specific signals.
 
 ## The handle cap — rank first, then cut
 
@@ -35,7 +35,7 @@ The cap is `vetHandleCap` in `~/.digmore/settings.json`, **50** by default. Read
 5. Append newly identified experts (final verdict `legit` AND on-topic) to `experts.csv` via `experts.mjs add`, passing `--last-active` when the source reported one and `--topical-relevance` with the reading step 4 took. Step 4 is the only place that judgement exists; without the flag it is made and thrown away.
 6. Drop charlatans / promoters / spammers — do NOT store them.
 
-There is nothing to vet on the local source: a document the user handed over has no handle behind it. See `../sources/local.md`.
+There is nothing to vet on the local source: a document the user handed over has no handle behind it. See `../subagents/page_analyst_agent/local.md`.
 
 ## Twitter — tiered vetting
 
@@ -59,7 +59,7 @@ The heuristic floor never returns `legit` — only confident negatives (`spammer
 
 **The vet response says when judgment is needed: `needs_llm_judgment: true`.** Read the flag; do not re-derive it from the verdict and the tier. It is true exactly when the verdict is `unknown` and tweets were sampled, and the rule belongs to whatever produced the verdict rather than to you.
 
-When it is set, dispatch a sub-agent per `../dispatch_structured_subagent.md` that reads the cached tweets and classifies the voice per the rubric: real expert / marketer / content-seller / agenda-pusher. Map the result to the shared verdict schema. The judgment is always the plugin's to make — nothing upstream makes it.
+When it is set, dispatch a sub-agent per `../subagents/dispatch_structured_subagent.md` that reads the cached tweets and classifies the voice per the rubric: real expert / marketer / content-seller / agenda-pusher. Map the result to the shared verdict schema. The judgment is always the plugin's to make — nothing upstream makes it.
 
 ## Incremental persistence
 

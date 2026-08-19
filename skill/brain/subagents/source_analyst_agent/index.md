@@ -1,7 +1,7 @@
 # Source Analyst — the agent
 
 **Phase: Extract, sub-step `[2.3/5]` Extract · Source notes.** Dispatched by
-`../phases/extract_phase_b.md`, once per source that pulled data — at most six, and they can all run
+`../../phases/extract_phase_b.md`, once per source that pulled data — at most six, and they can all run
 at once.
 
 Where it sits: the **Page Analysts** have finished. Every document from your source is on disk, each
@@ -44,7 +44,7 @@ Your source's file in this directory says what that material actually looks like
 
 `digmore/<slug>/full_source_analysis/<source>.md` — one file, yours alone, nothing else writes it.
 
-Prose, no schema. Concrete: name the threads, quote the lines, link the URLs. `../output.md`'s rules
+Prose, no schema. Concrete: name the threads, quote the lines, link the URLs. `../../output.md`'s rules
 apply here in full — this is text, and vagueness costs as much here as anywhere.
 
 This file is read by the **Report Writer** in Synthesize, alongside the structured claims. It does
@@ -58,7 +58,7 @@ Where the material itself shows the run did not see everything, record it with t
 - A Reddit thread whose `num_comments` exceeds the comments returned.
 - A Hacker News discussion that clearly ran deeper than the three levels the script returns.
 
-Say how much was missed, not just that something was. `../phases/audit_phase_e.md` carries the
+Say how much was missed, not just that something was. `../../phases/audit_phase_e.md` carries the
 blocked and unavailable sources; this file carries what was partially read.
 
 ## Per-source files

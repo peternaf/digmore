@@ -41,7 +41,7 @@ part of what it means.
 | Individual blog, Medium, Substack, personal site | `blog` |
 | Content farm, obviously AI-generated, marketing collateral, dead or paywalled-no-cache | `unreliable` |
 
-Full definitions in `../vetting.md`. `primary-self` is accurate about the vendor's own product and
+Full definitions in `../../vetting.md`. `primary-self` is accurate about the vendor's own product and
 biased about everything else — never take a marketing claim at face value because the tag is high.
 
 **If the page's author turns up elsewhere as a Reddit, HN or Twitter handle, say so in the claim.**
@@ -63,4 +63,4 @@ The raw pages `fetch.mjs` wrote are deleted once the merged file exists.
 - **Paywalls.** A paywalled page surfaces as thin, low-content text. Report it as blocked, not as
   empty — and look for the same content quoted in a forum or an outlet.
 - **Publish dates are unreliable.** The search carried no date filter, so check the date on the page
-  itself when a claim turns on how recent it is (`../recency.md`).
+  itself when a claim turns on how recent it is (`../../recency.md`).

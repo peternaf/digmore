@@ -45,5 +45,5 @@ The `branch-searcher` shape, with the **file path** in `url` — the copy under
 
 ## No date window
 
-`../recency.md`'s two-year cutoff is about the public web going stale. The user chose this file; its
+`../../recency.md`'s two-year cutoff is about the public web going stale. The user chose this file; its
 age is their call. Note the date if the file carries one and it matters to a claim.

@@ -11,7 +11,7 @@ The cutoff date is `today minus 2 years`. Compute it at run start; never hardcod
 - **HN Algolia** — pass `numericFilters=created_at_i>{epoch_2yrs_ago}` on every search call. `hackernews.mjs` does this on the recent-comment search. Its two counting calls are deliberately *not* filtered: they exist to read lifetime totals and the true date a person last posted, and filtering them would turn "comments this account has ever posted" into "comments in the last two years" and make anyone dormant longer than the window look as though they had never posted at all.
 - **Forums** — sort by date, stop reading once items fall outside the window.
 - **Twitter** — `since:<YYYY-MM-DD>` on every WebSearch query.
-- **The user's own documents** — no window. The user chose the file; its age is their call. See `sources/local.md`.
+- **The user's own documents** — no window. The user chose the file; its age is their call. See `subagents/page_analyst_agent/local.md`.
 
 ## Why 2 years
 

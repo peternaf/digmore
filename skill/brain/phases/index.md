@@ -59,7 +59,7 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 
 **One verb, one item, inline, with the tools it already has — then it returns what it found.** That is the whole shape. Fan-out, waiting and deciding belong to the orchestrator.
 
-When what comes back has a shape in `../../scripts/subagent_returns.json`, the prompt that carries it — the whole thing, ready to send — is in `../dispatch_structured_subagent.md`. Read that before dispatching one. A sub-agent that returns no shape, writing prose to its own file or editing the draft in place, takes its instructions from the phase file dispatching it.
+When what comes back has a shape in `../../scripts/subagent_returns.json`, the prompt that carries it — the whole thing, ready to send — is in `../subagents/dispatch_structured_subagent.md`. Read that before dispatching one. A sub-agent that returns no shape, writing prose to its own file or editing the draft in place, takes its instructions from the phase file dispatching it.
 
 Why the shape is this tight:
 
@@ -71,7 +71,7 @@ A missing capability is a finding, not a task. Note the gap in `audit.md` as a k
 
 ### Heartbeat — how a sub-agent stays visible
 
-A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../dispatch_structured_subagent.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
+A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../subagents/dispatch_structured_subagent.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
 
 The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. That makes the line diagnostic on its own — the orchestrator reads elapsed time off the file's modification time, so the line only has to say what, never how long.
 

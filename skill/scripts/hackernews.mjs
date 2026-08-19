@@ -5,7 +5,7 @@
  *  - Algolia HN API — item trees and per-user metadata. Public, no auth, permissive.
  *  - HN user pages — HTML, and the only source of account age. Rate-limited hard.
  *
- * Story discovery is WebSearch's job, not this script's: brain/sources/hackernews.md
+ * Story discovery is WebSearch's job, not this script's: brain/subagents/branch_searcher_agent/hackernews.md
  * records that Algolia keyword search is deliberately NOT a discovery path, because it
  * returns too many off-topic matches on ambiguous queries. WebSearch harvests
  * `item?id=<N>` URLs and this module fetches their trees. There is no `search` verb.
@@ -182,7 +182,7 @@ export async function fetchUser(name, options = {}) {
   return user;
 }
 
-/** brain/sources/hackernews.md — the eight signals, in order. */
+/** brain/subagents/branch_searcher_agent/hackernews.md — the eight signals, in order. */
 export function vetUser(user, now = Math.floor(Date.now() / 1000)) {
   const signals = {};
 

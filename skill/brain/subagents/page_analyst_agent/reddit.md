@@ -51,7 +51,7 @@ If the thread file already exists the script returns it without a re-fetch.
 
 `forum`, almost always — this is community discussion. The exception is a subreddit's own pinned
 moderator post stating a policy, which is `primary-self` for that subreddit. Definitions in
-`../vetting.md`.
+`../../vetting.md`.
 
 ## Known gaps
 

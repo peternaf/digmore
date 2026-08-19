@@ -47,7 +47,7 @@ off-topic noise on a narrow topic.
 ## The date window
 
 `--time-window` defaults to `year`, Reddit's largest bounded window. For the two-year window in
-`../recency.md`, pass both:
+`../../recency.md`, pass both:
 
 ```
 --time-window all --after-date <today-minus-2y>

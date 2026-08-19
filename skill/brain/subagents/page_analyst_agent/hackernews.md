@@ -50,4 +50,4 @@ Two files in `digmore/<slug>/cache/hackernews/`:
 
 `forum` — community discussion. Where a comment is the author of the thing being discussed
 answering for it, the claim is still `forum` by venue; note who they are in the claim instead.
-Definitions in `../vetting.md`.
+Definitions in `../../vetting.md`.

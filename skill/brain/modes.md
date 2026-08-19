@@ -41,7 +41,7 @@ Each source that costs depth defines its own request-count caps (count, not doll
 
 If a main-source script fails for a reason that needs user intervention (a source temporarily unavailable, a rejected API key), the whole run halts at the source boundary. Record the failure in `audit.md` and name it in the run's Issues. The user resolves the underlying issue and re-runs; resume scans existing artifacts and picks up from where work stopped.
 
-A source that is unavailable because no API key is configured is not a failure and does not halt the run — the run proceeds without it and says so. See `sources/reddit.md` and `sources/twitter.md`.
+A source that is unavailable because no API key is configured is not a failure and does not halt the run — the run proceeds without it and says so. See `subagents/branch_searcher_agent/reddit.md` and `subagents/branch_searcher_agent/twitter.md`.
 
 # Depth modes — full and fast
 

@@ -30,7 +30,7 @@ Rank all claims in the summary by `importance × source-quality`. Importance is 
 
 ## 2. Verify the top 50
 
-Dispatch one Verifier sub-agent per top-50 claim, per `../dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../../scripts/subagent_returns.json`): `{verdict, evidence, refuted?, counterSource?}`.
+Dispatch one Verifier sub-agent per top-50 claim, per `../subagents/dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../../scripts/subagent_returns.json`): `{verdict, evidence, refuted?, counterSource?}`.
 
 For each claim, the Verifier must:
 - Confirm the URL still resolves and the cited content matches the claim. Use `fetch.mjs` (not `WebFetch`) for any URL likely to be long-form.
@@ -40,7 +40,7 @@ For each claim, the Verifier must:
 
 Lower-ranked claims (everything outside the top 50) pass through with their existing source-quality tag, no deep check. **This is a real bound on what "verified" means here, and the report must not imply otherwise:** the top 50 claims are checked against their sources; the rest carry their source-quality tag and nothing more.
 
-A claim sourced to a document the user handed over is verified against that file on disk, not over the network. See `../sources/local.md`.
+A claim sourced to a document the user handed over is verified against that file on disk, not over the network. See `../subagents/page_analyst_agent/local.md`.
 
 ## 3. Annotate the summary
 

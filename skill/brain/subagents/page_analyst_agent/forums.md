@@ -31,7 +31,7 @@ as agreement.
 ## Source quality
 
 `forum` — this is community discussion. One exception: the forum's own pinned moderator post
-stating a policy is `primary-self` for that forum. Definitions in `../vetting.md`.
+stating a policy is `primary-self` for that forum. Definitions in `../../vetting.md`.
 
 Forum handles carry the weakest credibility signal of any source. Where the forum exposes reputation
 — post count, badges, Discourse trust level, accepted-answer status — record it with the claim, so

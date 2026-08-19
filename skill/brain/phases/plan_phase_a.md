@@ -52,7 +52,7 @@ Do not write the angles out of what you already know: written cold they come out
 `pricing`, `pain points` — true of every market, useful for none. The subject has to be looked at
 first.
 
-Dispatch **ONE Scoping agent**, per `../dispatch_structured_subagent.md`. It goes out to the open
+Dispatch **ONE Scoping agent**, per `../subagents/dispatch_structured_subagent.md`. It goes out to the open
 web — unbudgeted here — and returns the `scope` shape (see `../../scripts/subagent_returns.json`):
 the vocabulary the subject's own people use, the names that recur, and the angles built from them.
 
@@ -122,7 +122,7 @@ and all three are visible without re-searching:
 - **The count is wrong for the mode** — 3–6 in a full run, exactly 2 in `--fast`; `ask` sets its own
   (`../modes.md`).
 
-Send it back once if any of those hold, per `../dispatch_structured_subagent.md`. Do not quietly
+Send it back once if any of those hold, per `../subagents/dispatch_structured_subagent.md`. Do not quietly
 rewrite them: an angle you wrote yourself is one the agent's reading no longer stands behind.
 
 ## 5. Branches

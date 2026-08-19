@@ -9,7 +9,7 @@ WebSearch site:news.ycombinator.com <query>
 ```
 
 Two or three keywords. No `after:` — recency on Hacker News is applied by the script when a person
-is vetted, not by the query (`../recency.md`).
+is vetted, not by the query (`../../recency.md`).
 
 From each result, harvest the **item id**: the `<N>` in `news.ycombinator.com/item?id=<N>`. That id
 is what you return. The Page Analyst calls `hackernews.mjs story <N>` on each one to get the

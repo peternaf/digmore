@@ -113,7 +113,7 @@ function writeCache(dir, key, payload) {
   writeFileSync(join(dir, key), JSON.stringify(payload), 'utf8');
 }
 
-/** brain/sources/reddit.md — search keys carry md5(query)[:10]. */
+/** brain/subagents/branch_searcher_agent/reddit.md — search keys carry md5(query)[:10]. */
 export function queryHash(query) {
   return createHash('md5').update(query, 'utf8').digest('hex').slice(0, 10);
 }
@@ -186,7 +186,7 @@ async function request(config, path, params = {}) {
 
 const reddit = {
   /**
-   * brain/sources/reddit.md — multi-sub is the default, and the fan-out stays on the
+   * brain/subagents/branch_searcher_agent/reddit.md — multi-sub is the default, and the fan-out stays on the
    * API side: `?subreddits=` repeats and one merged list comes back.
    *
    * Not merged here, deliberately. Order, `limit` and `relevance` are all properties of
@@ -287,7 +287,7 @@ const twitter = {
   },
 
   /**
-   * brain/sources/twitter.md — the only path to a quotable tweet body. WebSearch sees
+   * brain/subagents/page_analyst_agent/twitter.md — the only path to a quotable tweet body. WebSearch sees
    * only the og:title, roughly the first 15 words, because x.com hydrates client-side.
    * One cache file per tweet id, so re-quoting across runs does not re-fetch.
    */

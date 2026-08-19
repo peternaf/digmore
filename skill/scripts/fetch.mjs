@@ -3,7 +3,7 @@
  *
  * The canonical fetch path for articles, docs and long
  * forum threads, where WebFetch truncation is unacceptable and the truncation point is
- * invisible. brain/page_analyst_agent/index.md decides when to reach for it, and what to do
+ * invisible. brain/subagents/page_analyst_agent/index.md decides when to reach for it, and what to do
  * when a bot wall makes WebFetch the only way through.
  *
  *   node fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>

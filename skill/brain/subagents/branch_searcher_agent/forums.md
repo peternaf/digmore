@@ -21,7 +21,7 @@ WebSearch <topic phrase> forum discussion
 
 Let the domains that surface tell you where this topic actually gets discussed, then run the
 `site:` query against the ones that keep recurring. Two or three keywords either way, and no
-`after:` — recency is judged when the thread is read (`../recency.md`).
+`after:` — recency is judged when the thread is read (`../../recency.md`).
 
 ## What you return
 

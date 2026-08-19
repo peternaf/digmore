@@ -34,7 +34,7 @@ Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert ex
 
 Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
 
-Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+Dispatch ONE synthesizer sub-agent, per `../subagents/dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 
@@ -63,7 +63,7 @@ Mandatory per-row. Blanket-skip not allowed.
 
 For each row:
 1. Identify `marketing_domain`. `url` is a hint — many open-source projects with a code-host `url` also have a marketing site (Frigate → `frigate.video`). Check before defaulting to "code-host only".
-2. `monthly_visits` per `../sources/websearch.md`. SimilarWeb is free; fetch every row.
+2. `monthly_visits` per `../subagents/player_profiler_agent.md`. SimilarWeb is free; fetch every row.
    - SimilarWeb returns data → numeric.
    - Subdomain → try parent first.
    - Domain not indexed → `UNAVAILABLE — not-indexed`.

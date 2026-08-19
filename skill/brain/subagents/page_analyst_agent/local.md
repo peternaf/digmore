@@ -53,7 +53,7 @@ partial read presented as a full one is the failure this source is most exposed 
 
 ## No date window
 
-`../recency.md`'s two-year cutoff is about the public web going stale. The user chose this file; its
+`../../recency.md`'s two-year cutoff is about the public web going stale. The user chose this file; its
 age is their call. Note the date where the file carries one and a claim turns on it.
 
 ## Known gaps

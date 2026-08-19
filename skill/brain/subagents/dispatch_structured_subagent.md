@@ -89,7 +89,7 @@ an invented quote passes every check there is.
 
 Re-check the repaired payload. Still failing → **drop that item**, name it in the run's Issues, and
 record it in `audit.md`. Never a second repair: a fix-and-recheck loop that can run twice can run
-forever, and `MAX_REPAIRS` in `validate.mjs` is 1 so the limit is a fact rather than a judgement
+forever, and `subagents.repairAttempts` in `~/.digmore/settings.json` is 1 so the limit is a fact rather than a judgement
 call.
 
 Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_e.md` §5). A shape that

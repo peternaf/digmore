@@ -50,10 +50,10 @@ Report Twitter as a source the run could not fully reach. Already-cached tweets 
 
 `primary-self` when the account is the subject speaking for itself — a company account, a founder
 announcing something. `forum` when it is commentary from anyone else. Definitions in
-`../vetting.md`.
+`../../vetting.md`.
 
 ## Recency
 
 Read the date off each tweet's `created_at`. The search that found it carried no date filter — on
 x.com an `after:` filter suppresses organic tweets and biases toward marketing accounts, so the
-window is applied here instead (`../recency.md`).
+window is applied here instead (`../../recency.md`).

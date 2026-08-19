@@ -4,7 +4,7 @@ Where the run does its bulk work: search every branch, read what it finds, then 
 
 The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
-Read `../output.md` before any sub-agent dispatch. Read the relevant `../sources/<source>.md` before issuing requests through that source.
+Read `../output.md` before any sub-agent dispatch. Each agent has its own directory holding its instructions and a file per source it works with — `../subagents/branch_searcher_agent/`, `../subagents/page_analyst_agent/`, `../subagents/source_analyst_agent/`. Send the agent its `index.md` and the source file it needs.
 
 ## Search
 
@@ -21,15 +21,15 @@ When it happens:
 
 3. Record it in `audit.md` alongside the other caps, so the summary's Run footer can name it.
 
-Which sources are in play was settled in Plan and is listed in `research_plan.json`. The `local` source issues no query — its searchers read the handed-over material through each angle instead (`../sources/local.md`).
+Which sources are in play was settled in Plan and is listed in `research_plan.json`. The `local` source issues no query — its searchers read the handed-over material through each angle instead (`../subagents/branch_searcher_agent/local.md`).
 
 **A source missing from the plan was unavailable, not empty.** Plan already left it out — with no API key there are no Reddit or Twitter branches. Carry `sources_unavailable` from `research_plan.json` through to the summary and the terminal output; a source nobody queried must never read as a source that came back with nothing.
 
 Each searcher:
-1. Reads the relevant `../sources/<source>.md` before issuing requests.
+1. Reads `../subagents/branch_searcher_agent/index.md` and its own `../subagents/branch_searcher_agent/<source>.md` before issuing requests.
 2. Uses that source's own tool — its script where it has one, `WebSearch` for the web source.
 3. **Must pass `--topic <slug>` on every source-script call.** The scripts refuse to run without it, because without a topic there is nowhere to cache and the run would look complete having saved nothing. Same rule for `fetch.mjs`: the `--output` path must resolve under `digmore/<slug>/cache/<source>/<safe-name>`, and the script enforces it.
-4. Returns the Branch searcher schema (see `../../scripts/subagent_returns.json`), dispatched per `../dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
+4. Returns the Branch searcher schema (see `../../scripts/subagent_returns.json`), dispatched per `../subagents/dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
 
 ### Source-tool discipline — no WebSearch substitutes
 
@@ -57,9 +57,9 @@ On Reddit the API separates the last two for you: it detects a wall, retries on 
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../../scripts/subagent_returns.json`).
+Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../subagents/dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../../scripts/subagent_returns.json`).
 
-**One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../dispatch_structured_subagent.md` for the prompt.
+**One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../subagents/dispatch_structured_subagent.md` for the prompt.
 
 ## Incremental persistence
 
@@ -78,7 +78,7 @@ When a branch has more candidates than its cap:
 
 A hard cap, not advisory. Re-runs must not loosen it implicitly.
 
-**Pages are fetches.** A paginated thread followed to page 5 has spent five of the branch's budget — see `../page_analyst_agent/index.md` §"Follow the document to its end". A branch that spends all 20 on one long thread has read one document, and the run says so rather than reporting a source that looks fully searched. When the budget cuts a document short, record it beside "dropped-for-budget": the URL, the pages read, and that more existed.
+**Pages are fetches.** A paginated thread followed to page 5 has spent five of the branch's budget — see `../subagents/page_analyst_agent/index.md` §"Follow the document to its end". A branch that spends all 20 on one long thread has read one document, and the run says so rather than reporting a source that looks fully searched. When the budget cuts a document short, record it beside "dropped-for-budget": the URL, the pages read, and that more existed.
 
 Vetting fetches are **not** in this cap — they are bounded separately in `vet_phase_c.md`. They are roughly half of a run's network traffic, so a cap that ignored them would be bounding the smaller half.
 
