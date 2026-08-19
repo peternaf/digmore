@@ -24,7 +24,7 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 
 | When | Read |
 | --- | --- |
-| Before any external request | `recency.md`, `long-form.md` |
+| Before any external request | `recency.md` |
 | Plan — slugging the topic, deciding fresh / re-run / branched, the angles, the sections, the branches, and `research_plan.json` itself | `phases/plan_phase_a.md`, `modes.md`, `sections.md`, `scripts/subagent_returns.json` (`scope` shape) |
 | Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `scripts/subagent_returns.json` (Branch searcher + Source extractor), `sources/<source>.md` per source involved |
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `sources/<source>.md` for source-specific signals, `scripts/subagent_returns.json` (vet_user schema) |

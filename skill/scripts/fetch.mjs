@@ -3,7 +3,8 @@
  *
  * The canonical fetch path for articles, docs and long
  * forum threads, where WebFetch truncation is unacceptable and the truncation point is
- * invisible. brain/long-form.md decides when to reach for it.
+ * invisible. brain/page_analyst_agent/index.md decides when to reach for it, and what to do
+ * when a bot wall makes WebFetch the only way through.
  *
  *   node fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>
  *
@@ -64,11 +65,11 @@ export function browserHeaders(extra = {}) {
 }
 
 /**
- * brain/long-form.md: "The --output path must resolve under
- * <topic>/cache/<source>/<safe-filename>. Any other path leaves the file outside the
- * topic subtree, in violation of the research-output policy." Checked here rather than
- * left to the caller's discipline, because a run that writes outside its topic is the
- * one thing the layout rule exists to prevent.
+ * Everything a run writes lands under digmore/<slug>/cache/<source>/. Checked here rather
+ * than left to the caller's discipline, because a run that writes outside its own topic is
+ * the one thing the layout rule exists to prevent.
+ *
+ * The filename is this script's now, so only the directory is the caller's to get wrong.
  */
 export function isInsideTopicCache(outPath, cwd = process.cwd()) {
   const target = isAbsolute(outPath) ? resolve(outPath) : resolve(cwd, outPath);
@@ -310,9 +311,9 @@ async function main(argv) {
     process.exit(2);
   }
 
-  // Already on disk: return it rather than spend a request. brain/long-form.md asks for
-  // this ("if the cached file already exists … skip the re-fetch") and left it to the
-  // caller, which meant it never happened — the caller could not know the name.
+  // Already on disk: return it rather than spend a request. The brain used to ask the caller
+  // to check first, which never happened — the caller could not know the name. Now the name
+  // is this script's, so the check belongs here too.
   if (cached) {
     process.stdout.write(
       `${JSON.stringify({ url, path: cached, bytes: statSync(cached).size, cached: true })}\n`,

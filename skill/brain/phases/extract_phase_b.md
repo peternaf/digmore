@@ -78,7 +78,7 @@ When a branch has more candidates than its cap:
 
 A hard cap, not advisory. Re-runs must not loosen it implicitly.
 
-**Pages are fetches.** A paginated thread followed to page 5 has spent five of the branch's budget — see `../long-form.md` §"Follow the document to its end". A branch that spends all 20 on one long thread has read one document, and the run says so rather than reporting a source that looks fully searched. When the budget cuts a document short, record it beside "dropped-for-budget": the URL, the pages read, and that more existed.
+**Pages are fetches.** A paginated thread followed to page 5 has spent five of the branch's budget — see `../page_analyst_agent/index.md` §"Follow the document to its end". A branch that spends all 20 on one long thread has read one document, and the run says so rather than reporting a source that looks fully searched. When the budget cuts a document short, record it beside "dropped-for-budget": the URL, the pages read, and that more existed.
 
 Vetting fetches are **not** in this cap — they are bounded separately in `vet_phase_c.md`. They are roughly half of a run's network traffic, so a cap that ignored them would be bounding the smaller half.
 

@@ -56,7 +56,7 @@ If the user picks the catch-all when a specific command was offered, that is wor
 
 ## Step 3 — the brain
 
-Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the five phases, vetting, schemas, modes, topic mechanics, recency, long-form handling, and the per-source operating notes.
+Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the five phases, vetting, schemas, modes, topic mechanics, recency, and one directory per sub-agent holding that agent's own instructions and its per-source notes.
 
 **Re-read `brain/output.md` before writing any user-facing text or dispatching any sub-agent.** The writing-style rules are not optional, and they apply to sub-agent output as much as to the final report.
 

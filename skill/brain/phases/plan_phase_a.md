@@ -68,8 +68,13 @@ this, not none.
 
 ## 3. The sections the summary will have — yours, not the agent's
 
-With the angles back, decide the whole section list, in order, and record it as `scope.deliverables` — the key is the
+Decide the whole section list, in order, and record it as `scope.deliverables` — the key is the
 section's title, the value says what belongs in it. Rules and types in `../sections.md`.
+
+**Decide it from everything the Scoping agent returned, not just the angles** — the vocabulary tells
+you what these people call things, and the recurring names tell you who and what the summary will
+have to account for. A section list built from the angles alone is built from a third of what you
+were given.
 
 **Predefined first, in the command's order.** Each one's value is a pointer to the file that defines
 it, and nothing about its shape is repeated: `"Tactics inventory": "reference/gtm-teardown.md §1.4"`.
