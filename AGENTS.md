@@ -9,6 +9,11 @@
   what it is for — `response`, `timeWindow`, `sandbox`, `index` — not `r`, `t`, `s`, `i`. Applies
   everywhere: loop counters, callback parameters, catch bindings, import aliases, destructured
   names, and shell scripts. No exceptions.
+- **Anything new that writes a shared file needs a lock or a single writer.** A step that fans out
+  writers to one file loses rows silently — no error, no trace. Today only `experts.csv` is written
+  by a fan-out, and `experts.mjs` takes a lock for it; every other file has one writer. The current
+  file-to-writer map is in `skill/brain/phases/index.md` §"Where a run writes", and a new agent or
+  step that writes an existing file has to appear in it.
 - **New network code must not identify the user.** Any script or API endpoint we add that makes
   an outbound request sets its `User-Agent` from `BROWSER_USER_AGENTS` in
   `skill/scripts/fetch.mjs`, and sends nothing that identifies the user — no company or product

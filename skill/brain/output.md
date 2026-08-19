@@ -35,6 +35,14 @@ You are re-reading this file as a reminder. Every time you emit user-facing text
 
 This file is style, and only style — it is the one you re-read constantly, so it stays short. What the terminal prints, what the Run footer holds, and where a question for the user goes are in `reporting.md`, read once at the start of a run and once at the end.
 
+## The summary is an executive summary
+
+That is a kind of document, not just a filename. It is written for someone who has to decide something and will not read the sources — a founder, an operator, a board member. So it leads with what is true and what follows from it, and every section earns its place by changing a decision. Background the reader can infer, methodology, and the story of how the research went do not belong in it; the findings, the numbers, the disagreements and the gaps do. The reader should be able to act after the first screen and read the rest only to check the work.
+
+Depth without shape belongs in `raw_research_outcomes.md`, which is the LLM-facing record and has no length limit.
+
+This governs anyone who writes or rewrites the summary, not only whoever drafts it first.
+
 ## Hubs voice — people, not companies
 
 Surface humans, not corporate accounts. Keep vendor blogs (they ship product). Exclude vendor social handles (`@MuxHQ`, `@_pion`, `@SkydioHQ`, `@FAANews`, `@ArduPilotTeam`, etc.) — they amplify PR, not insight.

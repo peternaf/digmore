@@ -19,7 +19,7 @@ Three things trigger a prompt:
 
 1. **Vetting batches that cross a per-tier confirmation threshold.** Twitter examples: more than 20 handles at Tier 1 or 2, more than 5 at Tier 3. Surface the handle count and which tier they would be vetted at, then wait for approval.
 2. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
-3. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `research_plan.md` step 3.
+3. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
 
 ## Auto mode (`--auto`)
 

@@ -94,4 +94,4 @@ The source scripts' `vet_user` heuristics do NOT check topical relevance (the "d
 
 You — the orchestrating skill — layer that check on top of the script's verdict using the user's recent comments: on Reddit that is `recent_comments`, each object carrying its own body and subreddit, and on other sources the equivalent field. A handle that the heuristic returns `legit` for is still demoted to `unknown` if they have zero recent on-topic activity.
 
-The reading you take here is not just a filter — record it as `topical_relevance` on the row you write, per the schema above. It is the only place that judgement is made, and `landscape.md`'s Hubs table reads the column back.
+The reading you take here is not just a filter — record it as `topical_relevance` on the row you write, per the schema above. It is the only place that judgement is made, and `../reference/landscape.md`'s Hubs table reads the column back.

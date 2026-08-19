@@ -7,7 +7,7 @@ Inputs: Extract's structured claims (from the Search Source extractors) + Source
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
 - `digmore/<topic-slug>/players.csv` — full player matrix. Columns and the player-inclusion test are command-specific (see the command's reference file).
-- the summary — user-facing, named per `../research_plan.md`. Sections are command-specific.
+- the summary — user-facing, named per `index.md` §"Where a run writes". Sections are command-specific.
 
 Re-read `../output.md` before writing any output. Read `../vetting.md` for the verdict schema and the confidence-tag rule.
 
@@ -19,6 +19,8 @@ Re-pass Extract's datapoints. Drop low-quality:
 - Sources tagged `forum` from `unknown` handles are dropped.
 
 **Carryover revalidation.** When the topic was branched from a sibling (`research_plan.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
+
+**Player numeric carryover.** A player that survives revalidation and enters the child keeps the parent's `monthly_visits` and `funding_stage` — copy them across, no re-fetch. If either is missing on the parent row, the parent was incomplete: fix the parent first, then re-copy. `UNAVAILABLE` in the child because the parent did not have it is not acceptable.
 
 Within each thread, prioritize **answering** comments — high-upvote replies, OP "this worked / thanks" responses, marked answers — not generic discussion.
 

@@ -18,6 +18,43 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 
 Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
 
+## Where a run writes (cross-phase)
+
+Every file written *during* a run lives under `digmore/<topic-slug>/`, resolved against the directory the user is working in. Nothing a run produces lands outside that subtree, and nothing is ever written inside the installed plugin.
+
+```
+digmore/<topic-slug>/
+  <topic-slug>-executive-summary.md   # the user-facing summary
+  research_plan.json             # the topic: identity, run history, and this run's plan
+  experts.csv                    # curated experts (legit verdict only)
+  raw_research_outcomes.md       # LLM-facing structured claims index
+  players.csv                    # competitor / subject matrix
+  <section-name>.csv             # one per invented enumerable section — ../sections.md
+  audit.md                       # Audit verdict log
+  source_notes/<source>.md       # free-flow notes per source
+  cache/<source>/<file>          # raw fetched content, per-source
+  cache/_progress/<label>.log    # one heartbeat line per sub-agent step
+  cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
+  cache/_misc/<file>             # scratch that belongs to no source
+```
+
+Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`. The slug is in the name so it stays findable once it has been moved or shared out of its folder.
+
+**One writer per file.** Nothing here is written by two things at once, and that is what keeps it safe: only `experts.csv` has a lock, because only Vet fans out writers to a shared file.
+
+| File | Written by |
+|---|---|
+| `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled, a `run_history` entry at the end of the run |
+| `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
+| `players.csv`, `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
+| `audit.md` | the orchestrator, in Audit |
+| `source_notes/<source>.md` | one sub-agent per source, each to its own file |
+| `cache/**` | whichever sub-agent fetched or produced it, each to its own filename |
+
+**Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`.
+
+`_misc` is only for what belongs to no source. **Anything a source produced goes under that source**, at the filename that source's own file gives it. That is where resume looks for it, so a vetting verdict parked in `_misc` is a verdict the next run will pay to fetch again.
+
 ## What a sub-agent is (cross-phase)
 
 **One verb, one item, inline, with the tools it already has — then it returns what it found.** That is the whole shape. Fan-out, waiting and deciding belong to the orchestrator.

@@ -64,7 +64,7 @@ and a section is under-specified without them:
 ## Filling the file — during the run
 
 The claims come back from the readers. The **synthesizer writes the rows**, as it does for
-`players.csv` — one writer per file, per `research_plan.md`.
+`players.csv` — one writer per file, per `phases/index.md`.
 
 Rules for a cell:
 

@@ -9,7 +9,7 @@ Answer a specific business question with evidence pulled from every source digmo
 A free-form question. Examples:
 
 - `/digmore ask how does paperswithcode's founder make money from paperswithcode`
-- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/research_plan.md`)
+- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/phases/plan_phase_a.md` §1)
 - `/digmore ask --fast what are the recurring complaints about whisper.cpp on CPU?`
 - `/digmore ask --auto is paperswithcode still being maintained`
 

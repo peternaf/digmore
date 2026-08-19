@@ -6,15 +6,45 @@ This phase settles two things and writes them to one file: **which topic this is
 
 Almost all of it is yours. One sub-agent is dispatched, to scout the subject — see below for why the split falls there.
 
-## 1. The topic
+## 1. The topic — identity, slug, and how this run relates to earlier ones
 
 Identity first, because the angles are built for a subject and the file they land in is named after it.
 
-- Parse the invocation, slug the topic, and decide whether this is a fresh topic, a re-run, or one branched from a parent. Rules in `../research_plan.md`.
-- **Underspecified topics get questions, not guesses.** In manual mode ask 2–3 before slugging; in `--auto` answer them yourself and record what you assumed. See `../modes.md`.
-- Write identity into `research_plan.json` — `slug`, `title`, `kind`, `created_at`, `parent_slug`, `originating_prompt` — and append this run's entry to `run_history`.
+A research topic is the working unit: a kebab-case directory name, a human-readable title, and state that persists across runs. Topics form **chains** — the user reads one output, spots an adjacent area, and starts a new topic that builds on the last. A session is often 3–10 related topics rather than one, so detecting that is part of this step.
 
 This part cannot be a sub-agent: it talks to the user, and a sub-agent has no channel to them.
+
+### Slug the topic
+
+1. **Underspecified topics get questions, not guesses.** "video stuff", with no buyer, use-case or domain anchor, is underspecified. In manual mode ask 2–3 clarifying questions before slugging; the refined topic is what gets slugged. In `--auto` answer them yourself from what you can see, slug on that, and record the reading you took in the run's Issues. See `../modes.md`.
+2. List existing topics under `digmore/` to detect re-run or branching cases the user did not name explicitly.
+3. **State what you detected — fresh / re-run / branched from a parent, the slug, the parent, the mode — and then stop only if you chose something the user did not.** In manual mode, that means waiting for a go-ahead when, and only when, one of these is true:
+   - a parent was picked from more than one candidate topic;
+   - the run is being treated as a re-run or a branch and the user did not say so;
+   - the topic stayed underspecified after the questions in step 1.
+
+   Otherwise say what you detected in a line or two and go straight into §2. A confirmation that only ever repeats what the user typed teaches them to say yes without reading, which is the state in which a wrong parent slips through.
+
+   This stop is separate from §3.1, which shows the finished plan and always waits. This one is about the topic; that one is about what the run will go and read.
+
+   In auto mode there is no stop at all: state the reading, proceed, and record it in the run's Issues.
+
+Slug rules:
+- Kebab-case, ASCII only, no leading/trailing dashes.
+- 2–5 words is the sweet spot. `video-api-providers` beats `v` beats `video-api-providers-b2b-deep-research-2026-06`.
+- Include the key disambiguating dimension when there is one — `video-api-providers` vs. `video-api-providers-b2b` if you anticipate a sibling B2C topic.
+
+### Three flows beyond a fresh topic
+
+1. **Incremental update of an existing topic.** The user extends `experts.csv`, or experts were auto-added by an earlier run. Re-running re-vets old datapoints against the new expert list and surfaces new datapoints introduced by those experts.
+
+2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_d.md` §1.
+
+3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary. The user decides what is worth a follow-up; do not pre-suggest one.
+
+### Write identity
+
+Write `slug`, `title`, `kind`, `created_at`, `parent_slug` and `originating_prompt` into `research_plan.json`, and append this run's entry to `run_history`. Full field list below.
 
 ## 2. The angles — the one sub-agent
 
@@ -98,40 +128,62 @@ Available means available on this run. Reddit and Twitter need an API key, so wi
 
 `local` joins only when the user handed something over.
 
-## `research_plan.json`
+## `research_plan.json` — the file this phase builds
 
-One file for the topic and the plan. Identity at the top level, this run's plan under `scope`. Full field list in `../research_plan.md`.
+One file for the topic and the plan. Identity at the top level, history beside it, this run's plan under `scope`. Plan owns this file; the later phases read it.
 
 ```json
 {
-  "slug": "tts-providers",
-  "title": "Text-to-speech API providers (B2B)",
+  "slug": "video-api-providers",
+  "title": "Video API providers landscape (B2B)",
   "kind": "landscape",
-  "created_at": "2026-08-18T09:00:00Z",
-  "parent_slug": null,
-  "originating_prompt": "research TTS API providers — pricing tiers and recent moves",
-  "run_history": [{"ts": "…", "kind": "fresh", "prompt": "…", "phases_completed": "plan"}],
+  "created_at": "2026-06-10T15:30:00Z",
+  "parent_slug": "video-infra-overview",
+  "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
+  "run_history": [
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "fetchesPerBranch": 20, "vetHandleCap": 50, "phases_completed": "plan,extract,vet,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "fetchesPerBranch": 5, "vetHandleCap": 20, "phases_completed": "plan,extract,vet"}
+  ],
   "scope": {
-    "vocabulary": ["voice cloning", "niqqud", "streaming latency"],
-    "recurring_names": ["ElevenLabs", "Cartesia", "Kokoro"],
-    "deliverables": {"Players": "reference/landscape.md §1.1", "Licensing deals": {"type": "chart", "description": "..."}},
-    "sections": {"Licensing deals": {"type": "chart", "csv": "licensing-deals.csv", "row_is": "...", "fields": [], "sort": "...", "render": "..."}},
+    "vocabulary": ["voice cloning", "streaming latency"],
+    "recurring_names": ["ElevenLabs", "Cartesia"],
+    "deliverables": {"Players": "reference/landscape.md §1.1", "Licensing deals": {"type": "chart", "description": "…"}},
+    "sections": {"Licensing deals": {"type": "chart", "csv": "licensing-deals.csv", "row_is": "…", "fields": [{"name": "…", "description": "…"}], "sort": "…", "render": "…"}},
     "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
-    "sources": ["websearch", "hackernews", "forums"],
+    "sources": ["websearch", "hackernews"],
     "sources_unavailable": [{"source": "reddit", "reason": "no API key"}],
-    "branches": ["pricing-tiers × websearch", "pricing-tiers × hackernews"],
-    "fetchesPerBranch": 20
+    "branches": ["pricing-tiers × websearch"]
   }
 }
 ```
 
+Identity fields, set once and then left alone:
+- `slug` — kebab-case directory name (matches the folder, and the summary filename).
+- `title` — human-readable full title; what shows up when listing topics.
+- `kind` — command identity. Allowed values: `landscape`, `competitor`, `inquiry`, `gtm-teardown`.
+- `created_at` — ISO timestamp of topic creation.
+- `parent_slug` — null for fresh topics, set for branched/chained ones.
+- `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
+
+History, appended to and never rewritten:
+- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, the two ceilings the run actually applied (`fetchesPerBranch`, `vetHandleCap`), and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the ceilings is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the ceilings that applied, not the ones configured** — `--fast` lowers both, and the entry records what the run really used.
+
+The plan, which belongs to the current run:
+- `scope` — `vocabulary`, `recurring_names`, `deliverables`, `sections`, `angles`, `sources`, `sources_unavailable`, `branches`. The first two come back from the Scoping agent (§2), the section fields are settled in §3 and specified in `../sections.md`, the angles are checked in §4, and the branches are built in §5.
+  - `deliverables` — every section of the summary, in order. Key is the title, value is either a pointer to the file that defines it or, for a section this run invented, `{type, description}`.
+  - `sections` — the full spec for each invented enumerable section: `csv`, `row_is`, `fields`, `sort`, `render`. Empty when the run invented none.
+
 **An empty `scope` means the plan has not been made yet** — a fresh topic, or a deliberate re-plan. That is the state Extract's resume reads as "nothing was fetched".
+
+**Identity and history outlive the plan.** That is why they share a file but not a lifetime: `run_history` must never lose an entry, while `scope` describes one run and is replaced when a run is re-planned. Anything that rewrites `scope` leaves the rest untouched.
 
 Two reasons the plan is a file rather than a step in your head:
 
 - **Resume needs a checkpoint.** Without it, a run killed during Extract cannot tell "planned but not searched" from "half searched", and re-planning produces different angles than the ones the half-finished cache was built against.
-- **The ceiling is knowable here.** Branches × `fetchesPerBranch` is the run's upper bound on fetches, decided before a single request goes out. Record it; the audit log reports what was actually spent against it.
+- **The ceiling is knowable here.** Branches × the run's `fetchesPerBranch` is the upper bound on fetches, decided before a single request goes out. The audit log reports what was actually spent against it.
+
+Written by the orchestrator: identity at the start of Plan, `scope` once the plan is settled, and a `run_history` entry appended at the end of each run.
 
 ## End of Plan
 
-Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch, the scouted vocabulary behind it, and every section the summary will have. In manual mode it is complete only once the user has seen it and gone ahead (§3.1); in `--auto`, once it is written. What the user is asked to confirm, and when, is `../research_plan.md` step 3.
+Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch, the scouted vocabulary behind it, and every section the summary will have. In manual mode it is complete only once the user has seen the plan and gone ahead (§3.1); in `--auto`, once it is written.

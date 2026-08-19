@@ -23,11 +23,42 @@ edits to the design land.
       the title, value is a pointer or a definition. Predefined first, invented after.
 - [x] **S3** `plan_phase_a.md` §3.1 added: manual mode presents the plan and waits; sections are
       raised only when one was dropped or invented; `--auto` states and proceeds.
-- [x] **S4** `research_plan.md` — `scope` gains `deliverables` (map) and `sections`; run ceilings
-      move into each `run_history` entry, recording what actually applied.
+- [x] **S4** `research_plan.json`'s schema — `scope` gains `deliverables` (map) and `sections`; run
+      ceilings move into each `run_history` entry, recording what actually applied. (The schema was
+      in `brain/research_plan.md` at the time; see F1 below for where it lives now.)
 - [x] **S5** `subagent_returns.json` — the `scope` shape returns the section list.
 - [x] **S6** `synthesize_phase_d.md` §3.6 — an invented enumeration renders from its own file.
 - [x] **S7** `general-inquiry.md` — dropped the claim that angle approval is unique to `ask`.
+
+## File boundaries — done in this pass
+
+`brain/research_plan.md` was `topic.md` renamed, and held five unrelated jobs. It is deleted; each
+part moved to the file that owns it.
+
+- [x] **F1** Plan's own work → `phases/plan_phase_a.md`: slugging and the conditional stop, the
+      fresh / re-run / branched detection, the three flows, and the `research_plan.json` schema.
+      §1 was a three-bullet stub that deferred elsewhere; it is now the whole step.
+- [x] **F2** The output contract → `phases/index.md` §"Where a run writes": the directory layout,
+      the summary filename convention, the who-writes-what table, and the temp-file / `_misc` rule.
+      Every phase reads that file already.
+- [x] **F3** "Anything new that writes a shared file needs a lock or a single writer" → `AGENTS.md`.
+      It is a build-time constraint on us, not an instruction to a run — same move as the anonymity
+      rule. The file-to-writer map stays in the brain, at `phases/index.md`.
+- [x] **F4** What an executive summary is → `output.md`. It is a writing rule, and `output.md` is
+      the one file the dispatch template sends automatically, so the Report Writer now receives it.
+      Closes half of §8's Missing rules. The two editors still get nothing — task 16.
+- [x] **F5** Player numeric carryover → `synthesize_phase_d.md` §1, beside carryover revalidation,
+      which is where it was always executed.
+- [x] **F6** Deleted the duplicate `research_plan.json` example in `plan_phase_a.md` — the copy where
+      `fetchesPerBranch` had drifted back into `scope`. One copy now.
+- [x] **F7** Repointed every reference: `brain/index.md` (the Plan step, the phase-map row, and the
+      one-row Topic-state map, now collapsed into the phase map), `modes.md`, `sections.md`,
+      `synthesize_phase_d.md`, `SKILL.md`, and all four reference files.
+- [x] **F8** Fixed two stale prose links found on the way: `sources/reddit.md` and `vetting.md`.
+
+Left open, and now visible in one file rather than split across two: **manual mode has two stops
+in Plan** — §1 step 3 (conditional, about the topic) and §3.1 (unconditional, about the plan).
+Neither changed; §1 now says outright that they are separate. Decide whether both should stay.
 
 ## New agents
 
@@ -120,7 +151,7 @@ edits to the design land.
       `@foo` into one person.
 - [ ] **39** Define the Report Writer's input: how every surviving claim reaches it. It is the
       largest prompt in the run and nothing specifies it.
-- [ ] **40** Settle who writes `players.csv` and the summary. `research_plan.md:31` says the
+- [ ] **40** Settle who writes `players.csv` and the summary. `phases/index.md:49` says the
       Report Writer; §3.5 and §3.6 are written as orchestrator steps against the same files.
 
 ## Repo hygiene

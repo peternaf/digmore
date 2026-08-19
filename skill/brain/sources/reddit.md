@@ -30,7 +30,7 @@ Pass one or more `--subreddit <name>` to scope to topically relevant subreddits.
 
 **Multi-sub is one request, and the merge happens on the far side of the API.** Order carries meaning — the first `--subreddit`'s hits rank above the second's — `--limit` applies to the merged list rather than per subreddit, and `relevance` is rank *within* that merged list. Reversing the subs is a different query with different results, not the same one.
 
-**`--time-window` defaults to `year`**, Reddit's largest bounded window. For `recency.md`'s 2-year window pass `--time-window all --after-date <today-minus-2y>`: `--after-date` applies a post-creation filter on top of the unbounded window. That pair is the caller's job on every discovery search — the default is a floor, not the rule.
+**`--time-window` defaults to `year`**, Reddit's largest bounded window. For `../recency.md`'s 2-year window pass `--time-window all --after-date <today-minus-2y>`: `--after-date` applies a post-creation filter on top of the unbounded window. That pair is the caller's job on every discovery search — the default is a floor, not the rule.
 
 After search returns URLs, Source extractors call `api.mjs reddit thread` on each.
 

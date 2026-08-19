@@ -9,7 +9,7 @@ A five-phase research pass over a market or space. The goal is a fact-checked, e
 Free-form prose. Examples:
 
 - `/digmore landscape video API providers — pricing tiers and recent moves`
-- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/research_plan.md`)
+- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/phases/plan_phase_a.md` §1)
 - `/digmore landscape --auto serverless OLAP databases B2B`
 
 ## What this command emphasizes
