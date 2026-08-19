@@ -474,7 +474,7 @@ test('the three verbs are story, user and vet — there is no search', async () 
 
 test('vet returns the name, verdict, signals and reason', async () => {
   const opts = await stub(userStub({ page: userPage({ karma: 4321 }) }));
-  const payload = await hackernews.run(['vet', 'someone', '--topic', 'demo'], opts);
+  const payload = await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
   assert.deepEqual(Object.keys(payload).sort(), ['name', 'reason', 'signals', 'verdict']);
   assert.equal(payload.name, 'someone');
   assert.equal(payload.verdict, 'legit');
@@ -482,8 +482,8 @@ test('vet returns the name, verdict, signals and reason', async () => {
 
 test('a run needs --topic, and an unknown verb is refused', async () => {
   const opts = await stub(userStub());
-  await assert.rejects(() => hackernews.run(['user', 'someone'], opts), /--topic/);
-  await assert.rejects(() => hackernews.run(['search', 'anything', '--topic', 'demo'], opts), /search/);
+  await assert.rejects(() => hackernews.runCommand(['user', 'someone'], opts), /--topic/);
+  await assert.rejects(() => hackernews.runCommand(['search', 'anything', '--topic', 'demo'], opts), /search/);
   assert.equal(hits.length, 0, 'nothing is fetched on a bad invocation');
 });
 

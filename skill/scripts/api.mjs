@@ -202,7 +202,7 @@ const reddit = {
     // brain/recency.md is `--time-window all --after-date <today-minus-2y>`, passed
     // by the caller.
     const timeWindow = flags.timeWindow ?? 'year';
-    const cacheKey = `search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
+    const cacheKey = `reddit-search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
 
     return cached(ctx, cacheKey, () =>
       request(ctx.config, '/v1/reddit/search', {
@@ -219,7 +219,7 @@ const reddit = {
   async thread(ctx, [idOrPermalink], flags) {
     if (!idOrPermalink) throw new ApiError('reddit thread needs an id or permalink', EXIT.USAGE);
     const threadId = postId(idOrPermalink);
-    return cached(ctx, `thread-${threadId}.json`, () =>
+    return cached(ctx, `reddit-thread-${threadId}.json`, () =>
       request(ctx.config, `/v1/reddit/thread/${encodeURIComponent(threadId)}`, {
         limit: flags.limit ?? 500,
       }),
@@ -243,9 +243,9 @@ const reddit = {
    */
   async user(ctx, [name]) {
     if (!name) throw new ApiError('reddit user needs a name', EXIT.USAGE);
-    const aboutKey = `user-about-${name}.json`;
-    const commentsKey = `user-comments-${name}.json`;
-    const vetKey = `vet-${name}.json`;
+    const aboutKey = `reddit-user-about-${name}.json`;
+    const commentsKey = `reddit-user-comments-${name}.json`;
+    const vetKey = `reddit-vet-${name}.json`;
 
     const about = readCache(ctx.dir, aboutKey);
     const comments = readCache(ctx.dir, commentsKey);
@@ -268,7 +268,7 @@ const reddit = {
 const twitter = {
   async user(ctx, [handle]) {
     if (!handle) throw new ApiError('twitter user needs a handle', EXIT.USAGE);
-    return cached(ctx, `user-${handle}.json`, () =>
+    return cached(ctx, `twitter-user-${handle}.json`, () =>
       request(ctx.config, `/v1/twitter/user/${encodeURIComponent(handle)}`),
     );
   },
@@ -281,7 +281,7 @@ const twitter = {
     if (!Number.isInteger(limit) || limit < 5 || limit > 100) {
       throw new ApiError('twitter tweets --limit must be a whole number from 5 to 100', EXIT.USAGE);
     }
-    return cached(ctx, `tweets-${handle}-${limit}.json`, () =>
+    return cached(ctx, `twitter-tweets-${handle}-${limit}.json`, () =>
       request(ctx.config, `/v1/twitter/tweets/${encodeURIComponent(handle)}`, { limit }),
     );
   },
@@ -297,7 +297,7 @@ const twitter = {
     const found = {};
     const missing = [];
     for (const tweetId of tweetIds) {
-      const cachedTweet = readCache(ctx.dir, `tweet-${tweetId}.json`);
+      const cachedTweet = readCache(ctx.dir, `twitter-tweet-${tweetId}.json`);
       if (cachedTweet === undefined) missing.push(tweetId);
       else found[tweetId] = cachedTweet;
     }
@@ -309,7 +309,7 @@ const twitter = {
       for (const tweet of asResults(payload)) {
         const tweetId = String(tweet.id ?? '');
         if (!tweetId) continue;
-        writeCache(ctx.dir, `tweet-${tweetId}.json`, tweet);
+        writeCache(ctx.dir, `twitter-tweet-${tweetId}.json`, tweet);
         found[tweetId] = tweet;
       }
     }
@@ -323,7 +323,7 @@ const twitter = {
     if (!['1', '2', '3'].includes(String(tier))) {
       throw new ApiError('twitter vet needs --tier 1, 2 or 3', EXIT.USAGE);
     }
-    return cached(ctx, `vet-${handle}-tier${tier}.json`, () =>
+    return cached(ctx, `twitter-vet-${handle}-tier${tier}.json`, () =>
       request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { tier }),
     );
   },

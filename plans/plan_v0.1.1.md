@@ -17,48 +17,90 @@ edits to the design land.
 
 ## Sections — done in this pass
 
-- [x] **S1** New `brain/sections.md` — the three section types, how an invented enumerable section
+- [x] **64** New `brain/sections.md` — the three section types, how an invented enumerable section
       plans its CSV, who fills it, how it renders.
-- [x] **S2** `plan_phase_a.md` §3 rewritten: `scope.deliverables` is every section in order, key is
+- [x] **65** `plan_phase_a.md` §3 rewritten: `scope.deliverables` is every section in order, key is
       the title, value is a pointer or a definition. Predefined first, invented after.
-- [x] **S3** `plan_phase_a.md` §3.1 added: manual mode presents the plan and waits; sections are
+- [x] **66** `plan_phase_a.md` §3.1 added: manual mode presents the plan and waits; sections are
       raised only when one was dropped or invented; `--auto` states and proceeds.
-- [x] **S4** `research_plan.json`'s schema — `scope` gains `deliverables` (map) and `sections`; run
+- [x] **67** `research_plan.json`'s schema — `scope` gains `deliverables` (map) and `sections`; run
       ceilings move into each `run_history` entry, recording what actually applied. (The schema was
-      in `brain/research_plan.md` at the time; see F1 below for where it lives now.)
-- [x] **S5** `subagent_returns.json` — the `scope` shape returns the section list.
-- [x] **S6** `synthesize_phase_d.md` §3.6 — an invented enumeration renders from its own file.
-- [x] **S7** `general-inquiry.md` — dropped the claim that angle approval is unique to `ask`.
+      in `brain/research_plan.md` at the time; see 43 below for where it lives now.)
+- [x] **68** `subagent_returns.json` — the `scope` shape returns the section list.
+- [x] **69** `synthesize_phase_d.md` §3.6 — an invented enumeration renders from its own file.
+- [x] **70** `general-inquiry.md` — dropped the claim that angle approval is unique to `ask`.
 
 ## File boundaries — done in this pass
 
 `brain/research_plan.md` was `topic.md` renamed, and held five unrelated jobs. It is deleted; each
 part moved to the file that owns it.
 
-- [x] **F1** Plan's own work → `phases/plan_phase_a.md`: slugging and the conditional stop, the
+- [x] **43** Plan's own work → `phases/plan_phase_a.md`: slugging and the conditional stop, the
       fresh / re-run / branched detection, the three flows, and the `research_plan.json` schema.
       §1 was a three-bullet stub that deferred elsewhere; it is now the whole step.
-- [x] **F2** The output contract → `phases/index.md` §"Where a run writes": the directory layout,
+- [x] **44** The output contract → `phases/index.md` §"Where a run writes": the directory layout,
       the summary filename convention, the who-writes-what table, and the temp-file / `_misc` rule.
       Every phase reads that file already.
-- [x] **F3** "Anything new that writes a shared file needs a lock or a single writer" → `AGENTS.md`.
+- [x] **45** "Anything new that writes a shared file needs a lock or a single writer" → `AGENTS.md`.
       It is a build-time constraint on us, not an instruction to a run — same move as the anonymity
       rule. The file-to-writer map stays in the brain, at `phases/index.md`.
-- [x] **F4** What an executive summary is → `output.md`. It is a writing rule, and `output.md` is
+- [x] **46** What an executive summary is → `output.md`. It is a writing rule, and `output.md` is
       the one file the dispatch template sends automatically, so the Report Writer now receives it.
       Closes half of §8's Missing rules. The two editors still get nothing — task 16.
-- [x] **F5** Player numeric carryover → `synthesize_phase_d.md` §1, beside carryover revalidation,
+- [x] **47** Player numeric carryover → `synthesize_phase_d.md` §1, beside carryover revalidation,
       which is where it was always executed.
-- [x] **F6** Deleted the duplicate `research_plan.json` example in `plan_phase_a.md` — the copy where
+- [x] **48** Deleted the duplicate `research_plan.json` example in `plan_phase_a.md` — the copy where
       `fetchesPerBranch` had drifted back into `scope`. One copy now.
-- [x] **F7** Repointed every reference: `brain/index.md` (the Plan step, the phase-map row, and the
+- [x] **49** Repointed every reference: `brain/index.md` (the Plan step, the phase-map row, and the
       one-row Topic-state map, now collapsed into the phase map), `modes.md`, `sections.md`,
       `synthesize_phase_d.md`, `SKILL.md`, and all four reference files.
-- [x] **F8** Fixed two stale prose links found on the way: `sources/reddit.md` and `vetting.md`.
+- [x] **50** Fixed two stale prose links found on the way: `sources/reddit.md` and `vetting.md`.
 
 Left open, and now visible in one file rather than split across two: **manual mode has two stops
 in Plan** — §1 step 3 (conditional, about the topic) and §3.1 (unconditional, about the plan).
 Neither changed; §1 now says outright that they are separate. Decide whether both should stay.
+
+## Cache naming and the fetch path
+
+**Built in this pass — `fetch.mjs`, `api.mjs`, `hackernews.mjs`:**
+
+- [x] **51** `fetch.mjs` derives the filename from the URL — `filenameOnlyFromUrl`, host then path
+      and query, non-alphanumerics to `_`, truncated at `FILENAME_ONLY_MAX` with `_<md5(url)[:8]>`
+      appended **only** when truncation happened. One URL, one file. Design: §3, the DECIDED item.
+- [x] **52** `--output-dir` replaces `--output`. The caller says where, the script says what.
+      Passing a filename is no longer possible — that was how one page got cached twice under two
+      names an agent typed.
+- [x] **53** `--output-dir` returns a page already on disk instead of re-fetching it
+      (`{path, bytes, cached: true}`). `long-form.md` asked for this and left it to the caller,
+      which meant it never happened: the caller could not know the name.
+- [x] **54** On failure, `fetch.mjs` puts `filename_only` and `path` in the error payload. A wall is
+      where the run defers to WebFetch, and what WebFetch returns must be saved under the name
+      `fetch.mjs` would have used, or resume and dedup see two files for one URL. No second call,
+      and nothing for the agent to derive.
+- [x] **55** Cache filenames carry their platform: `reddit-`, `twitter-`, `hackernews-`. 14 sites
+      across `api.mjs` and `hackernews.mjs`. The directory already says it, but files leave the
+      directory — the real runs put 46 vet verdicts in `_misc/`, where the model had invented
+      `vet-hn-` and `vet-rd-` prefixes for exactly this reason.
+
+**The brain has not been updated to match. Nothing below is done:**
+
+- [ ] **56** `long-form.md` — `--output` → `--output-dir` throughout; drop the "check existence
+      before calling" advice, which the script now does; state that the caller no longer names files.
+- [ ] **57** `long-form.md` — write the wall rule: `fetch.mjs` first; on a bot wall, defer to
+      WebFetch and save what it returns under the `filename_only` the error carried. Say plainly what
+      that costs — WebFetch truncates and does not say where, so a page taken this way may be short a
+      tail nobody can see, and the run records which tool got it.
+- [ ] **58** `sources/forums.md` and `sources/websearch.md` — the `--output` invocations.
+- [ ] **59** `sources/reddit.md`, `sources/hackernews.md`, `sources/twitter.md` — the cache-layout
+      sections still list the unprefixed filenames.
+- [ ] **60** `phases/index.md` §"Where a run writes" — the layout tree predates 55.
+- [ ] **61** `extract_phase_b.md:72` counts WebFetch against the branch budget while
+      `long-form.md:5` says "Do NOT use `WebFetch`". 57 settles which; make this line agree.
+- [ ] **62** Tests: `fetch.test.mjs` asserts `--output`; `api-reddit`, `api-twitter`,
+      `api-core` and `hackernews` assert the unprefixed filenames. All will fail as written.
+      Add coverage for `filenameOnlyFromUrl`, the cache hit, and `filename_only` on the error.
+- [ ] **63** `sources/hackernews.md` documents `vet-<name>.json`, which `hackernews.mjs` has never
+      written — the `vet` verb returns a verdict and caches nothing. Either cache it or drop the line.
 
 ## New agents
 
