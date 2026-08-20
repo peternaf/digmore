@@ -14,7 +14,7 @@
  *   node api.mjs twitter user   <handle>           --topic <slug>
  *   node api.mjs twitter tweets <handle>           --topic <slug> [--limit 25]
  *   node api.mjs twitter tweet  <tweet-id>...      --topic <slug>
- *   node api.mjs twitter vet    <handle>           --topic <slug> --tier 1|2|3
+ *   node api.mjs twitter vet    <handle>           --topic <slug> --posts <n>
  *
  * stdout carries JSON, stderr carries errors.
  */
@@ -113,7 +113,7 @@ function writeCache(dir, key, payload) {
   writeFileSync(join(dir, key), JSON.stringify(payload), 'utf8');
 }
 
-/** brain/sources/reddit.md — search keys carry md5(query)[:10]. */
+/** brain/subagents/branch_searcher_agent/reddit.md — search keys carry md5(query)[:10]. */
 export function queryHash(query) {
   return createHash('md5').update(query, 'utf8').digest('hex').slice(0, 10);
 }
@@ -186,7 +186,7 @@ async function request(config, path, params = {}) {
 
 const reddit = {
   /**
-   * brain/sources/reddit.md — multi-sub is the default, and the fan-out stays on the
+   * brain/subagents/branch_searcher_agent/reddit.md — multi-sub is the default, and the fan-out stays on the
    * API side: `?subreddits=` repeats and one merged list comes back.
    *
    * Not merged here, deliberately. Order, `limit` and `relevance` are all properties of
@@ -202,7 +202,7 @@ const reddit = {
     // brain/recency.md is `--time-window all --after-date <today-minus-2y>`, passed
     // by the caller.
     const timeWindow = flags.timeWindow ?? 'year';
-    const cacheKey = `search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
+    const cacheKey = `reddit-search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
 
     return cached(ctx, cacheKey, () =>
       request(ctx.config, '/v1/reddit/search', {
@@ -219,7 +219,7 @@ const reddit = {
   async thread(ctx, [idOrPermalink], flags) {
     if (!idOrPermalink) throw new ApiError('reddit thread needs an id or permalink', EXIT.USAGE);
     const threadId = postId(idOrPermalink);
-    return cached(ctx, `thread-${threadId}.json`, () =>
+    return cached(ctx, `reddit-thread-${threadId}.json`, () =>
       request(ctx.config, `/v1/reddit/thread/${encodeURIComponent(threadId)}`, {
         limit: flags.limit ?? 500,
       }),
@@ -243,9 +243,9 @@ const reddit = {
    */
   async user(ctx, [name]) {
     if (!name) throw new ApiError('reddit user needs a name', EXIT.USAGE);
-    const aboutKey = `user-about-${name}.json`;
-    const commentsKey = `user-comments-${name}.json`;
-    const vetKey = `vet-${name}.json`;
+    const aboutKey = `reddit-user-about-${name}.json`;
+    const commentsKey = `reddit-user-comments-${name}.json`;
+    const vetKey = `reddit-vet-${name}.json`;
 
     const about = readCache(ctx.dir, aboutKey);
     const comments = readCache(ctx.dir, commentsKey);
@@ -268,7 +268,7 @@ const reddit = {
 const twitter = {
   async user(ctx, [handle]) {
     if (!handle) throw new ApiError('twitter user needs a handle', EXIT.USAGE);
-    return cached(ctx, `user-${handle}.json`, () =>
+    return cached(ctx, `twitter-user-${handle}.json`, () =>
       request(ctx.config, `/v1/twitter/user/${encodeURIComponent(handle)}`),
     );
   },
@@ -281,13 +281,13 @@ const twitter = {
     if (!Number.isInteger(limit) || limit < 5 || limit > 100) {
       throw new ApiError('twitter tweets --limit must be a whole number from 5 to 100', EXIT.USAGE);
     }
-    return cached(ctx, `tweets-${handle}-${limit}.json`, () =>
+    return cached(ctx, `twitter-tweets-${handle}-${limit}.json`, () =>
       request(ctx.config, `/v1/twitter/tweets/${encodeURIComponent(handle)}`, { limit }),
     );
   },
 
   /**
-   * brain/sources/twitter.md — the only path to a quotable tweet body. WebSearch sees
+   * brain/subagents/page_analyst_agent/twitter.md — the only path to a quotable tweet body. WebSearch sees
    * only the og:title, roughly the first 15 words, because x.com hydrates client-side.
    * One cache file per tweet id, so re-quoting across runs does not re-fetch.
    */
@@ -297,7 +297,7 @@ const twitter = {
     const found = {};
     const missing = [];
     for (const tweetId of tweetIds) {
-      const cachedTweet = readCache(ctx.dir, `tweet-${tweetId}.json`);
+      const cachedTweet = readCache(ctx.dir, `twitter-tweet-${tweetId}.json`);
       if (cachedTweet === undefined) missing.push(tweetId);
       else found[tweetId] = cachedTweet;
     }
@@ -309,7 +309,7 @@ const twitter = {
       for (const tweet of asResults(payload)) {
         const tweetId = String(tweet.id ?? '');
         if (!tweetId) continue;
-        writeCache(ctx.dir, `tweet-${tweetId}.json`, tweet);
+        writeCache(ctx.dir, `twitter-tweet-${tweetId}.json`, tweet);
         found[tweetId] = tweet;
       }
     }
@@ -317,14 +317,26 @@ const twitter = {
     return { tweets: tweetIds.map((tweetId) => found[tweetId]).filter(Boolean) };
   },
 
+  /**
+   * Vetting runs at two depths, and `--posts` is the whole of the difference: 0 reads the
+   * profile alone, a positive number also reads that many of the handle's recent posts.
+   * Which counts X will actually serve is the API's business, so this refuses only what
+   * could never be a count at all.
+   *
+   * Each depth caches under its own name, so going deeper on a handle fetches the deeper
+   * answer instead of re-reading the shallow one already on disk.
+   */
   async vet(ctx, [handle], flags) {
     if (!handle) throw new ApiError('twitter vet needs a handle', EXIT.USAGE);
-    const tier = flags.tier;
-    if (!['1', '2', '3'].includes(String(tier))) {
-      throw new ApiError('twitter vet needs --tier 1, 2 or 3', EXIT.USAGE);
+    if (!/^\d+$/.test(String(flags.posts ?? ''))) {
+      throw new ApiError(
+        'twitter vet needs --posts, a whole number of posts to read (0 for the profile alone)',
+        EXIT.USAGE,
+      );
     }
-    return cached(ctx, `vet-${handle}-tier${tier}.json`, () =>
-      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { tier }),
+    const posts = Number(flags.posts);
+    return cached(ctx, `twitter-vet-${handle}-${posts}posts.json`, () =>
+      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { posts }),
     );
   },
 };

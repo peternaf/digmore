@@ -13,7 +13,7 @@
  * stderr says why.
  */
 
-import { loadOrCreateConfig, MALFORMED, configPath } from './config.mjs';
+import { loadOrCreateConfig, MALFORMED, configPath, ceilingsFor, CEILING_NOTES } from './config.mjs';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -145,13 +145,36 @@ Use these numbers. Do not assume a default the user may have raised.${advice}`;
  */
 export function ceilingsReport(config) {
   if (config === MALFORMED) return '';
+
+  const full = ceilingsFor(config);
+  const fast = ceilingsFor(config, { fast: true });
+
+  const rows = [];
+  for (const [group, ceilings] of Object.entries(full)) {
+    for (const name of Object.keys(ceilings)) {
+      const fullValue = ceilings[name];
+      const fastValue = fast[group][name];
+      rows.push({
+        key: `${group}.${name}`,
+        value: fastValue === fullValue ? String(fullValue) : `${fullValue} → ${fastValue}`,
+        note: CEILING_NOTES[`${group}.${name}`] ?? '',
+      });
+    }
+  }
+
+  const keyWidth = Math.max(...rows.map((row) => row.key.length));
+  const valueWidth = Math.max(...rows.map((row) => row.value.length));
+  const lines = rows
+    .map((row) => `  ${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.note}`.trimEnd())
+    .join('\n');
+
   return `
 
 digmore: RUN CEILINGS — from ${configPath()}:
-  fetchesPerBranch: ${config.fetchesPerBranch}   (URLs per angle-source pair, pages included)
-  vetHandleCap: ${config.vetHandleCap}   (handles vetted per run)
+${lines}
 
-Use these numbers. They are the user's, not defaults to assume.`;
+Use these numbers. They are the user's, not defaults to assume. Where two are shown, the
+second applies in --fast; a single number applies in both. A zero means that step is skipped.`;
 }
 
 /** The sources that need the API. Everything else runs either way. */

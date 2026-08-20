@@ -38,12 +38,14 @@ as though they had never posted at all.
 
 In order:
 
-1. Missing or throwaway profile → `unknown`.
+1. Missing or empty profile → `unknown`. The page could not be read, which is not a judgement about
+   the person — do not confuse it with the `throwaway` verdict at 4.
 2. Bio host repeated ≥3 times in recent comments → `promoter`. Platform hosts are excluded —
    `news.ycombinator.com`, `ycombinator.com`, `hn.algolia.com` — because regulars link to HN itself
    constantly.
 3. A non-bio, non-platform host repeated ≥5 times → `spammer`.
-4. Age < 90 days with karma < 50 → `unknown`.
+4. Under 90 days old, karma < 50, and fewer than 20 lifetime posts → `throwaway`. All three
+   together, never one alone.
 5. Zero comments sampled, submissions only → `unknown`.
 6. **Karma > 1000 → `legit`.** On its own, regardless of age, including when age is unknown.
 7. Age ≥ 2 years with karma > 100 → `legit`.

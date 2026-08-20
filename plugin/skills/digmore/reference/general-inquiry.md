@@ -9,7 +9,7 @@ Answer a specific business question with evidence pulled from every source digmo
 A free-form question. Examples:
 
 - `/digmore ask how does paperswithcode's founder make money from paperswithcode`
-- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/research_plan.md`)
+- `/digmore ask what alternatives are there to gstreamer that people actually use` (underspecified — "for what use case?" — clarify before slugging, per `../brain/phases/plan_phase_a.md` §1)
 - `/digmore ask --fast what are the recurring complaints about whisper.cpp on CPU?`
 - `/digmore ask --auto is paperswithcode still being maintained`
 
@@ -43,7 +43,7 @@ Recommended angles MAY draw from the lens-template menu below or be invented fro
 | what's the state of W | recent moves · loud signals · contrarian takes · quiet incumbents · what experts predict |
 | who is person P / what does P do / research P | current roles & employers · monetization (salary + side income + equity) · public takes & track record · industry network/influence · **digital-footprint inventory (mandatory — see below)** |
 
-The angle set is approved before searching — a step no other command has. Where the mode leaves room to ask, present both sets and wait for a pick, edit, extension or approval; where it does not, take the strongest recommended set. Bonus angles are offered, never run.
+Every command shows its plan before searching (`../brain/phases/plan_phase_a.md` §3.1). What `ask` adds is the bonus set: present both, and wait for a pick, edit, extension or approval; where the mode leaves no room to ask, take the strongest recommended set. Bonus angles are offered, never run.
 
 ### Person-inquiry rule — the digital-footprint angle is mandatory
 

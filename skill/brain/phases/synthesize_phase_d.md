@@ -2,7 +2,7 @@
 
 Print `[4/5] Synthesize` when this phase starts (`../reporting.md`).
 
-Inputs: Extract's structured claims (from the Search Source extractors) + Source notes free-flow source notes + Vet's `experts.csv`.
+Inputs, all of them **on disk rather than in your context**: Extract's claims files under `cache/<source>/`, the Source Analysts' notes under `full_source_analysis/`, and Vet's `experts.csv`. You hold the Page Analysts' receipts — what came of each page, not what was in it. The Report Writer reads the files.
 
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
@@ -13,28 +13,50 @@ Re-read `../output.md` before writing any output. Read `../vetting.md` for the v
 
 ## 1. Filter
 
-Re-pass Extract's datapoints. Drop low-quality:
-- Quotes from handles whose final verdict (after the topical-relevance layer) is not `legit` are dropped, except `promoter` quotes used explicitly as promotional signals.
+The filter runs **inside the Report Writer**, not here — it is per-claim work over files you do not hold. What you pass it is the verdict list: every vetted handle and what Vet decided about them. These are the rules it applies:
+
+**The verdict decides how a quote is used, not usually whether it survives.** Per `../vetting.md`:
+
+| Final verdict | What happens to their quotes |
+|---|---|
+| `legit` | quoted freely |
+| `unknown` | **kept, marked "anonymous, unverified"** |
+| `promoter` | kept only as a promotional signal, labelled |
+| `spammer`, `throwaway` | dropped |
+
+**`unknown` is not a reason to drop someone.** It means the check found nothing disqualifying and nothing conclusive — and every handle that reached vetting at all got there by ranking high on what they contributed to this question. Throwing that away loses evidence the run paid for and already judged relevant. The caveat is the answer: the reader sees the quote and sees that we could not confirm who wrote it.
+
+This holds on every source, forums included. A forum handle with no reputation signal is the weakest voice in the run, and it is still a voice that said something the roster ranked worth reading.
+
+Independent of the person, on source quality alone:
+
 - Sources tagged `unreliable` are dropped.
-- Sources tagged `forum` from `unknown` handles are dropped.
+
+A claim carries the `handle` that said it, so the verdict rules apply claim by claim. Claims from the open web and from the user's own documents carry no handle — no account, nobody to vet — and are filtered on source quality alone.
 
 **Carryover revalidation.** When the topic was branched from a sibling (`research_plan.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
 
 **Player numeric carryover.** A player that survives revalidation and enters the child keeps the parent's `monthly_visits` and `funding_stage` — copy them across, no re-fetch. If either is missing on the parent row, the parent was incomplete: fix the parent first, then re-copy. `UNAVAILABLE` in the child because the parent did not have it is not acceptable.
 
-Within each thread, prioritize **answering** comments — high-upvote replies, OP "this worked / thanks" responses, marked answers — not generic discussion.
+Both carryover rules are yours: they are about the parent topic's CSVs, which are small and which you do hold.
 
 ## 2. Expand
 
 Simultaneously, follow now-known experts elsewhere (their other comments, posts, profiles) to surface new datapoints not found in Extract. Re-use the cache where possible.
 
-Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert expansion at 10 URLs.
+Reuse the same Page Analyst shape as Search — claims to a file, a receipt back. Two ceilings bound this, both printed by `preflight.mjs`: `synthesize.expertsFollowed` — how many experts are followed at all — and `synthesize.urlsPerExpert` for each of them. Multiply them before starting: that product is the phase's fetch budget, and it is separate from `extract.fetchesPerBranch`, which does not reach here.
 
 ## 3. Synthesize
 
-Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
+Dispatch ONE Report Writer sub-agent, per `../subagents/dispatch_structured_subagent.md`. It returns the `synthesizer` shape (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
-Dispatch ONE synthesizer sub-agent, per `../subagents/dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+**Give it the directories, not the claims.** Every claims file sits in `cache/<source>/` beside the page it came from; name the topic's cache and it finds them, the way the Source Analyst already does. Plus the verdict list from §1 and the notes under `full_source_analysis/`. It reads all of it itself. This is the one agent that needs the whole claim set at once — which is why it is the one that reads it, rather than every phase carrying it.
+
+Its filtering and merging happen there:
+
+**Merge semantic duplicates** — claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
+
+**Prioritise answering comments** within each thread — high-upvote replies, OP "this worked / thanks" responses, marked answers — over generic discussion.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 

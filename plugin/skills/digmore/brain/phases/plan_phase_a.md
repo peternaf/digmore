@@ -6,48 +6,125 @@ This phase settles two things and writes them to one file: **which topic this is
 
 Almost all of it is yours. One sub-agent is dispatched, to scout the subject — see below for why the split falls there.
 
-## 1. The topic
+## 1. The topic — identity, slug, and how this run relates to earlier ones
 
 Identity first, because the angles are built for a subject and the file they land in is named after it.
 
-- Parse the invocation, slug the topic, and decide whether this is a fresh topic, a re-run, or one branched from a parent. Rules in `../research_plan.md`.
-- **Underspecified topics get questions, not guesses.** In manual mode ask 2–3 before slugging; in `--auto` answer them yourself and record what you assumed. See `../modes.md`.
-- Write identity into `research_plan.json` — `slug`, `title`, `kind`, `created_at`, `parent_slug`, `originating_prompt` — and append this run's entry to `run_history`.
+A research topic is the working unit: a kebab-case directory name, a human-readable title, and state that persists across runs. Topics form **chains** — the user reads one output, spots an adjacent area, and starts a new topic that builds on the last. A session is often 3–10 related topics rather than one, so detecting that is part of this step.
 
 This part cannot be a sub-agent: it talks to the user, and a sub-agent has no channel to them.
 
-## 2. Scout the subject before deciding — the one sub-agent
+### Slug the topic
 
-Do not build the angles out of what you already know: writing them cold produces `incumbents`, `pricing`, `pain points` — true of every market, useful for none. Find out what the subject actually is first.
+1. **Underspecified topics get questions, not guesses.** "video stuff", with no buyer, use-case or domain anchor, is underspecified. In manual mode ask 2–3 clarifying questions before slugging; the refined topic is what gets slugged. In `--auto` answer them yourself from what you can see, slug on that, and record the reading you took in the run's Issues. See `../modes.md`.
+2. List existing topics under `digmore/` to detect re-run or branching cases the user did not name explicitly.
+3. **State what you detected — fresh / re-run / branched from a parent, the slug, the parent, the mode — and then stop only if you chose something the user did not.** In manual mode, that means waiting for a go-ahead when, and only when, one of these is true:
+   - a parent was picked from more than one candidate topic;
+   - the run is being treated as a re-run or a branch and the user did not say so;
+   - the topic stayed underspecified after the questions in step 1.
 
-Dispatch **ONE Subject Scout**, per `../dispatch_structured_subagent.md`. It goes out to the open web — unbudgeted here — and returns the `scope` shape (see `../../scripts/subagent_returns.json`): the vocabulary the subject's own people use, and the names that recur.
+   Otherwise say what you detected in a line or two and go straight into §2. A confirmation that only ever repeats what the user typed teaches them to say yes without reading, which is the state in which a wrong parent slips through.
 
-It is a sub-agent for one reason: scouting reads a lot of the open web to produce a short answer, and none of that raw reading is worth carrying for the rest of the run. What comes back is small; what it read is not.
+   This stop is separate from §3.1, which shows the finished plan and always waits. This one is about the topic; that one is about what the run will go and read.
 
-It returns the vocabulary and the names and nothing else. The angles are yours, built from what it found — you are the one who will use them.
+   In auto mode there is no stop at all: state the reading, proceed, and record it in the run's Issues.
 
-Record what came back in `research_plan.json` under `scope`. In `--fast` there is less time for this, not none.
+Slug rules:
+- Kebab-case, ASCII only, no leading/trailing dashes.
+- 2–5 words is the sweet spot. `video-api-providers` beats `v` beats `video-api-providers-b2b-deep-research-2026-06`.
+- Include the key disambiguating dimension when there is one — `video-api-providers` vs. `video-api-providers-b2b` if you anticipate a sibling B2C topic.
 
-## 3. What the user asked for — things, or an understanding
+### Three flows beyond a fresh topic
 
-Decide this before the angles, and record it. Two requests that look alike want different deliverables:
+1. **Incremental update of an existing topic.** The user extends `experts.csv`, or experts were auto-added by an earlier run. Re-running re-vets old datapoints against the new expert list and surfaces new datapoints introduced by those experts.
 
-- **An enumeration.** "List the online hubs for TTS", "which vendors ship X", "who are the people worth following". The deliverable is a **set of records** the user will act on one by one. Success means the set is complete, each entry is reachable, and nothing is missing.
-- **An understanding.** "Why do people dislike X", "is X worth adopting", "how is X being promoted". The deliverable is an **argument** built from evidence. Success means the reasoning holds and every claim is sourced.
+2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_d.md` §1.
 
-Most runs are some of both, so record the enumerations the request contains rather than picking one label for the whole run: `scope.deliverables: ["hubs", "influencers"]`. Each named enumeration becomes a CSV row set and its own summary section, rendered per `synthesize_phase_d.md` §3.6.
+3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary. The user decides what is worth a follow-up; do not pre-suggest one.
 
-This matters because the rest of the pipeline is built for the second kind. Extract mines claims, Vet judges handles, Audit checks claims against sources — all of it assumes the deliverable is an argument. An enumeration that is never declared here gets narrated as prose at the end, and the user is handed a paragraph naming twelve communities they cannot reach. Declaring it is what makes the list a list.
+### Write identity
 
-## 4. Angles
+Write `slug`, `title`, `kind`, `created_at`, `parent_slug` and `originating_prompt` into `research_plan.json`, and append this run's entry to `run_history`. Full field list below.
 
-Decompose the topic into 3–6 complementary angles, **built on what the Subject Scout surfaced** — its vocabulary, its recurring names, its live arguments. Angles are domain-aware:
+## 2. The angles — the one sub-agent
 
-- A B2B SaaS market gets angles like `incumbents`, `pricing tiers`, `pain points`, `alternatives`, `expert critiques`.
-- A hardware market gets different angles: `vendors`, `benchmarks`, `supply chain`, `firmware quirks`, `upgrade churn`.
-- A niche dev tool gets others again: `maintainers`, `workflow friction`, `breaking changes`, `ecosystem dependencies`.
+Do not write the angles out of what you already know: written cold they come out as `incumbents`,
+`pricing`, `pain points` — true of every market, useful for none. The subject has to be looked at
+first.
 
-`--fast` takes exactly 2; `ask` sets its own counts and approves them with the user (`../modes.md`).
+Dispatch **ONE Scoping agent**, per `../subagents/dispatch_structured_subagent.md`. It goes out to the open
+web — unbudgeted here — and returns the `scope` shape (see `../../scripts/subagent_returns.json`):
+the vocabulary the subject's own people use, the names that recur, and the angles built from them.
+
+It is a sub-agent for one reason: it reads a lot of the open web to produce a short answer, and none
+of that raw reading is worth carrying for the rest of the run. What comes back is small; what it
+read is not.
+
+**It returns the angles and stops there.** The sections are not its call — deciding them needs the
+command's reference file and, in manual mode, the user, and it has neither.
+
+Record what came back in `research_plan.json` under `scope`. In `--fast` there is less time for
+this, not none.
+
+## 3. The sections the summary will have — yours, not the agent's
+
+Decide the whole section list, in order, and record it as `scope.deliverables` — the key is the
+section's title, the value says what belongs in it. Rules and types in `../sections.md`.
+
+**Decide it from everything the Scoping agent returned, not just the angles** — the vocabulary tells
+you what these people call things, and the recurring names tell you who and what the summary will
+have to account for. A section list built from the angles alone is built from a third of what you
+were given.
+
+**Predefined first, in the command's order.** Each one's value is a pointer to the file that defines
+it, and nothing about its shape is repeated: `"Tactics inventory": "reference/gtm-teardown.md §1.4"`.
+The footer section is the only one that comes last no matter what
+
+**Then anything this run adds.** A section the command does not have, because this request wants it.
+Its value is `{"type": ..., "description": ...}`, and if it is enumerable — a `list` or a `chart` —
+`scope.sections` carries the rest of its spec: what a row is, the fields, the sort, how it renders.
+An enumerable section without that is not usable; see `../sections.md`.
+
+This matters because the rest of the pipeline is built for prose. Extract mines claims, Vet judges
+handles, Audit checks claims against sources — all of it assumes the answer is an argument. A list
+that is never declared here gets narrated as a paragraph at the end, and the user is handed twelve
+communities they cannot reach. Declaring it is what makes the list a list.
+
+## 3.1. Show the plan before running it
+
+**Manual mode: present the plan and wait.** The angles and the sources are what the user is being
+asked about — those decide what the run goes and reads. Say them in a line or two and offer the
+change:
+
+> 5 angles — dated channel appearances, repeatable programme tactics, promoter handles and
+> disclosure, backlash and repercussions, observed reach per tactic — across Reddit, Hacker News,
+> Twitter, web and forums. Standard gtm sections.
+>
+> Go ahead, or change an angle or a source.
+
+**Say nothing about the sections unless one of two things is true**: a predefined section was
+dropped, or a section was added that the request did not name. Both are facts, readable off
+`scope.deliverables`. When either holds, name the difference in one more line — "plus two sections
+not in the standard set: Paid promoter programmes, Timeline of dated moves" — and let the user
+change it. A confirmation that only ever repeats the standard list teaches them to say yes without
+reading.
+
+**In `--auto` there is no wait.** State the same thing, record it in the run's Issues, and proceed.
+
+## 4. Angles — check what came back
+
+The angles are the Scoping agent's, but they are yours to accept. Three things make one unusable,
+and all three are visible without re-searching:
+
+- **It is written in generic market language** rather than in the vocabulary the agent just
+  returned. That is the failure the whole step exists to prevent.
+- **Its `label` collides with another**, or is not kebab-case. The label names the branch, its log
+  file and its records.
+- **The count is wrong for the mode** — between `plan.minAngles` and `plan.maxAngles`, both printed by `preflight.mjs`; `ask` sets its own
+  (`../modes.md`).
+
+Send it back once if any of those hold, per `../subagents/dispatch_structured_subagent.md`. Do not quietly
+rewrite them: an angle you wrote yourself is one the agent's reading no longer stands behind.
 
 ## 5. Branches
 
@@ -57,39 +134,62 @@ Available means available on this run. Reddit and Twitter need an API key, so wi
 
 `local` joins only when the user handed something over.
 
-## `research_plan.json`
+## `research_plan.json` — the file this phase builds
 
-One file for the topic and the plan. Identity at the top level, this run's plan under `scope`. Full field list in `../research_plan.md`.
+One file for the topic and the plan. Identity at the top level, history beside it, this run's plan under `scope`. Plan owns this file; the later phases read it.
 
 ```json
 {
-  "slug": "tts-providers",
-  "title": "Text-to-speech API providers (B2B)",
+  "slug": "video-api-providers",
+  "title": "Video API providers landscape (B2B)",
   "kind": "landscape",
-  "created_at": "2026-08-18T09:00:00Z",
-  "parent_slug": null,
-  "originating_prompt": "research TTS API providers — pricing tiers and recent moves",
-  "run_history": [{"ts": "…", "kind": "fresh", "prompt": "…", "phases_completed": "plan"}],
+  "created_at": "2026-06-10T15:30:00Z",
+  "parent_slug": "video-infra-overview",
+  "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
+  "run_history": [
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "ceilings": {"extract": {"fetchesPerBranch": 20, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 50}, "synthesize": {"claimsFactChecked": 50}}, "phases_completed": "plan,extract,vet,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "ceilings": {"extract": {"fetchesPerBranch": 5, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 20}, "synthesize": {"claimsFactChecked": 10}}, "phases_completed": "plan,extract,vet"}
+  ],
   "scope": {
-    "vocabulary": ["voice cloning", "niqqud", "streaming latency"],
-    "recurring_names": ["ElevenLabs", "Cartesia", "Kokoro"],
-    "deliverables": ["hubs", "influencers"],
+    "vocabulary": ["voice cloning", "streaming latency"],
+    "recurring_names": ["ElevenLabs", "Cartesia"],
+    "deliverables": {"Players": "reference/landscape.md §1.1", "Licensing deals": {"type": "chart", "description": "…"}},
+    "sections": {"Licensing deals": {"type": "chart", "csv": "licensing-deals.csv", "row_is": "…", "fields": [{"name": "…", "description": "…"}], "sort": "…", "render": "…"}},
     "angles": [{"label": "pricing-tiers", "query": "...", "rationale": "..."}],
-    "sources": ["websearch", "hackernews", "forums"],
+    "sources": ["websearch", "hackernews"],
     "sources_unavailable": [{"source": "reddit", "reason": "no API key"}],
-    "branches": ["pricing-tiers × websearch", "pricing-tiers × hackernews"],
-    "fetchesPerBranch": 20
+    "branches": ["pricing-tiers × websearch"]
   }
 }
 ```
 
+Identity fields, set once and then left alone:
+- `slug` — kebab-case directory name (matches the folder, and the summary filename).
+- `title` — human-readable full title; what shows up when listing topics.
+- `kind` — command identity. Allowed values: `landscape`, `competitor`, `inquiry`, `gtm-teardown`.
+- `created_at` — ISO timestamp of topic creation.
+- `parent_slug` — null for fresh topics, set for branched/chained ones.
+- `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
+
+History, appended to and never rewritten:
+- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, `ceilings`, and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the ceilings is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the ceilings that applied, not the ones configured** — `--fast` lowers several, and the entry records what the run really used, in the same shape `preflight.mjs` printed them. Record the ones that bounded actual work this run; a group the run never reached does not need an entry.
+
+The plan, which belongs to the current run:
+- `scope` — `vocabulary`, `recurring_names`, `deliverables`, `sections`, `angles`, `sources`, `sources_unavailable`, `branches`. The first two come back from the Scoping agent (§2), the section fields are settled in §3 and specified in `../sections.md`, the angles are checked in §4, and the branches are built in §5.
+  - `deliverables` — every section of the summary, in order. Key is the title, value is either a pointer to the file that defines it or, for a section this run invented, `{type, description}`.
+  - `sections` — the full spec for each invented enumerable section: `csv`, `row_is`, `fields`, `sort`, `render`. Empty when the run invented none.
+
 **An empty `scope` means the plan has not been made yet** — a fresh topic, or a deliberate re-plan. That is the state Extract's resume reads as "nothing was fetched".
+
+**Identity and history outlive the plan.** That is why they share a file but not a lifetime: `run_history` must never lose an entry, while `scope` describes one run and is replaced when a run is re-planned. Anything that rewrites `scope` leaves the rest untouched.
 
 Two reasons the plan is a file rather than a step in your head:
 
 - **Resume needs a checkpoint.** Without it, a run killed during Extract cannot tell "planned but not searched" from "half searched", and re-planning produces different angles than the ones the half-finished cache was built against.
-- **The ceiling is knowable here.** Branches × `fetchesPerBranch` is the run's upper bound on fetches, decided before a single request goes out. Record it; the audit log reports what was actually spent against it.
+- **The ceiling is knowable here.** Branches × the run's `extract.fetchesPerBranch` is the upper bound on fetches, decided before a single request goes out. The audit log reports what was actually spent against it.
+
+Written by the orchestrator: identity at the start of Plan, `scope` once the plan is settled, and a `run_history` entry appended at the end of each run.
 
 ## End of Plan
 
-Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch and the scouted vocabulary behind it. The plan is written, not approved: Extract follows immediately. What the user is asked to confirm, and when, is `../research_plan.md` step 3.
+Plan is complete when `research_plan.json` holds the topic's identity and a `scope` with at least one branch, the scouted vocabulary behind it, and every section the summary will have. In manual mode it is complete only once the user has seen the plan and gone ahead (§3.1); in `--auto`, once it is written.

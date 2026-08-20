@@ -27,9 +27,11 @@ Hacker News or Twitter with a `legit` verdict, that carries — say which source
 **3. Otherwise `unknown`.** A forum handle with no reputation signal and no presence elsewhere is
 `unknown`, and that is the honest answer rather than a failure.
 
-`unknown` has a real cost here, and it is worth knowing as you decide: **Synthesize drops `forum`
-sources from `unknown` handles entirely** (`../../phases/synthesize_phase_d.md` §1). On this source the
-verdict is not a caveat, it is whether the quote survives.
+`unknown` is an honest answer here and it does not kill the quote — Synthesize keeps it, marked
+"anonymous, unverified" (`../../phases/synthesize_phase_d.md` §1). The handle reached you by ranking
+high on what they contributed to the question, and that is worth keeping even when the forum tells
+you nothing about who they are. What your verdict changes is how much weight the reader gives them,
+not whether they appear.
 
 ## Your part — topical relevance
 

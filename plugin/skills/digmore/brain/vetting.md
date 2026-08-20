@@ -16,7 +16,7 @@ Verdicts:
 3. `promoter` — only quote as a promotional signal, labeled.
 4. `troll` / `spammer` — drop.
 
-Verdict schema is shared across sources. Source-specific signals live in `sources/<source>.md`.
+Verdict schema is shared across sources. Source-specific signals live in `subagents/handle_vetter_agent/<source>.md`.
 
 ## Source quality (per URL, independent of commenter)
 
@@ -26,12 +26,12 @@ Each fetched source is classified independently of who posted it:
 - `secondary` — established outlets (Stripe blog, TechCrunch, Smashing Magazine), well-known engineering blogs.
 - `blog` — individual blogs, Medium, Substack, personal sites.
 - `forum` — Reddit, HN, Discord, specialty forums.
-- `internal` — a document or text the user handed over. See `sources/local.md`.
+- `internal` — a document or text the user handed over. See `subagents/page_analyst_agent/local.md`.
 - `unreliable` — content farms, marketing collateral, dead links, paywalled-no-cache.
 
 Used to (a) rank claims in Audit, (b) drive the confidence label on each finding in the summary.
 
-Rank order: `primary-3p` > `primary-self` > `secondary` > `blog` > `forum` > `unreliable`. `internal` sits outside the ranking — see `sources/local.md`.
+Rank order: `primary-3p` > `primary-self` > `secondary` > `blog` > `forum` > `unreliable`. `internal` sits outside the ranking — see `subagents/page_analyst_agent/local.md`.
 
 ## Confidence tag rule
 
@@ -81,12 +81,12 @@ When a topic is branched from a parent, the child inherits the parent's `experts
 
 ## Per-source vetting signals
 
-Behavioral signals live in `sources/<source>.md`. Examples:
+Behavioral signals live in `subagents/handle_vetter_agent/<source>.md`. Examples:
 - Reddit: account age, karma split, URL repetition, sub concentration, burst posting.
 - Hacker News: karma, account age, lifetime story / comment counts, recent comment sampling.
-- Twitter: tiered by depth (profile only → +25 tweets → +100 tweets), heuristic floor + LLM judgment for the expert/marketer call.
+- Twitter: two depths (profile alone, or profile + the handle's recent posts), heuristic floor + LLM judgment for the expert/marketer call.
 - WebSearch: domain authority + cross-reference against other sources' people.
-- The user's own documents: no vetting — there is no handle to vet. See `sources/local.md`.
+- The user's own documents: no vetting — there is no handle to vet. See `subagents/page_analyst_agent/local.md`.
 
 ## Topical relevance — caller responsibility
 
@@ -94,4 +94,4 @@ The source scripts' `vet_user` heuristics do NOT check topical relevance (the "d
 
 You — the orchestrating skill — layer that check on top of the script's verdict using the user's recent comments: on Reddit that is `recent_comments`, each object carrying its own body and subreddit, and on other sources the equivalent field. A handle that the heuristic returns `legit` for is still demoted to `unknown` if they have zero recent on-topic activity.
 
-The reading you take here is not just a filter — record it as `topical_relevance` on the row you write, per the schema above. It is the only place that judgement is made, and `landscape.md`'s Hubs table reads the column back.
+The reading you take here is not just a filter — record it as `topical_relevance` on the row you write, per the schema above. It is the only place that judgement is made, and `../reference/landscape.md`'s Hubs table reads the column back.

@@ -14,7 +14,7 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 - `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then per-source notes.
 - `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped.
 - `synthesize_phase_d.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
-- `audit_phase_e.md` — **Audit**: top-50 deep verification + per-claim verdict log.
+- `audit_phase_e.md` — **Audit**: deep verification of the top-ranked claims + per-claim verdict log.
 
 Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
 
@@ -31,7 +31,8 @@ digmore/<topic-slug>/
   players.csv                    # competitor / subject matrix
   <section-name>.csv             # one per invented enumerable section — ../sections.md
   audit.md                       # Audit verdict log
-  source_notes/<source>.md       # free-flow notes per source
+  full_source_analysis/<source>.md          # free-flow notes per source
+  full_source_analysis/<source>-handles.json # the ranked handle roster Vet works from
   cache/<source>/<file>          # raw fetched content, per-source
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
@@ -48,12 +49,29 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
 | `players.csv`, `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
 | `audit.md` | the orchestrator, in Audit |
-| `source_notes/<source>.md` | one sub-agent per source, each to its own file |
+| `full_source_analysis/<source>.md` | one Source Analyst per source, each to its own file |
+| `full_source_analysis/<source>-handles.json` | the Source Analyst creates it in Extract; the orchestrator adds the verdicts at the end of Vet. Two writers, never at the same time — the phases are ordered, and the Handle Vetters hand their verdicts back rather than writing here themselves |
 | `cache/**` | whichever sub-agent fetched or produced it, each to its own filename |
 
 **Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`.
 
 `_misc` is only for what belongs to no source. **Anything a source produced goes under that source**, at the filename that source's own file gives it. That is where resume looks for it, so a vetting verdict parked in `_misc` is a verdict the next run will pay to fetch again.
+
+## The bulk material never enters your context (cross-phase)
+
+**Claims and source notes live on disk. You hold neither.** Whatever step needs them opens the files itself.
+
+Your context has to survive all five phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, six sets of source notes — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
+
+| What | Written by | Read by |
+|---|---|---|
+| `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst for its roster, the Report Writer for the summary, the fact checker to verify |
+| `full_source_analysis/<source>.md` | each Source Analyst | the Report Writer |
+| `full_source_analysis/<source>-handles.json` | each Source Analyst, then the orchestrator at the end of Vet | Vet, to know who to vet and in what order; every later run, as the record of who was rejected and why |
+
+What you keep across the run: the receipts, the plan, the verdicts, and the run's own record. Never the bodies.
+
+**So a step that needs the material says which files, not what is in them.** A dispatch that pastes several hundred claims into a prompt has moved the problem rather than solved it — and it can only paste what you are holding, which is the thing this rule exists to prevent.
 
 ## What a sub-agent is (cross-phase)
 

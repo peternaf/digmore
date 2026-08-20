@@ -12,8 +12,22 @@
       "kind": "branch",
       "prompt": "how is elevenlabs promoting itself — every tactic, who runs it, and what happened when they did",
       "mode": "manual, full",
-      "fetchesPerBranch": 20,
-      "vetHandleCap": 50,
+      "ceilings": {
+        "extract": {
+          "fetchesPerBranch": 20,
+          "maxPagesPerDocument": 5
+        },
+        "vet": {
+          "handleCapPerSource": 50
+        },
+        "synthesize": {
+          "claimsFactChecked": 50
+        },
+        "twitter": {
+          "handlesDeepVetted": 20,
+          "postsPerDeepVet": 50
+        }
+      },
       "phases_completed": "plan,extract,vet,synthesize,audit"
     },
     {
@@ -21,8 +35,22 @@
       "kind": "re-run",
       "prompt": "re-run — add the ElevenHacks weekly series and settle the hackathon dating conflict",
       "mode": "auto, fast",
-      "fetchesPerBranch": 20,
-      "vetHandleCap": 50,
+      "ceilings": {
+        "extract": {
+          "fetchesPerBranch": 5,
+          "maxPagesPerDocument": 5
+        },
+        "vet": {
+          "handleCapPerSource": 20
+        },
+        "synthesize": {
+          "claimsFactChecked": 10
+        },
+        "twitter": {
+          "handlesDeepVetted": 0,
+          "postsPerDeepVet": 50
+        }
+      },
       "phases_completed": "plan,extract"
     }
   ],

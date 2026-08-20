@@ -38,6 +38,16 @@ depth 3 was read partially, and any claim about how that argument resolved is un
 
 Where `num_comments` on the story greatly exceeds what is in the tree, record both numbers.
 
+## The roster — `full_source_analysis/hackernews-handles.json`
+
+- **The handle form is `hn/<name>`.**
+- **`signals` worth carrying:** whether they submitted the story or only commented, their depth in
+  the tree, and whether they disclosed working for something being discussed — employees answering in
+  the thread are common on HN and usually say so.
+- **Depth 3 hides handles.** The script flattens the tree and drops everything below, so a person who
+  only ever replied deep in a chain is absent from the material and cannot appear in the roster at
+  all. That is a coverage gap, not an empty roster — say so in the notes.
+
 ## Known gaps to record in `full_source_analysis/hackernews.md`
 
 - **Depth-3 flattening**, per above — the single biggest limit on this source.

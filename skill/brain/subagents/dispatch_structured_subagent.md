@@ -56,14 +56,19 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" <shape> digmore
 ```
 
 `<shape>` is the key in `scripts/subagent_returns.json`: `scope`, `branch-searcher`,
-`source-extractor`, `vet-judgment`, `synthesizer`, `verifier`.
+`page-analyst`, `vet-judgment`, `synthesizer`, `verifier`.
+
+Two shapes are checked as **files rather than returns**, because they never enter the orchestrator's
+context: `page-claims`, which every Page Analyst writes beside its stripped page, and
+`handle-roster`, which each Source Analyst writes for Vet to work from. Same command, pointed at the
+file the agent wrote rather than at `_returns/`.
 
 Exit 0 means use it. Exit 1 prints the problems, one line each, already worded to be pasted at the
 sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong — there is no
 document to repair, so treat it as a failed return.
 
 **What it checks:** the keys that must be there, the JSON type of each one, allowed enum values,
-array and number bounds, and the one conditional rule in the source-extractor shape. **What it
+array and number bounds, and the one conditional rule in the page-claims shape. **What it
 does not check:** whether a quote is real, whether a URL resolves, whether a price is a price.
 Those are the audit phase and, later, typed fields. A payload that passes is well-formed, not true.
 

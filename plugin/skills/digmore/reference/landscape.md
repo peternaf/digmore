@@ -9,7 +9,7 @@ A five-phase research pass over a market or space. The goal is a fact-checked, e
 Free-form prose. Examples:
 
 - `/digmore landscape video API providers — pricing tiers and recent moves`
-- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/research_plan.md`)
+- `/digmore landscape ffmpeg as a service` (underspecified — clarify before slugging, per `../brain/phases/plan_phase_a.md` §1)
 - `/digmore landscape --auto serverless OLAP databases B2B`
 
 ## What this command emphasizes
@@ -86,7 +86,7 @@ Required columns (in this order):
 - `offerings` (semicolon-separated)
 - `pricing_model` (e.g. usage-based, seat-based, tiered)
 - `entry_tier_price_usd` — numeric (e.g. `40`, `0.005`), `free`, or `contact sales` (not `POA`).
-- `monthly_visits` — encoded per `../brain/sources/websearch.md`, filled per `../brain/phases/synthesize_phase_d.md` §3.5.
+- `monthly_visits` — encoded per `../brain/subagents/player_profiler_agent.md`, filled per `../brain/phases/synthesize_phase_d.md` §3.5.
 - `top_user_sentiment` (one-line: positive / mixed / negative + the dominant theme)
 - `recent_moves` (last 90 days; semicolon-separated; each with date)
 - `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired)

@@ -1,6 +1,6 @@
 # Extract
 
-Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/5] Extract · Search`, `[2.2/5] Extract · Read`, `[2.3/5] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/source_notes/`.
+Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/5] Extract · Search`, `[2.2/5] Extract · Read`, `[2.3/5] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/full_source_analysis/`.
 
 The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
@@ -57,7 +57,9 @@ On Reddit the API separates the last two for you: it detects a wall, retries on 
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Source extractor sub-agent, per `../subagents/dispatch_structured_subagent.md`, that reads the cached content and returns structured claims (Source extractor schema in `../../scripts/subagent_returns.json`).
+Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, four fields: what the outcome was, how many claims, how many pages it cost, and which tool got the page.
+
+**The claims do not come back into your context, and you do not read the files.** Several hundred of these run in one job; a run that holds every claim runs out of room before it reaches the report. What needs them reads them: the Source Analyst for its roster, the Report Writer for the summary, the fact checker for verification. What you keep is the receipts — enough to total the branch's fetches, and to write `audit.md`'s two page-level records: the URLs that came back `blocked`, and the ones WebFetch had to take. Both vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
 **One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../subagents/dispatch_structured_subagent.md` for the prompt.
 
@@ -67,7 +69,7 @@ Raw data writes to `digmore/<topic-slug>/cache/<source>/` incrementally — one 
 
 ## Per-branch fetch cap
 
-**20 URLs per branch** — per angle-source pair, so `pricing × reddit` and `complaints × reddit` get 20 each. The number belongs to the user: `fetchesPerBranch` in `~/.digmore/settings.json`, 20 by default. Read it at the start of the run rather than assuming, and never substitute a number of your own.
+**Per angle-source pair**, so `pricing × reddit` and `complaints × reddit` each get their own budget. The number is `extract.fetchesPerBranch`, and it belongs to the user: `preflight.mjs` prints the value that applies to this run. Read it there rather than assuming, and never substitute a number of your own.
 
 **It counts every URL the branch fetches, whatever fetched it** — `fetch.mjs`, `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet` or `WebFetch`. Counting one tool's fetches would miss most of them.
 
@@ -84,18 +86,20 @@ Vetting fetches are **not** in this cap — they are bounded separately in `vet_
 
 ## Source notes
 
-For each source that pulled data, dispatch ONE sub-agent that reads the source's cached raw content with no schema. The sub-agent writes unstructured observations to `digmore/<topic-slug>/source_notes/<source>.md`.
+For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes two files, both to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
 
-What goes in there:
+**`<source>.md` — the notes.** Unstructured observations, no schema:
 - Patterns that aren't claims (recurring tone, vibe shifts, "everyone is suddenly talking about X").
 - Throwaway lines a claim-extractor would skip.
 - Cross-thread connections (the same author contradicting themselves elsewhere).
 - Oddities.
 
-Constraints:
-- No JSON schema, but writing-style rules in `../output.md` still apply. Concrete. Cite URLs. No fluff.
-- These notes are an LLM-only artifact — Synthesize reads them alongside structured claims. They do NOT appear in the summary directly. Surprises mined from them feed into "Non-trivial insights" via Synthesize's synthesizer.
+These are an LLM-only artifact — Synthesize reads them alongside the claims. They do NOT appear in the summary directly. Surprises mined from them feed into "Non-trivial insights" via the Report Writer. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
+
+**`<source>-handles.json` — the roster.** Only on Reddit, Hacker News, Twitter and forums; the open web and the user's own documents have no accounts to vet. Every handle the source produced, ranked by the highest importance of the claims attributed to them and then by how many documents they appear in, with whatever the pages already showed about them. The `handle-roster` shape in `../../scripts/subagent_returns.json`.
+
+**Vet depends on this file and cannot rank for itself** — the ranking needs every document a source produced, and this is the only agent that reads them all. A source whose roster is missing is a source that cannot be vetted (`vet_phase_c.md`), so a Source Analyst that fails is worth noticing here rather than in the next phase.
 
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned and every source with data has its `source_notes/<source>.md`. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json` on the four sources that carry handles. No marker file is written — resume infers completion from the presence of these artifacts.

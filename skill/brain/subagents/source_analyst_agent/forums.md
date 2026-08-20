@@ -37,6 +37,22 @@ This is the weakest source for credibility and the most uneven for coverage:
   Analyst reported those; carry them forward so the absence is on the record.
 - **Discord threads are partial** wherever they appear. Only the visible slice loads.
 
+## The roster — `full_source_analysis/forums-handles.json`
+
+This is the roster that earns the most, because the Handle Vetter has no script here and no profile
+to fetch — whatever you record is very nearly all it will ever have.
+
+- **The handle form is the forum's own**, prefixed with the domain so two forums' identical display
+  names stay apart: `doom9/<name>`. The same display name on two forums is not evidence of one
+  person; never merge them.
+- **`signals` matter more here than anywhere.** Post count, join date, badges, Discourse trust level,
+  accepted-answer status, staff or moderator marking. Any of those plus on-topic activity is enough
+  for `legit`; without them the verdict is `unknown`, and on this source `unknown` means the quote is
+  dropped entirely (`../../phases/synthesize_phase_d.md` §1). What you record here decides whether a
+  forum voice survives at all.
+- **Anonymised posts have no handle.** Where a forum scrubs attribution after an account closes, the
+  words remain and the person does not. No row.
+
 ## Known gaps to record in `full_source_analysis/forums.md`
 
 - Forums that were found in search and could not be read, by domain and reason.

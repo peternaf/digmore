@@ -26,6 +26,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { browserHeaders, assertWorkspaceRoot } from './fetch.mjs';
+import { loadOrCreateConfig, MALFORMED, CEILING_DEFAULTS } from './config.mjs';
 
 // ---------------------------------------------------------------- constants
 
@@ -35,10 +36,17 @@ export const HN_USER_BASE = 'https://news.ycombinator.com/user';
 export const VERBS = ['story', 'user', 'vet'];
 
 const REQUEST_TIMEOUT_MS = 30000;
-const MAX_COMMENT_DEPTH = 3;
-const RECENT_COMMENT_CAP = 50;
 const RECENT_EXCERPT_CHARS = 280;
 const CONCURRENCY = 4;
+
+/**
+ * Two ceilings the user owns, in ~/.digmore/settings.json under `hackernews`. Read once in
+ * runCommand() and passed down as options, so the functions below stay pure — a test hands
+ * them a number instead of writing a settings file. These are the values used when the
+ * caller passes none.
+ */
+const COMMENT_DEPTH_FALLBACK = CEILING_DEFAULTS.hackernews.commentDepth;
+const RECENT_COMMENTS_SAMPLED_FALLBACK = CEILING_DEFAULTS.hackernews.recentCommentsSampled;
 
 /**
  * news.ycombinator.com rate-limits aggressively. The brain raised this to 15s on
@@ -86,7 +94,7 @@ export async function fetchStory(itemId, options = {}) {
 
   const id = Number(data.id ?? itemId);
   const comments = [];
-  flattenCommentTree(data, id, 1, comments);
+  flattenCommentTree(data, id, 1, comments, options.commentDepth ?? COMMENT_DEPTH_FALLBACK);
   return {
     id,
     title: data.title ?? '',
@@ -121,7 +129,7 @@ export async function fetchUser(name, options = {}) {
     client.getText(hnWeb, { id: name }),
     client.getJson(`${algolia}/search`, {
       tags: `comment,author_${name}`,
-      hitsPerPage: RECENT_COMMENT_CAP,
+      hitsPerPage: options.recentCommentsSampled ?? RECENT_COMMENTS_SAMPLED_FALLBACK,
       numericFilters: `created_at_i>${cutoff}`,
     }),
     client.getJson(`${algolia}/search`, { tags: `story,author_${name}`, hitsPerPage: 0 }),
@@ -187,8 +195,10 @@ export function vetUser(user, now = Math.floor(Date.now() / 1000)) {
   const signals = {};
 
   if (user.karma === null && !user.about && user.comment_count_sampled === 0) {
-    signals.page = 'missing-or-throwaway';
-    return makeVerdict(user.name, 'unknown', signals, 'missing-or-throwaway');
+    // The page could not be read. That is a gap in what we could see, not a judgement
+    // about the person — do not confuse it with the `throwaway` verdict below.
+    signals.page = 'missing-profile';
+    return makeVerdict(user.name, 'unknown', signals, 'missing-profile');
   }
 
   const karma = user.karma ?? 0;
@@ -226,8 +236,13 @@ export function vetUser(user, now = Math.floor(Date.now() / 1000)) {
     }
   }
 
-  if (ageSeconds !== null && ageSeconds < NINETY_DAYS && karma < 50) {
-    return makeVerdict(user.name, 'unknown', signals, 'young-low-karma');
+  // Too new and too small to be worth anything as a source: nothing to judge, and no deeper
+  // read would help. Matches the same rule on Reddit and Twitter, which the API owns. All
+  // three conditions, never any one alone — a new account can belong to someone who has just
+  // arrived, and low karma on its own says nothing about a long-standing lurker.
+  const lifetimePosts = (user.stories_submitted ?? 0) + (user.comments_submitted ?? 0);
+  if (ageSeconds !== null && ageSeconds < NINETY_DAYS && karma < 50 && lifetimePosts < 20) {
+    return makeVerdict(user.name, 'throwaway', signals, 'young-low-karma-few-posts');
   }
   if (user.comment_count_sampled === 0) {
     return makeVerdict(user.name, 'unknown', signals, 'submitter-only');
@@ -292,9 +307,9 @@ export function parseUserPage(html, name) {
   };
 }
 
-/** Walks the Algolia item tree and collects comments down to MAX_COMMENT_DEPTH. */
-function flattenCommentTree(node, storyId, depth, collected) {
-  if (depth > MAX_COMMENT_DEPTH) return;
+/** Walks the Algolia item tree and collects comments down to the configured reply depth. */
+function flattenCommentTree(node, storyId, depth, collected, maxDepth = COMMENT_DEPTH_FALLBACK) {
+  if (depth > maxDepth) return;
   for (const kid of node.children ?? []) {
     if (kid.type === 'comment' && kid.text) {
       collected.push({
@@ -306,7 +321,7 @@ function flattenCommentTree(node, storyId, depth, collected) {
         created_utc: kid.created_at_i ?? null,
       });
     }
-    flattenCommentTree(kid, storyId, depth + 1, collected);
+    flattenCommentTree(kid, storyId, depth + 1, collected, maxDepth);
   }
 }
 
@@ -451,7 +466,14 @@ export async function runCommand(argv, options = {}) {
   }
   if (!topic) throw new Error('--topic <slug> is required on every call');
 
-  const resolvedOptions = { ...options, cacheDir: options.cacheDir ?? cacheDirForTopic(topic) };
+  const config = loadOrCreateConfig();
+  const ceilings = config === MALFORMED ? CEILING_DEFAULTS.hackernews : config.hackernews;
+  const resolvedOptions = {
+    commentDepth: ceilings.commentDepth,
+    recentCommentsSampled: ceilings.recentCommentsSampled,
+    ...options,
+    cacheDir: options.cacheDir ?? cacheDirForTopic(topic),
+  };
 
   if (verb === 'story') return fetchStory(Number.parseInt(target, 10), resolvedOptions);
   const user = await fetchUser(target, resolvedOptions);

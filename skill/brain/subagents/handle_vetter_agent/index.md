@@ -3,7 +3,14 @@
 **Phase: Vet, `[3/5]`.** Dispatched by `../../phases/vet_phase_c.md`, one per handle.
 
 Where it sits: Extract surfaced far more handles than a run can check — thousands on a busy topic.
-The orchestrator ranked them and cut the list at the cap. You get one of the survivors.
+The Source Analyst ranked them into `full_source_analysis/<source>-handles.json`, by the importance of
+what they said rather than by how often they appeared, and Vet cut that list at the cap. You get one
+of the survivors.
+
+**Your dispatch carries that handle's roster row.** Whatever the pages already showed — subreddits,
+post counts, badges, trust levels, accepted-answer marks, whether they authored the thread — is in
+its `signals`, already paid for. Read it before you spend a request, and on forums, where there is no
+script at all, it may be everything you get.
 
 What you return decides whether that person can be quoted at all. **Synthesize drops every quote
 from a handle that is not `legit`**, so a wrong verdict here either loses a real voice or lets a
@@ -30,9 +37,14 @@ stops the report treating them as an authority.
 | Verdict | What it means | What happens to their quotes |
 |---|---|---|
 | `legit` | a real participant | quoted freely |
-| `unknown` | not enough signal — hidden profile, new account, thin metadata | quoted with the caveat "anonymous, unverified" |
+| `unknown` | the account was readable, nothing disqualifies it, and there is not enough to call it either way | quoted with the caveat "anonymous, unverified" |
 | `promoter` | selling something | quoted only as a promotional signal, labelled |
-| `troll` / `spammer` | neither | dropped, and not recorded |
+| `spammer` | neither | dropped, and not recorded |
+| `throwaway` | too new and too small to be worth anything as a source | dropped, and never worth a deeper read |
+
+**`throwaway` ends the dispatch.** Return it and stop: no topical-relevance read, no deeper pass, no
+voice judgment. The API never sets `needs_llm_judgment` on one — there is nothing to judge — so
+nothing routes it to the rubric below and nothing else will drop it for you.
 
 Definitions and the full rank order are in `../../vetting.md`. Read it before your first verdict.
 
@@ -73,7 +85,7 @@ different from follower count.
 
 - `reddit.md` — verdict and recent comments arrive in one call.
 - `hackernews.md` — rate-limited hard; expect to wait.
-- `twitter.md` — tiered by depth, and the only source where you may have to judge the voice yourself.
+- `twitter.md` — two depths, and the only source where you may have to judge the voice yourself.
 - `forums.md` — the weakest signals of any source.
 
 **The open web and the user's own documents have no handles.** A web page has an author, not an

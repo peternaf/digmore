@@ -134,7 +134,7 @@ check(
   ]),
   JSON.stringify(keysOf(user.json?.metrics)),
 );
-check('user cached as user-<handle>.json', cached(`user-${HANDLE}.json`) !== undefined);
+check('user cached as twitter-user-<handle>.json', cached(`twitter-user-${HANDLE}.json`) !== undefined);
 // The plugin strips money defensively; the API should never send it.
 check('no money field survives', !user.out.includes('cost'));
 
@@ -153,8 +153,8 @@ check(
   sameKeys(timeline?.[0], ['id', 'text', 'created_at', 'author_id', 'metrics', 'urls']),
   JSON.stringify(keysOf(timeline?.[0])),
 );
-check('tweets cached as tweets-<handle>-<N>.json', cached(`tweets-${HANDLE}-5.json`) !== undefined);
-// brain/branches/twitter.md — without a real body a Twitter citation is the first
+check('tweets cached as twitter-tweets-<handle>-<N>.json', cached(`twitter-tweets-${HANDLE}-5.json`) !== undefined);
+// brain/subagents/page_analyst_agent/twitter.md — without a real body a Twitter citation is the first
 // 15 words of the tweet, which is a preview that looks like a quote.
 check(
   'a real body comes back, not an og:title preview',
@@ -171,7 +171,7 @@ check(
   Array.isArray(lookup.json?.tweets) && lookup.json.tweets[0]?.id === tweetId,
   JSON.stringify(keysOf(lookup.json)),
 );
-check('tweet cached as tweet-<id>.json', cached(`tweet-${tweetId}.json`) !== undefined);
+check('tweet cached as twitter-tweet-<id>.json', cached(`twitter-tweet-${tweetId}.json`) !== undefined);
 
 const reLookup = await run('api.mjs', ['twitter', 'tweet', tweetId, '--topic', TOPIC]);
 check(
@@ -181,55 +181,58 @@ check(
 
 // ---------------------------------------------------------------- twitter vet
 
-const tierOne = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--tier', '1']);
-check('vet exits 0', tierOne.code === 0, tierOne.err.trim());
+const profilePass = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--posts', '0']);
+check('vet exits 0', profilePass.code === 0, profilePass.err.trim());
 check(
   'vet shape frozen',
-  sameKeys(tierOne.json, [
+  sameKeys(profilePass.json, [
     'username',
-    'tier',
     'verdict',
     'signals',
     'reason',
     'tweets_sampled',
     'needs_llm_judgment',
   ]),
-  JSON.stringify(keysOf(tierOne.json)),
+  JSON.stringify(keysOf(profilePass.json)),
 );
 // scripts/subagent_returns.json — the shared verdict vocabulary.
 check(
   'the verdict is in the shared vocabulary',
-  ['legit', 'unknown', 'promoter', 'troll', 'spammer'].includes(tierOne.json?.verdict),
-  String(tierOne.json?.verdict),
+  ['legit', 'unknown', 'promoter', 'spammer', 'throwaway'].includes(profilePass.json?.verdict),
+  String(profilePass.json?.verdict),
 );
-check('tier 1 samples no tweets', tierOne.json?.tweets_sampled === 0, String(tierOne.json?.tweets_sampled));
 check(
-  'tier 1 asks for no LLM judgment',
-  tierOne.json?.needs_llm_judgment === false,
-  String(tierOne.json?.needs_llm_judgment),
+  'the profile pass samples no posts',
+  profilePass.json?.tweets_sampled === 0,
+  String(profilePass.json?.tweets_sampled),
 );
-check('vet caches per tier', cached(`vet-${HANDLE}-tier1.json`) !== undefined);
+check(
+  'the profile pass asks for no LLM judgment',
+  profilePass.json?.needs_llm_judgment === false,
+  String(profilePass.json?.needs_llm_judgment),
+);
+check('vet caches per depth', cached(`twitter-vet-${HANDLE}-0posts.json`) !== undefined);
 
-// Tier 2 is the shallowest tier that samples tweets, so it is the cheapest way to
-// reach the fields Phase B branches on: needs_llm_judgment, and the last_active
-// that experts.csv records as the handle's real last activity.
-const tierTwo = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--tier', '2']);
-check('tier 2 exits 0', tierTwo.code === 0, tierTwo.err.trim());
-check('tier 2 samples tweets', tierTwo.json?.tweets_sampled > 0, String(tierTwo.json?.tweets_sampled));
+// The deep pass is where the fields Vet branches on appear: needs_llm_judgment, and the
+// last_active that experts.csv records as the handle's real last activity. 5 posts rather
+// than the configured default, because this is a real call against a paid source.
+const deepPass = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--posts', '5']);
+check('the deep pass exits 0', deepPass.code === 0, deepPass.err.trim());
+check('the deep pass samples posts', deepPass.json?.tweets_sampled > 0, String(deepPass.json?.tweets_sampled));
 check(
-  'tier 2 reports last_active',
-  /^\d{4}-\d{2}-\d{2}$/.test(tierTwo.json?.signals?.last_active ?? ''),
-  String(tierTwo.json?.signals?.last_active),
+  'the deep pass reports last_active',
+  /^\d{4}-\d{2}-\d{2}$/.test(deepPass.json?.signals?.last_active ?? ''),
+  String(deepPass.json?.signals?.last_active),
 );
-// vet_phase_b.md reads the flag rather than re-deriving it from verdict and tier.
+// vet_phase_c.md reads the flag rather than re-deriving it from verdict and post count.
 check(
   'needs_llm_judgment tracks the verdict',
-  tierTwo.json?.needs_llm_judgment === (tierTwo.json?.verdict === 'unknown'),
-  `verdict ${tierTwo.json?.verdict}, flag ${tierTwo.json?.needs_llm_judgment}`,
+  deepPass.json?.needs_llm_judgment === (deepPass.json?.verdict === 'unknown'),
+  `verdict ${deepPass.json?.verdict}, flag ${deepPass.json?.needs_llm_judgment}`,
 );
 check(
-  'escalating a tier is a new fetch, not the shallow answer re-read',
-  cached(`vet-${HANDLE}-tier2.json`) !== undefined,
+  'going deeper is a new fetch, not the profile answer re-read',
+  cached(`twitter-vet-${HANDLE}-5posts.json`) !== undefined,
 );
 
 // ---------------------------------------------------------------- status -> exit code
@@ -247,8 +250,8 @@ check('a 422 from parameter validation exits 1', badPattern.code === 1, String(b
 
 // Refused client-side: these can never become a successful round trip, so they
 // should not become a round trip at all.
-const badTier = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--tier', '9']);
-check('a bad tier never reaches the API', badTier.code === 2, String(badTier.code));
+const badPosts = await run('api.mjs', ['twitter', 'vet', HANDLE, '--topic', TOPIC, '--posts', 'deep']);
+check('a post count that is not a number never reaches the API', badPosts.code === 2, String(badPosts.code));
 
 const badLimit = await run('api.mjs', ['twitter', 'tweets', HANDLE, '--topic', TOPIC, '--limit', '3']);
 check('a limit outside 5-100 never reaches the API', badLimit.code === 2, String(badLimit.code));
@@ -258,7 +261,7 @@ check('a missing --topic is refused', noTopic.code === 2, String(noTopic.code));
 
 // ---------------------------------------------------------------- what must never leak
 
-const everything = [user, tweets, lookup, tierOne, tierTwo, rejected, unknownHandle]
+const everything = [user, tweets, lookup, profilePass, deepPass, rejected, unknownHandle]
   .map((result) => result.out + result.err)
   .join('');
 check('the api key is never echoed', !everything.includes(apiKey));

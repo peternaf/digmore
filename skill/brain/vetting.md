@@ -12,9 +12,12 @@ Every sourced quote must pass `vet_user` (or the source equivalent) before being
 
 Verdicts:
 1. `legit` — quote freely.
-2. `unknown` — quote with caveat ("anonymous, unverified"). Applies when signal is insufficient: profile hidden/deleted, brand-new account with no history, or source doesn't expose enough metadata.
+2. `unknown` — quote with caveat ("anonymous, unverified"). The account is readable and nothing disqualifies it; there is simply not enough to call it either way.
 3. `promoter` — only quote as a promotional signal, labeled.
-4. `troll` / `spammer` — drop.
+4. `spammer` — drop. We read them, and they are not worth quoting.
+5. `throwaway` — drop, and never spend a deeper read on them. Two cases, one action: the profile is deleted, suspended or private so there is nothing to read; or the account is under a month old with almost no followers. Either way there is no person behind the handle worth carrying, so their material is thrown away.
+
+`throwaway` is named for what happens to the material, not for what kind of account it is — a private ten-year-old account is not a "throwaway account", but it is one we throw away.
 
 Verdict schema is shared across sources. Source-specific signals live in `subagents/handle_vetter_agent/<source>.md`.
 
@@ -53,7 +56,7 @@ Output sections that cite a source must include the verdict next to the handle:
 **x/<name>** [legit]    ← Twitter / X
 ```
 
-If the verdict is `unknown` or `promoter`, mark accordingly. `troll` / `spammer` should not be in the output at all (the quote was dropped).
+If the verdict is `unknown` or `promoter`, mark accordingly. `spammer` and `throwaway` should not be in the output at all (the quote was dropped).
 
 ## Curated experts (per topic)
 
@@ -84,7 +87,7 @@ When a topic is branched from a parent, the child inherits the parent's `experts
 Behavioral signals live in `subagents/handle_vetter_agent/<source>.md`. Examples:
 - Reddit: account age, karma split, URL repetition, sub concentration, burst posting.
 - Hacker News: karma, account age, lifetime story / comment counts, recent comment sampling.
-- Twitter: tiered by depth (profile only → +25 tweets → +100 tweets), heuristic floor + LLM judgment for the expert/marketer call.
+- Twitter: two depths (profile alone, or profile + the handle's recent posts), heuristic floor + LLM judgment for the expert/marketer call.
 - WebSearch: domain authority + cross-reference against other sources' people.
 - The user's own documents: no vetting — there is no handle to vet. See `subagents/page_analyst_agent/local.md`.
 

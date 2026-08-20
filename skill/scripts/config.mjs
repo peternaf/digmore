@@ -36,22 +36,22 @@ export const DEFAULT_API_BASE_URL = 'https://api.digmore.ai';
  * sources has 30 branches, so this number multiplies by 30 rather than by 5. It counts
  * pages too — a paginated thread spends one per page, bounded by `maxPagesPerDocument`.
  *
- * The three `twitterHandles*` ceilings bound how many HANDLES may be vetted at each depth,
- * not how many tweets are fetched. Depth is the API's business: the plugin sends
- * `--tier 1|2|3` and the API decides profile-only / +25 tweets / +100 tweets. The tier
- * numbers survive on the CLI because the API takes them; they are not a name for anything
- * here, so these fields are named for the depth they buy instead.
+ * `vet.handleCapPerSource` is per source, not per run: Reddit, Hacker News, Twitter and
+ * forums each get their own. Ranking happens inside a source, because the engagement
+ * numbers that break ties — karma, followers, upvotes — do not compare across sources.
  *
- *   twitterHandlesProfileOnly        → --tier 1
- *   twitterHandlesWithSampledTweets  → --tier 2
- *   twitterHandlesWithDeepHistory    → --tier 3
+ * Twitter vets at two depths, and the two `twitter` ceilings are one each. Every handle
+ * within the cap gets its profile read; the `handlesDeepVetted` best of the ones that came
+ * back `unknown` also get their most recent `postsPerDeepVet` posts read. The post count
+ * goes to the API as `--posts`, so depth is a number the user sets rather than a tier the
+ * API names. What counts X will actually serve is the API's business, not ours.
  */
 export const CEILING_DEFAULTS = Object.freeze({
   plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
   extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5 },
-  vet: { handleCap: 50 },
+  vet: { handleCapPerSource: 50 },
   synthesize: { expertsFollowed: 10, urlsPerExpert: 10, claimsFactChecked: 50, manualVerifyFlagCap: 15 },
-  twitter: { handlesProfileOnly: 20, handlesWithSampledTweets: 20, handlesWithDeepHistory: 5 },
+  twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50 },
   hackernews: { commentDepth: 3, recentCommentsSampled: 50 },
   subagents: { repairAttempts: 1 },
 });
@@ -59,17 +59,17 @@ export const CEILING_DEFAULTS = Object.freeze({
 /**
  * What `--fast` replaces. Only the keys that actually change are listed; anything absent
  * keeps its full-mode value. A zero means the step is skipped entirely, which is how fast
- * mode drops the two deeper Twitter vetting passes.
+ * mode drops Twitter's deep pass.
  *
- * The lower of the two always wins: a user who sets `vetHandleCap` to 10 gets 10 in fast
- * mode, not 20. Fast mode makes a run shallower, never deeper than the user allowed.
+ * The lower of the two always wins: a user who sets `vet.handleCapPerSource` to 10 gets 10
+ * in fast mode, not 20. Fast mode makes a run shallower, never deeper than the user allowed.
  */
 const FAST_REDUCTIONS = Object.freeze({
   plan: { minAngles: 2, maxAngles: 2 },
   extract: { fetchesPerBranch: 5 },
-  vet: { handleCap: 20 },
+  vet: { handleCapPerSource: 20 },
   synthesize: { expertsFollowed: 3, urlsPerExpert: 3, claimsFactChecked: 10, manualVerifyFlagCap: 5 },
-  twitter: { handlesProfileOnly: 5, handlesWithSampledTweets: 0, handlesWithDeepHistory: 0 },
+  twitter: { handlesDeepVetted: 0 },
 });
 
 /**
@@ -98,14 +98,13 @@ export const CEILING_NOTES = Object.freeze({
   'plan.scopingSearches': 'web searches the scoping agent may spend',
   'extract.fetchesPerBranch': 'URLs per angle-source pair, pages included',
   'extract.maxPagesPerDocument': 'pages followed when one document paginates',
-  'vet.handleCap': 'handles vetted per run, taken after ranking',
+  'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
   'synthesize.expertsFollowed': 'vetted experts whose other writing is read',
   'synthesize.urlsPerExpert': 'URLs read per followed expert',
   'synthesize.claimsFactChecked': 'top-ranked claims checked against their source',
   'synthesize.manualVerifyFlagCap': 'inline manual-verify flags allowed in the summary',
-  'twitter.handlesProfileOnly': 'handles vetted on profile alone (--tier 1)',
-  'twitter.handlesWithSampledTweets': 'handles vetted on profile + sampled tweets (--tier 2)',
-  'twitter.handlesWithDeepHistory': 'handles vetted on profile + deep history (--tier 3)',
+  'twitter.handlesDeepVetted': 'handles whose recent posts are read, on top of their profile',
+  'twitter.postsPerDeepVet': 'posts read for one of those handles',
   'hackernews.commentDepth': 'reply depth kept when a thread is flattened',
   'hackernews.recentCommentsSampled': 'recent comments read when vetting a handle',
   'subagents.repairAttempts': 'retries when a sub-agent return fails its shape check',
@@ -117,9 +116,7 @@ export const CEILING_NOTES = Object.freeze({
  * fetches nothing or vets nobody looks complete having done no work.
  */
 const ZERO_IS_MEANINGFUL = new Set([
-  'twitter.handlesProfileOnly',
-  'twitter.handlesWithSampledTweets',
-  'twitter.handlesWithDeepHistory',
+  'twitter.handlesDeepVetted',
   'synthesize.expertsFollowed',
   'synthesize.urlsPerExpert',
   'synthesize.manualVerifyFlagCap',

@@ -327,13 +327,13 @@ const baseUser = (over = {}) => ({
 
 const verdictOf = (over) => hackernews.vetUser(baseUser(over), NOW).verdict;
 
-test('a missing or throwaway profile is unknown', () => {
+test('a profile that could not be read is unknown, not throwaway', () => {
   const vetted = hackernews.vetUser(
     baseUser({ karma: null, about: '', comment_count_sampled: 0, recent_comment_excerpts: [] }),
     NOW,
   );
   assert.equal(vetted.verdict, 'unknown');
-  assert.equal(vetted.reason, 'missing-or-throwaway');
+  assert.equal(vetted.reason, 'missing-profile');
 });
 
 test('karma over 1000 is legit on its own, even with no known age', () => {
@@ -345,10 +345,21 @@ test('two years plus karma over 100 is legit', () => {
   assert.equal(verdictOf({ karma: 100, created_utc: NOW - 3 * 365 * DAY }), 'unknown', '100 is not over 100');
 });
 
-test('young and low-karma is unknown', () => {
+test('young, low-karma and barely posted is throwaway', () => {
   const vetted = hackernews.vetUser(baseUser({ karma: 49, created_utc: NOW - 30 * DAY }), NOW);
-  assert.equal(vetted.verdict, 'unknown');
-  assert.equal(vetted.reason, 'young-low-karma');
+  assert.equal(vetted.verdict, 'throwaway');
+  assert.equal(vetted.reason, 'young-low-karma-few-posts');
+});
+
+// All three conditions, never one alone. An account can be new because the person just
+// arrived, and low karma says nothing on its own about someone who has been posting for
+// months.
+test('a young low-karma account that has posted a lot is not thrown away', () => {
+  const vetted = hackernews.vetUser(
+    baseUser({ karma: 49, created_utc: NOW - 30 * DAY, stories_submitted: 4, comments_submitted: 40 }),
+    NOW,
+  );
+  assert.notEqual(vetted.verdict, 'throwaway');
 });
 
 test('a submitter with no sampled comments is unknown', () => {
@@ -458,7 +469,7 @@ test('signals carry the numbers a reader can check', () => {
 
 // The shared verdict vocabulary.
 test('verdicts only ever come from the shared vocabulary', () => {
-  const allowed = new Set(['legit', 'unknown', 'promoter', 'troll', 'spammer']);
+  const allowed = new Set(['legit', 'unknown', 'promoter', 'spammer', 'throwaway']);
   const cases = [
     {}, { karma: 5000 }, { karma: 1 }, { comment_count_sampled: 0, recent_comment_excerpts: [] },
     { karma: null, about: '', comment_count_sampled: 0, recent_comment_excerpts: [] },

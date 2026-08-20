@@ -6,14 +6,14 @@ Entry point for every command. The command's reference file tells you to read th
 
 The same for all four commands. A command's reference file names its deliverable — the sections its report carries, who counts as a player, its own angles, any extra output file. Everything below belongs to the brain, and a reference file does not repeat it. Where a command genuinely works differently, its file states the difference alone; depth and interaction settings are the one thing whose per-command differences live here too, in `modes.md`, so a run reads one table rather than four.
 
-1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, write `research_plan.json`. `research_plan.md`.
+1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, then scope it and write `research_plan.json`. `phases/plan_phase_a.md`.
 2. **The five phases, in order** — Plan, Extract, Vet, Synthesize, Audit. `phases/index.md`. None of them is optional.
 3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
 4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output` must resolve under `digmore/<slug>/cache/<source>/`.
 5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `scripts/subagent_returns.json`.
 6. **End of run** — append the run to `research_plan.json.run_history`, then print the four terminal sections in `reporting.md`. Nothing else reaches the terminal.
 
-Two files are read on a rhythm rather than at a step. **`output.md`** is the writing style — re-read it before every piece of user-facing text and before every sub-agent dispatch; it is short so that costs little. **`reporting.md`** is what reaches the terminal — the progress lines, where a question for the user goes, the Run footer, the four end-of-run sections; read it once at the start of a run and once at the end. Read `sources/<source>.md` before issuing a request through that source.
+Two files are read on a rhythm rather than at a step. **`output.md`** is the writing style — re-read it before every piece of user-facing text and before every sub-agent dispatch; it is short so that costs little. **`reporting.md`** is what reaches the terminal — the progress lines, where a question for the user goes, the Run footer, the four end-of-run sections; read it once at the start of a run and once at the end. Before dispatching a sub-agent, send it its own file from `subagents/` — see below.
 
 ## What you're orienting on
 
@@ -24,34 +24,48 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 
 | When | Read |
 | --- | --- |
-| Parsing the invocation, slugging the topic, deciding fresh / re-run / branched from a parent | `research_plan.md`, `modes.md` |
-| Before any external request | `recency.md`, `long-form.md` |
-| Plan — the topic, the angles, and the branches they make | `phases/plan_phase_a.md`, `scripts/subagent_returns.json` (Orientation schema) |
-| Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `scripts/subagent_returns.json` (Branch searcher + Source extractor), `sources/<source>.md` per source involved |
-| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `sources/<source>.md` for source-specific signals, `scripts/subagent_returns.json` (vet_user schema) |
+| Before any external request | `recency.md` |
+| Plan — slugging the topic, deciding fresh / re-run / branched, the angles, the sections, the branches, and `research_plan.json` itself | `phases/plan_phase_a.md`, `modes.md`, `sections.md`, `scripts/subagent_returns.json` (`scope` shape) |
+| Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
+| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `subagents/handle_vetter_agent/` |
 | Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
 | Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `scripts/subagent_returns.json` (Verifier schema) |
-| Salvage paths, how Plan → Extract → Vet → Synthesize → Audit connect | `phases/index.md` |
-| Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `dispatch_structured_subagent.md` |
+| Salvage paths, where a run writes, one writer per file, how the five phases connect | `phases/index.md` |
+| Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `subagents/dispatch_structured_subagent.md` |
+| Deciding the summary's sections, or filling and rendering one | `sections.md` |
 | Writing ANY user-facing or sub-agent output (always) | `output.md` |
 | Printing progress, the Run footer, the end-of-run sections; where a question for the user goes | `reporting.md` |
 
-## Topic-state map
+| Mode dispatch (manual vs auto), the run ceilings and what each bounds, failure halts | `modes.md` |
 
-| When | Read |
-| --- | --- |
-| research_plan.json schema, fresh vs re-run vs branched, experts.csv inheritance | `research_plan.md` |
-| Mode dispatch (manual vs auto), per-tier confirmation thresholds, failure halts | `modes.md` |
+## Sub-agents
 
-## Sources
+One directory per agent, under `subagents/`. Each holds that agent's own instructions in
+`index.md`, and one file per source it works with. **An agent is sent its `index.md` and the file
+for the source it was given, and nothing else** — the files are self-contained on purpose, so no
+agent reads a rule written for a different one.
 
-One file per source. Read the file before issuing a request through that source.
+| Agent | Phase | Directory |
+|---|---|---|
+| Scoping agent | Plan | `subagents/scoping_agent.md` |
+| Branch Searcher | Extract · Search | `subagents/branch_searcher_agent/` — all six sources |
+| Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — all six sources |
+| Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — all six sources |
+| Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums |
+| Player Profiler | Synthesize §3.5 | `subagents/player_profiler_agent.md` |
 
-- `sources/reddit.md` — `api.mjs reddit` against digmore's API (no account, no OAuth).
-- `sources/hackernews.md` — `hackernews.mjs` (Algolia + HN user page, throttled).
-- `sources/twitter.md` — `api.mjs twitter` against digmore's API, tiered by depth.
-- `sources/websearch.md` — Claude Code's `WebSearch` tool.
-- `sources/forums.md` — generic forum discovery via WebSearch + long-thread fetch via `fetch.mjs`.
-- `sources/local.md` — documents and text the user hands over.
+The Claim Fact Checker fetches pages in Audit and reads `subagents/page_analyst_agent/` for how.
 
-Reddit and Twitter need an API key. Without one they are skipped and the run says so — see `sources/reddit.md` and `sources/twitter.md`.
+The six sources are Reddit, Hacker News, Twitter, the open web, specialty forums, and the user's
+own documents. **The Handle Vetter has four**, because a web page and a handed-over document have
+authors rather than accounts, and there is nothing to vet.
+
+**Reddit and Twitter need an API key.** Without one, Plan builds no branches on them, the run
+proceeds on the rest and says which sources it could not reach.
+
+## The scripts behind them
+
+- `api.mjs reddit` and `api.mjs twitter` — through digmore's API. No account, no OAuth.
+- `hackernews.mjs` — Algolia plus the HN user page, throttled hard at one request per 15s.
+- `fetch.mjs` — the open web and forums. Derives its own filenames, returns a cached page without
+  re-fetching, and reports the filename it would have used when a bot wall stops it.

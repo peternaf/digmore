@@ -30,13 +30,13 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `subagents/handle_vetter_agent/` |
 | Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
 | Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `scripts/subagent_returns.json` (Verifier schema) |
-| Salvage paths, where a run writes, one writer per file, how the five phases connect | `phases/index.md` |
+| Salvage paths, where a run writes, one writer per file, why claims and source notes stay on disk, how the five phases connect | `phases/index.md` |
 | Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `subagents/dispatch_structured_subagent.md` |
 | Deciding the summary's sections, or filling and rendering one | `sections.md` |
 | Writing ANY user-facing or sub-agent output (always) | `output.md` |
 | Printing progress, the Run footer, the end-of-run sections; where a question for the user goes | `reporting.md` |
 
-| Mode dispatch (manual vs auto), per-tier confirmation thresholds, failure halts | `modes.md` |
+| Mode dispatch (manual vs auto), the run ceilings and what each bounds, failure halts | `modes.md` |
 
 ## Sub-agents
 

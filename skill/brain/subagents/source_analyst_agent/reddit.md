@@ -37,6 +37,18 @@ Every thread file carries `num_comments`. Compare it to the length of `comments`
 Record the shortfall per thread, both numbers. A thread read at 500 of 3,000 comments does not
 support a claim about what "the thread concluded".
 
+## The roster — `full_source_analysis/reddit-handles.json`
+
+Reddit gives you the richest roster of any source, because every comment names both its author and
+its subreddit.
+
+- **The handle form is `u/<name>`**, as Reddit writes it.
+- **`signals` worth carrying:** the subreddits they posted in, whether they authored the thread or
+  only commented, and their best comment score. Subreddit spread is the one Reddit gives cheaply that
+  the Handle Vetter would otherwise have to infer — and it is what tells a genuine specialist apart
+  from the fanboy the script's 80%-in-one-sub rule fires on.
+- **`[deleted]` and `[removed]` are not handles.** Skip them; there is nobody to vet.
+
 ## Known gaps to record in `full_source_analysis/reddit.md`
 
 - **Comment trees truncate at the `--limit` on the fetch**, default 500. "Load more comments" is not

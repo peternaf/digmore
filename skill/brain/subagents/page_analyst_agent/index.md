@@ -96,8 +96,22 @@ The raw pages `fetch.mjs` wrote are deleted once the merged file exists.
 Every claim carries a verbatim quote. A claim you cannot quote is one you drop.
 
 Each claim needs four fields, and two more when it is quantitative — the shape is in
-`../../../scripts/subagent_returns.json` under `source-extractor`, and the file for your source says
+`../../../scripts/subagent_returns.json` under `page-claims`, and the file for your source says
 what that source's material looks like.
+
+**Record who said it.** Where your source has accounts — Reddit, Hacker News, Twitter, forums — every
+claim carries the `handle` it came from, written as that source writes it: `u/foo`, `hn/foo`,
+`x/foo`. The open web and the user's own documents have authors rather than accounts, so the field
+is omitted there.
+
+This is the only link between a claim and a person that exists anywhere in the run. Without it Vet
+cannot tell whose words the report actually rests on, and ranks people by how often they turned up
+instead of by what they said.
+
+**`sourceQuality` is one of seven words, and `../../vetting.md` says what each one means.** It goes on
+the claims file, not in what you hand back. The schema gives you the list; read the definitions before
+choosing, and read your source's file — a forum post and a vendor pricing page are not judged the same
+way.
 
 ## What you write to disk
 
@@ -106,7 +120,7 @@ what that source's material looks like.
 | File | What is in it |
 |---|---|
 | `<name>.md` — or the script's own file, on the three scripted sources | the whole document: stripped markdown, all pages merged |
-| `<name>-claims.json` | what you pulled out of it, each claim with its quote |
+| `<name>-claims.json` | what you pulled out of it, each claim with its quote and its handle — the `page-claims` shape |
 
 `<name>` is what `fetch.mjs` derived from the URL, or what the source's own script called its file.
 Your source's file gives the exact pair.
@@ -115,27 +129,41 @@ Per **document**, not per page: eight pages make one pair, not eight.
 
 Plus `digmore/<slug>/cache/_returns/page-analyst-<filename>.json` — a copy of what you returned.
 
-## What you return
+## What you return — a receipt, not the claims
 
-The `source-extractor` shape: `sourceQuality`, `publishDate` where the page shows one, and
-`claims[]`.
+The `page-analyst` shape, and it is four fields: `outcome`, `claimCount`, `pagesRead`,
+`fetchedWith`.
 
-**`sourceQuality` is one of seven words, and `../../vetting.md` says what each one means.** The schema
-gives you the list; read the definitions before choosing, and read your source's file — a forum post
-and a vendor pricing page are not judged the same way.
+**Nothing else comes back with you** — not the claims, not the source quality, not the page's date.
+All of that is in the file you wrote, and the Source Analyst, the Report Writer and the fact checker
+open it there. Not even the path: your file sits in `cache/<source>/` under the name the fetch gave
+it, and they find it by reading the directory.
+
+Four, because four is what the orchestrator does anything with: whether the page yielded something,
+how much, how many fetches it cost against the branch's budget, and which tool got it. Several
+hundred of these dispatches run in one job, and anything carried back in each of them is carried for
+the rest of the run.
+
+**`fetchedWith` is the one that outlives the run.** Say `WebFetch` when the wall forced you onto it,
+and the orchestrator lists that URL in `audit.md` — WebFetch shortens long pages without saying
+where, so every claim you took from that page may be missing a tail nobody can see. Recorded, that is
+a known limit; unrecorded, it is a silent one.
 
 ## Say which of these happened
 
-An empty `claims[]` is three different situations, and they need different sentences:
-
-| What happened | What to report |
+| `outcome` | What it means |
 |---|---|
-| The page was walled or paywalled | blocked — name the wall, and whether WebFetch got through |
-| The page loaded and had nothing on this angle | empty — the page is real, the angle is not there |
-| The page loaded and had nothing worth quoting | thin — content exists, none of it checkable |
+| `ok` | claims were found |
+| `blocked` | **you could not read the page** — walled, paywalled, refused after both tools |
+| `nothing-found` | **you read it and it yielded nothing** — off the angle, or nothing in it that could be tied to a quote |
 
-Report them apart. A thin topic and a blocked one read identically otherwise, and one of them is a
-research finding while the other is a gap.
+**The two failures are not the same finding, and only you can tell them apart.** A blocked page is a
+gap in what the run could reach; an empty one is a fact about the topic. Reported as one, a walled
+subject and a genuinely undiscussed one become indistinguishable, and the report says "little was
+written about this" when the truth is "we could not get in".
+
+A blocked page also leaves nothing on disk, so this receipt is the only trace in the whole run that
+the URL was ever tried.
 
 ## Per-source files
 

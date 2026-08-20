@@ -3,9 +3,18 @@
  *
  * The canonical fetch path for articles, docs and long
  * forum threads, where WebFetch truncation is unacceptable and the truncation point is
- * invisible. brain/long-form.md decides when to reach for it.
+ * invisible. brain/subagents/page_analyst_agent/index.md decides when to reach for it, and what to do
+ * when a bot wall makes WebFetch the only way through.
  *
- *   node fetch.mjs <url> --output digmore/<slug>/cache/<source>/<safe-name>
+ *   node fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>
+ *
+ * The caller says where; this script says what. The filename is derived from the URL, so
+ * one URL always produces one file: two branches that find the same page write one file
+ * instead of two copies under two invented names, and a page already on disk is returned
+ * rather than fetched again.
+ *
+ * There is deliberately no way to pass a filename. That was the old --output, and it is
+ * how the same page ended up cached twice under two near-miss names an agent typed.
  *
  * stdout JSON, stderr errors. Exit 1 on a non-2xx, 2 on a transport failure.
  *
@@ -13,9 +22,10 @@
  * scripts import. See AGENTS.md, "New network code must not identify the user".
  */
 
+import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdirSync, rmSync } from 'node:fs';
-import { dirname, resolve, relative, sep, isAbsolute } from 'node:path';
+import { mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -55,11 +65,11 @@ export function browserHeaders(extra = {}) {
 }
 
 /**
- * brain/long-form.md: "The --output path must resolve under
- * <topic>/cache/<source>/<safe-filename>. Any other path leaves the file outside the
- * topic subtree, in violation of the research-output policy." Checked here rather than
- * left to the caller's discipline, because a run that writes outside its topic is the
- * one thing the layout rule exists to prevent.
+ * Everything a run writes lands under digmore/<slug>/cache/<source>/. Checked here rather
+ * than left to the caller's discipline, because a run that writes outside its own topic is
+ * the one thing the layout rule exists to prevent.
+ *
+ * The filename is this script's now, so only the directory is the caller's to get wrong.
  */
 export function isInsideTopicCache(outPath, cwd = process.cwd()) {
   const target = isAbsolute(outPath) ? resolve(outPath) : resolve(cwd, outPath);
@@ -103,17 +113,60 @@ class FetchError extends Error {
 
 export function parseArgs(argv) {
   let url;
-  let out;
+  let outputDir;
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === '--output') {
-      out = argv[index + 1];
+    if (token === '--output-dir') {
+      outputDir = argv[index + 1];
       index += 1;
     } else if (!url) {
       url = token;
     }
   }
-  return { url, out };
+  return { url, outputDir };
+}
+
+/**
+ * How long a filename may get before it is truncated and hashed.
+ *
+ * Windows caps a path at 260 characters, and the filename is only its last part: the rest
+ * is the working directory plus digmore/<slug>/cache/<source>/. 120 leaves roughly half the
+ * budget for those, and the extension.
+ */
+export const FILENAME_ONLY_MAX = 120;
+
+/**
+ * The cache filename for a URL, without extension. One URL, one filename, every time.
+ *
+ * That is the whole point, and it is why the page title is not used: a title is unknown
+ * until the page has been fetched, so it cannot answer "is this already cached?" without
+ * doing the fetch the question exists to avoid. Titles also repeat across a thread's pages
+ * and change between runs. The title belongs in the extracted page's first heading, where
+ * it makes the directory readable without making the name unstable.
+ *
+ * Host first so a directory listing groups by site, then the path and query with every
+ * character a filesystem might object to collapsed to an underscore.
+ *
+ * A name past FILENAME_ONLY_MAX is cut and given `_<md5(url)[:8]>`, so a long URL stays
+ * unique while a short one stays clean. The hash is over the whole URL, never the truncation.
+ */
+export function filenameOnlyFromUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`not a URL: ${url}`);
+  }
+
+  const tail = `${decodeURIComponent(parsed.pathname)}${decodeURIComponent(parsed.search)}`;
+  const filenameOnly = `${parsed.hostname}${tail}`
+    .replace(/[^A-Za-z0-9._-]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  if (filenameOnly.length <= FILENAME_ONLY_MAX) return filenameOnly;
+  const digest = createHash('md5').update(url, 'utf8').digest('hex').slice(0, 8);
+  return `${filenameOnly.slice(0, FILENAME_ONLY_MAX).replace(/_+$/, '')}_${digest}`;
 }
 
 /**
@@ -206,34 +259,85 @@ export async function fetchToPath(url, outPath) {
   };
 }
 
+const USAGE = 'fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>';
+
+/**
+ * The file this name already has in dir, if any.
+ *
+ * The extension is decided by the response's content type, so the name alone does not match
+ * what is on disk — `…_item_id_43426022` was written as `….html`. Match it exactly, or
+ * followed by a dot, which cannot collide with a `-p2` page because the separator differs.
+ */
+export function findCached(dir, filenameOnly) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return undefined; // no directory yet is a miss, not a failure
+  }
+  const hit = entries.find((name) => name === filenameOnly || name.startsWith(`${filenameOnly}.`));
+  return hit ? join(dir, hit) : undefined;
+}
+
 async function main(argv) {
-  const { url, out } = parseArgs(argv);
-  if (!url || !out) {
-    process.stderr.write(
-      `${JSON.stringify({ error: 'usage', detail: 'fetch.mjs <url> --output digmore/<slug>/cache/<source>/<name>' })}\n`,
-    );
+  const { url, outputDir } = parseArgs(argv);
+
+  if (!url || !outputDir) {
+    process.stderr.write(`${JSON.stringify({ error: 'usage', detail: USAGE })}\n`);
     process.exit(2);
   }
-  if (!isInsideTopicCache(out)) {
+
+  let target;
+  let cached;
+  let filenameOnly;
+  try {
+    // The caller says where, this script says what.
+    filenameOnly = filenameOnlyFromUrl(url);
+    target = join(outputDir, filenameOnly);
+    cached = findCached(outputDir, filenameOnly);
+  } catch (err) {
+    process.stderr.write(`${JSON.stringify({ error: 'usage', detail: String(err?.message ?? err) })}\n`);
+    process.exit(2);
+  }
+
+  if (!isInsideTopicCache(target)) {
     process.stderr.write(
       `${JSON.stringify({
         error: 'output_outside_topic_cache',
-        detail: 'the --output path must resolve under digmore/<slug>/cache/<source>/',
-        path: out,
+        detail: 'the output path must resolve under digmore/<slug>/cache/<source>/',
+        path: target,
       })}\n`,
     );
     process.exit(2);
   }
 
+  // Already on disk: return it rather than spend a request. The brain used to ask the caller
+  // to check first, which never happened — the caller could not know the name. Now the name
+  // is this script's, so the check belongs here too.
+  if (cached) {
+    process.stdout.write(
+      `${JSON.stringify({ url, path: cached, bytes: statSync(cached).size, cached: true })}\n`,
+    );
+    return;
+  }
+
   try {
-    const result = await fetchToPath(url, resolve(process.cwd(), out));
+    const result = await fetchToPath(url, resolve(process.cwd(), target));
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (err) {
+    // A failure here is usually a bot wall, and a wall is where the run switches to
+    // WebFetch — which reaches sites a plain HTTP client cannot. Whatever WebFetch returns
+    // has to be saved under the name this fetch would have used, or resume and dedup see
+    // two files for one URL. So the failure carries the name and the path with it: the
+    // caller never derives one, and there is no second call to ask for it.
+    const fallback = { filename_only: filenameOnly, path: target };
     if (err instanceof FetchError) {
-      process.stderr.write(`${JSON.stringify(err.payload)}\n`);
+      process.stderr.write(`${JSON.stringify({ ...err.payload, ...fallback })}\n`);
       process.exit(err.exitCode);
     }
-    process.stderr.write(`${JSON.stringify({ error: 'transport', detail: String(err?.message ?? err) })}\n`);
+    process.stderr.write(
+      `${JSON.stringify({ error: 'transport', detail: String(err?.message ?? err), ...fallback })}\n`,
+    );
     process.exit(2);
   }
 }

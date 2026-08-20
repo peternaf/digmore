@@ -33,6 +33,15 @@ the run leaned on.
 - **Paywalled pages arrived thin.** They are in the cache as low-content files. Note which topics
   were mostly behind a paywall — that is a real limit on what the run could establish.
 
+## No roster on this source
+
+A web page has an author, not an account, so there is nobody for Vet to check and no
+`websearch-handles.json`. You write the notes and nothing else.
+
+Where a page's author turns up elsewhere as a Reddit, Hacker News or Twitter handle, that belongs in
+the notes as a finding — it is how a byline becomes a person the Handle Vetter can reach through
+another source's roster.
+
 ## Known gaps to record in `full_source_analysis/websearch.md`
 
 - Any claim that traces back to a single primary source despite appearing in several pages.

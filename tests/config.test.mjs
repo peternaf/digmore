@@ -10,6 +10,12 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG = join(repoRoot, 'skill', 'scripts', 'config.mjs');
 const POSIX = process.platform !== 'win32';
 
+/** Every top-level key the file carries. Grouped by where each ceiling applies. */
+const TOP_LEVEL_KEYS = [
+  'apiBaseUrl', 'apiDeclined', 'apiKey',
+  'extract', 'fast', 'hackernews', 'plan', 'subagents', 'synthesize', 'twitter', 'vet',
+];
+
 let home;
 
 beforeEach(() => {
@@ -38,21 +44,35 @@ function writeSettings(text) {
 }
 
 // ~/.digmore/settings.json, created on first run, mode 0600.
-test('creates the file on first run with the five default fields', () => {
+test('creates the file on first run with every parameter present', () => {
   const { code } = run('show');
   assert.equal(code, 0);
-  assert.deepEqual(settings(), {
-    apiBaseUrl: 'https://api.digmore.ai',
-    apiKey: null,
-    apiDeclined: false,
-    fetchesPerBranch: 20,
-    vetHandleCap: 50,
-  });
+  const written = settings();
+  assert.deepEqual(Object.keys(written).sort(), TOP_LEVEL_KEYS);
+  assert.equal(written.apiBaseUrl, 'https://api.digmore.ai');
+  assert.equal(written.apiKey, null);
+  assert.equal(written.apiDeclined, false);
 });
 
-test('the file has exactly five fields and no more', () => {
+// Every ceiling is written out, in both modes, so a user can see and change one without
+// having to know it exists. A file listing only the reductions would hide most of them.
+test('the fast block lists every ceiling group, not only the ones it reduces', () => {
   run('show');
-  assert.deepEqual(Object.keys(settings()).sort(), ['apiBaseUrl', 'apiDeclined', 'apiKey', 'fetchesPerBranch', 'vetHandleCap']);
+  const { plan, extract, vet, synthesize, twitter, hackernews, subagents, fast } = settings();
+  assert.deepEqual(Object.keys(fast).sort(),
+    ['extract', 'hackernews', 'plan', 'subagents', 'synthesize', 'twitter', 'vet']);
+  assert.equal(plan.maxAngles, 6);
+  assert.equal(extract.fetchesPerBranch, 20);
+  assert.equal(extract.maxPagesPerDocument, 5);
+  assert.equal(vet.handleCapPerSource, 50);
+  assert.equal(synthesize.claimsFactChecked, 50);
+  assert.equal(twitter.handlesDeepVetted, 20);
+  assert.equal(twitter.postsPerDeepVet, 50);
+  assert.equal(hackernews.commentDepth, 3);
+  assert.equal(subagents.repairAttempts, 1);
+  assert.equal(fast.extract.fetchesPerBranch, 5);
+  assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
+  assert.equal(fast.hackernews.commentDepth, 3, 'unchanged in fast, but still listed');
 });
 
 test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {
@@ -60,12 +80,31 @@ test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {
   assert.equal(statSync(settingsPath()).mode & 0o777, 0o600);
 });
 
-test('creating is idempotent — a second run does not rewrite it', () => {
+test('a complete file is not rewritten — the same read twice changes nothing', () => {
   run('show');
-  writeSettings(JSON.stringify({ apiBaseUrl: 'https://example.test', apiKey: 'k', apiDeclined: false }));
   const before = readFileSync(settingsPath(), 'utf8');
   run('show');
   assert.equal(readFileSync(settingsPath(), 'utf8'), before);
+});
+
+// A file written by an earlier version is missing whatever was added since. Completing it
+// on read is what makes a new ceiling visible to someone who installed before it existed:
+// filling the gap only in memory would leave the knob undiscoverable forever.
+test('a file from an older version gains the new parameters, keeping what the user set', () => {
+  writeSettings(JSON.stringify({ apiKey: 'sk-kept', vet: { handleCapPerSource: 7 } }));
+  run('show');
+  const healed = settings();
+  assert.equal(healed.apiKey, 'sk-kept', 'the key survives');
+  assert.equal(healed.vet.handleCapPerSource, 7, 'a tuned ceiling survives');
+  assert.equal(healed.extract.fetchesPerBranch, 20, 'a missing ceiling is filled in');
+  assert.ok('fast' in healed, 'and so is the whole fast block');
+});
+
+test('an unknown key is dropped rather than left to look meaningful', () => {
+  writeSettings(JSON.stringify({ apiKey: 'sk-kept', nonsenseSetting: 42 }));
+  run('show');
+  assert.ok(!('nonsenseSetting' in settings()), 'a typo disappears instead of being silently ignored');
+  assert.equal(settings().apiKey, 'sk-kept');
 });
 
 // config.mjs owns both writes.
@@ -90,10 +129,10 @@ test('set-key preserves a customised apiBaseUrl', () => {
   assert.equal(settings().apiBaseUrl, 'https://not-the-default.example.test');
 });
 
-test('neither write ever adds a sixth field', () => {
+test('neither write ever adds a field beyond the known set', () => {
   run('decline');
   run('set-key', 'sk-test-123');
-  assert.deepEqual(Object.keys(settings()).sort(), ['apiBaseUrl', 'apiDeclined', 'apiKey', 'fetchesPerBranch', 'vetHandleCap']);
+  assert.deepEqual(Object.keys(settings()).sort(), TOP_LEVEL_KEYS);
 });
 
 // Found running against the real API: PowerShell's `-Encoding utf8` writes a BOM, and
@@ -166,56 +205,62 @@ test('an unknown verb is an error', () => {
 
 // ---------------------------------------------------------------- run ceilings
 //
-// fetchesPerBranch bounds one angle-source pair; vetHandleCap bounds how many people a
-// run vets. Both are the user's to change, and both are read by the skill rather than
-// enforced by any script — see brain/phases/extract_phase_b.md and vet_phase_c.md.
+// Every number that bounds a run lives here rather than in brain prose, because prose is
+// obeyed on trust: two real runs on 2026-08-17 applied 20 and 8 for the same cap with
+// nothing flagging the difference. Grouped by where each applies — the phase for a
+// phase-wide ceiling, the source for a source-specific one.
 
-test('the ceilings default to 20 and 50', () => {
+test('the ceilings default as documented', () => {
   run('show');
-  assert.equal(settings().fetchesPerBranch, 20);
-  assert.equal(settings().vetHandleCap, 50);
+  const config = settings();
+  assert.equal(config.extract.fetchesPerBranch, 20);
+  assert.equal(config.vet.handleCapPerSource, 50);
+  assert.equal(config.plan.scopingSearches, 10);
+  assert.equal(config.synthesize.manualVerifyFlagCap, 15);
 });
 
 test('a user-set ceiling survives a read', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 8, vetHandleCap: 200 }));
+  writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   const { code, out } = run('show');
   assert.equal(code, 0);
-  assert.equal(JSON.parse(out).fetchesPerBranch, 8);
-  assert.equal(JSON.parse(out).vetHandleCap, 200);
+  assert.equal(JSON.parse(out).extract.fetchesPerBranch, 8);
+  assert.equal(JSON.parse(out).vet.handleCapPerSource, 200);
 });
 
 test('a user-set ceiling survives a write', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 8, vetHandleCap: 200 }));
+  writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   run('set-key', 'sk-test-123');
-  assert.equal(settings().fetchesPerBranch, 8, 'setting a key does not reset the ceilings');
-  assert.equal(settings().vetHandleCap, 200);
+  assert.equal(settings().extract.fetchesPerBranch, 8, 'setting a key does not reset the ceilings');
+  assert.equal(settings().vet.handleCapPerSource, 200);
 });
 
 test('show reports the ceilings, so a run can read them without the key', () => {
   const { out } = run('show');
   const reported = JSON.parse(out);
-  assert.equal(reported.fetchesPerBranch, 20);
-  assert.equal(reported.vetHandleCap, 50);
+  assert.equal(reported.extract.fetchesPerBranch, 20);
+  assert.equal(reported.vet.handleCapPerSource, 50);
   assert.ok(!('apiKey' in reported), 'the key itself is still never printed');
 });
 
 // A ceiling of zero, a negative, or a string would stop a run doing any work at all while
-// looking configured. The default is safer than honouring it.
+// looking configured. The default is safer than honouring it — and the file is corrected,
+// so it never says one number on disk while the run uses another.
 for (const bad of [0, -5, '20', 1.5, null]) {
   test(`a ceiling of ${JSON.stringify(bad)} reads back as the default`, () => {
-    const written = JSON.stringify({ fetchesPerBranch: bad, vetHandleCap: bad });
-    writeSettings(written);
+    writeSettings(JSON.stringify({ extract: { fetchesPerBranch: bad }, vet: { handleCapPerSource: bad } }));
     const { code, out } = run('show');
     assert.equal(code, 0, 'a bad ceiling is not a malformed file');
-    assert.equal(JSON.parse(out).fetchesPerBranch, 20);
-    assert.equal(JSON.parse(out).vetHandleCap, 50);
-    assert.equal(readFileSync(settingsPath(), 'utf8'), written, 'and the file is left as the user typed it');
+    assert.equal(JSON.parse(out).extract.fetchesPerBranch, 20);
+    assert.equal(JSON.parse(out).vet.handleCapPerSource, 50);
+    assert.equal(settings().extract.fetchesPerBranch, 20, 'and the file is corrected to match');
   });
 }
 
-test('a bad ceiling is corrected on the next write', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 0, vetHandleCap: -1 }));
-  run('set-key', 'sk-test-123');
-  assert.equal(settings().fetchesPerBranch, 20, 'the file now holds the value the run will use');
-  assert.equal(settings().vetHandleCap, 50);
+// Zero is a real instruction for the ceilings that can be switched off, and must not be
+// treated as the mistake it would be elsewhere.
+test('zero is honoured where it means "skip this step"', () => {
+  writeSettings(JSON.stringify({ twitter: { handlesDeepVetted: 0 }, subagents: { repairAttempts: 0 } }));
+  const { out } = run('show');
+  assert.equal(JSON.parse(out).twitter.handlesDeepVetted, 0);
+  assert.equal(JSON.parse(out).subagents.repairAttempts, 0);
 });

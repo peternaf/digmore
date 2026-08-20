@@ -42,14 +42,55 @@ Your source's file in this directory says what that material actually looks like
 
 ## What you write
 
-`digmore/<slug>/full_source_analysis/<source>.md` — one file, yours alone, nothing else writes it.
+Two files in `digmore/<slug>/full_source_analysis/`, both yours alone.
+
+### `<source>.md` — the notes
 
 Prose, no schema. Concrete: name the threads, quote the lines, link the URLs. `../../output.md`'s rules
 apply here in full — this is text, and vagueness costs as much here as anywhere.
 
-This file is read by the **Report Writer** in Synthesize, alongside the structured claims. It does
-not reach the user directly; what it surfaces reaches them through the summary's non-trivial
-insights.
+Read by the **Report Writer** in Synthesize, alongside the structured claims. It does not reach the
+user directly; what it surfaces reaches them through the summary's non-trivial insights.
+
+### `<source>-handles.json` — the roster
+
+**Reddit, Hacker News, Twitter and forums only.** The open web has authors rather than accounts, and
+the user's own documents have nobody, so those two write no roster.
+
+Every handle appearing anywhere in this source's material, with what the pages already told you about
+them. The `handle-roster` shape in `../../../scripts/subagent_returns.json`.
+
+**Vet reads this and works straight down it.** Ranking handles needs every document a source
+produced, and you are the only agent that reads the whole pile — so the ranking is yours, and nothing
+downstream redoes it. **The array order is the ranking:**
+
+1. **`topImportance`** — the highest importance of any claim attributed to that handle: `central`,
+   then `supporting`, then `tangential`, then `none` for someone who appeared and produced no claim.
+2. **`documentCount` descending** breaks the tie.
+
+A handle with no claim ranks below every handle with one, however often they appeared — there is
+nothing of theirs to quote, so a verdict on them changes nothing. They still get a row, because on a
+thin source they may be the best available.
+
+Two things to get right:
+
+- **Attribution comes off the claims files**, where each claim carries the `handle` that said it.
+- **`documentCount` counts documents, not branches.** The cache is named per URL and carries no
+  branch, so branch spread is not recoverable from here.
+
+Put anything else the pages already showed into `signals` — forum post counts, badges, Discourse
+trust levels, accepted-answer marks, whether they authored the thread. It costs nothing, since you
+have read the pages, and it either saves the Handle Vetter a request or gives it signal it could not
+otherwise get.
+
+**Without a roster, Vet cannot vet this source.** If you cannot produce one, say so plainly rather
+than writing an empty file: an empty roster and a source with no handles look identical, and one of
+them is a failure.
+
+**You write this file once and never return to it.** After Vet, the orchestrator adds each handle's
+verdict, topical relevance and reason to the rows you wrote, so the finished file is the whole record
+of that source's people: who appeared, what they contributed, and what the run decided about them.
+That is the only reason the verdict fields exist in the shape — leave them out.
 
 ## Coverage gaps belong here too
 

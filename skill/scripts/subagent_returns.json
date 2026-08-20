@@ -96,14 +96,60 @@
       }
     }
   },
-  "source-extractor": {
-    "description": "Returned by a Document Analyst, one per URL, after the page is in cache. Carries the claims pulled from that page, each with a verbatim quote. The Expert Document Analyst returns the same shape for a document a vetted expert wrote.",
+  "page-analyst": {
+    "description": "Returned by a Page Analyst, one per document, and by the Expert Document Analyst. A receipt, not the extraction: the claims go to <name>-claims.json and are read from there by whoever needs them. Three fields, because three is what the orchestrator uses — everything else about the page is in the file, and the file is found by reading cache/<source>/ rather than by being handed a path several hundred times.",
     "type": "object",
     "required": [
+      "outcome",
+      "claimCount",
+      "pagesRead",
+      "fetchedWith"
+    ],
+    "properties": {
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "blocked",
+          "nothing-found"
+        ],
+        "description": "ok = claims were found. blocked = the page could not be read: walled, paywalled, or refused. nothing-found = the page was read and yielded nothing. The two failures are not the same finding — a walled page is a gap in what the run could reach, an empty one is a fact about the topic — and a blocked page leaves no file, so this is the only trace it was ever tried."
+      },
+      "claimCount": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "pagesRead": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many pages were fetched to assemble this document. Every one spends the branch's fetch budget, and only the orchestrator can total them. Zero when the page was already cached or could not be read at all."
+      },
+      "fetchedWith": {
+        "type": "string",
+        "enum": [
+          "script",
+          "fetch.mjs",
+          "WebFetch",
+          "cache",
+          "none"
+        ],
+        "description": "Which tool got the page. WebFetch shortens long pages silently and never says where it cut, so every claim taken from one may be missing a tail nobody can see — the orchestrator records those URLs in audit.md so the limit is visible rather than invisible. 'cache' when the page was already on disk, 'none' when it could not be read at all."
+      }
+    }
+  },
+  "page-claims": {
+    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. The Report Writer reads these to build the summary; the Source Analyst reads them to build its handle roster.",
+    "type": "object",
+    "required": [
+      "url",
       "sourceQuality",
       "claims"
     ],
     "properties": {
+      "url": {
+        "type": "string",
+        "description": "The document these claims came from. A path under cache/local/ on the local source, which has no URL."
+      },
       "sourceQuality": {
         "type": "string",
         "enum": [
@@ -150,6 +196,10 @@
               "type": "string",
               "description": "Verbatim supporting quote from the page."
             },
+            "handle": {
+              "type": "string",
+              "description": "Who said it, where the source has accounts: 'u/foo', 'hn/foo', 'x/foo', or the forum's own handle. Omit on the open web and on the user's own documents, which have authors rather than accounts. This is the only link between a claim and a person — without it Vet cannot tell whose words carry weight."
+            },
             "importance": {
               "type": "string",
               "enum": [
@@ -181,6 +231,103 @@
       }
     }
   },
+  "handle-roster": {
+    "description": "Written by the Source Analyst to full_source_analysis/<source>-handles.json, one per handle-bearing source: reddit, hackernews, twitter, forums. Vet reads it instead of ranking for itself — the ranking needs every document that source produced, and the Source Analyst is the only agent that reads the whole pile at once. The array order IS the ranking, so Vet takes from the top and stops at the cap.",
+    "type": "object",
+    "required": [
+      "source",
+      "handles"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums"
+        ]
+      },
+      "handles": {
+        "type": "array",
+        "description": "Ordered: highest topImportance first, then documentCount descending. A handle that produced no claim ranks below every handle that produced one, however often it appeared — there is nothing of theirs to quote, so a verdict on them changes nothing.",
+        "items": {
+          "type": "object",
+          "required": [
+            "handle",
+            "topImportance",
+            "claimCount",
+            "documentCount"
+          ],
+          "properties": {
+            "handle": {
+              "type": "string",
+              "description": "As the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form."
+            },
+            "topImportance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential",
+                "none"
+              ],
+              "description": "The highest importance of any claim attributed to this handle. 'none' when they appeared but produced no claim."
+            },
+            "claimCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "documentCount": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many of this source's documents they appear in. Documents, not branches — the cache is named per URL and carries no branch, so branch spread is not recoverable here."
+            },
+            "signals": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Anything the pages already showed that vetting would otherwise pay to fetch: forum post counts, badges, trust levels, accepted-answer marks, whether they are the thread author. Free here, since the pages are already read."
+            },
+            "lastSeen": {
+              "type": "string",
+              "format": "date",
+              "description": "Most recent date this handle appears in the cached material. Not the same as experts.csv's last_active, which is their real last post anywhere."
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "legit",
+                "unknown",
+                "promoter",
+                "spammer",
+                "throwaway"
+              ],
+              "description": "Added by the orchestrator at the end of Vet, never by the Source Analyst. The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script cached. Absent means this handle fell below the cap and was never vetted, which is different from being vetted and rejected."
+            },
+            "topicalRelevance": {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "description": "Added at the end of Vet. The Handle Vetter's reading of how much of this topic they actually work on."
+            },
+            "verdictReason": {
+              "type": "string",
+              "description": "Added at the end of Vet. Why the verdict came out that way, in one line. This is the only record of a rejection — experts.csv holds legit people only, so without it a promoter verdict is computed and thrown away, and the next run pays to compute it again."
+            },
+            "inExperts": {
+              "type": "boolean",
+              "description": "Added at the end of Vet. Whether this handle became a row in experts.csv."
+            }
+          }
+        }
+      }
+    }
+  },
   "vet-judgment": {
     "description": "Returned by a Handle Vetter when a verdict needs a judgment the heuristics cannot make — on Twitter, when the API sets needs_llm_judgment and the sampled tweets have to be read. Distinct from the vet_user object the source scripts emit on stdout, which the script and the API enforce rather than this checker.",
     "type": "object",
@@ -195,8 +342,8 @@
           "legit",
           "unknown",
           "promoter",
-          "troll",
-          "spammer"
+          "spammer",
+          "throwaway"
         ]
       },
       "reason": {

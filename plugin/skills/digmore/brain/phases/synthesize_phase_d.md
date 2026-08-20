@@ -7,7 +7,7 @@ Inputs: Extract's structured claims (from the Search Source extractors) + Source
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
 - `digmore/<topic-slug>/players.csv` — full player matrix. Columns and the player-inclusion test are command-specific (see the command's reference file).
-- the summary — user-facing, named per `../research_plan.md`. Sections are command-specific.
+- the summary — user-facing, named per `index.md` §"Where a run writes". Sections are command-specific.
 
 Re-read `../output.md` before writing any output. Read `../vetting.md` for the verdict schema and the confidence-tag rule.
 
@@ -20,19 +20,21 @@ Re-pass Extract's datapoints. Drop low-quality:
 
 **Carryover revalidation.** When the topic was branched from a sibling (`research_plan.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
 
+**Player numeric carryover.** A player that survives revalidation and enters the child keeps the parent's `monthly_visits` and `funding_stage` — copy them across, no re-fetch. If either is missing on the parent row, the parent was incomplete: fix the parent first, then re-copy. `UNAVAILABLE` in the child because the parent did not have it is not acceptable.
+
 Within each thread, prioritize **answering** comments — high-upvote replies, OP "this worked / thanks" responses, marked answers — not generic discussion.
 
 ## 2. Expand
 
 Simultaneously, follow now-known experts elsewhere (their other comments, posts, profiles) to surface new datapoints not found in Extract. Re-use the cache where possible.
 
-Reuse the same Source extractor sub-agent shape as Search. Cap the per-expert expansion at 10 URLs.
+Reuse the same Source extractor sub-agent shape as Search. Two ceilings bound this, both printed by `preflight.mjs`: `synthesize.expertsFollowed` — how many experts are followed at all — and `synthesize.urlsPerExpert` for each of them. Multiply them before starting: that product is the phase's fetch budget, and it is separate from `extract.fetchesPerBranch`, which does not reach here.
 
 ## 3. Synthesize
 
 Merge semantic duplicates: claims that say the same thing collapse into one finding with a combined source list. When multiple sources support a claim, pick the highest-quality source as the canonical citation (best-evidence selection) **and keep that source's wording verbatim** — do not blend several sources into one sentence of your own. Merging is about removing repetition, never about rewriting what a source said. See `../output.md`.
 
-Dispatch ONE synthesizer sub-agent, per `../dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
+Dispatch ONE synthesizer sub-agent, per `../subagents/dispatch_structured_subagent.md`. The synthesizer returns the Synthesizer schema (see `../../scripts/subagent_returns.json`): `{findings[{claim, confidence, sources, evidence}], stats}`.
 
 **Inline the spec.** Sub-agents producing structured output get the format spec inlined verbatim (column rules + cell format + worked example). Pointing at the command's reference file fails — sub-agents default to shortest plausible content.
 
@@ -61,7 +63,7 @@ Mandatory per-row. Blanket-skip not allowed.
 
 For each row:
 1. Identify `marketing_domain`. `url` is a hint — many open-source projects with a code-host `url` also have a marketing site (Frigate → `frigate.video`). Check before defaulting to "code-host only".
-2. `monthly_visits` per `../sources/websearch.md`. SimilarWeb is free; fetch every row.
+2. `monthly_visits` per `../subagents/player_profiler_agent.md`. SimilarWeb is free; fetch every row.
    - SimilarWeb returns data → numeric.
    - Subdomain → try parent first.
    - Domain not indexed → `UNAVAILABLE — not-indexed`.
@@ -75,6 +77,8 @@ A row with no identifiable presence at all is a research error — record it in 
 ## 3.6. Enumeration sections are rendered from the CSV, not written from memory
 
 Any summary section that **lists things** — hubs, communities, players, accounts, tools, leaderboards — is produced by reading the finished CSV and emitting one entry per row. It is not composed from recollection with the file sitting beside it.
+
+Which file: `players.csv`, `experts.csv` and `promoter_network.csv` for the sections that already have one. A section this run invented has its own, named in `research_plan.json` under `scope.sections`, planned in Plan and written here. See `../sections.md`.
 
 The distinction matters because the two linking jobs are different, and only one of them was ever enforced. A **citation** proves a claim: it points at the page where the evidence lives. A **destination** answers "where is this thing?": it points at the thing itself. Cite-or-drop (`../output.md` rule 5) demands the first and says nothing about the second, so a section that names twelve communities can satisfy every rule in the brain while leaving the reader unable to reach a single one of them.
 

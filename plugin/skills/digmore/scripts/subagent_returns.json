@@ -1,11 +1,11 @@
 {
   "scope": {
-    "description": "Returned by the Subject Scout, once, in Plan (phases/plan_phase_a.md §2). It searches the open web to find out what the subject actually is, and returns the words its own people use and the names that recur. The orchestrator writes both into research_plan.json under scope, then builds the angles from them — the angles are its own, because it is the one that will use them.",
+    "description": "Returned by the Scoping agent, once, in Plan (phases/plan_phase_a.md §2). It searches the open web to find out what the subject actually is, then decomposes it into the angles the run will search. The orchestrator writes all of it into research_plan.json under scope, and decides the summary's sections itself — that needs the command's reference file and the user, neither of which this agent has.",
     "type": "object",
     "required": [
-      "queries",
       "vocabulary",
-      "recurring_names"
+      "recurring_names",
+      "angles"
     ],
     "properties": {
       "queries": {
@@ -29,6 +29,34 @@
         "items": {
           "type": "string",
           "description": "A name that came up repeatedly — company, project, product or person."
+        }
+      },
+      "angles": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 6,
+        "description": "The research directions the run will search. 3–6 in a full run, exactly 2 in --fast; `ask` sets its own counts.",
+        "items": {
+          "type": "object",
+          "required": [
+            "label",
+            "query",
+            "rationale"
+          ],
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Short kebab-case name. It names the branch, its log file and its records, so it is load-bearing."
+            },
+            "query": {
+              "type": "string",
+              "description": "Search-ready phrasing, written in the vocabulary above rather than in generic market language."
+            },
+            "rationale": {
+              "type": "string",
+              "description": "Why this angle matters for this request."
+            }
+          }
         }
       }
     }

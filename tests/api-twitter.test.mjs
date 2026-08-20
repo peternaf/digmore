@@ -98,42 +98,54 @@ test('re-quoting a tweet across runs does not re-fetch it', async () => {
   assert.deepEqual(json.tweets.map((tweet) => tweet.id), ['111', '222'], 'both are returned');
 });
 
-test('vet requires a tier and passes it through', async () => {
+test('vet requires a post count and passes it through', async () => {
   const base = await sandbox.apiReturning({ verdict: 'unknown', signals: {}, reason: '' });
   sandbox.configured(base);
 
   const missing = await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo');
   assert.notEqual(missing.code, 0);
-  assert.match(missing.err, /tier/);
+  assert.match(missing.err, /posts/);
   assert.equal(sandbox.requests.length, 0);
 
   const { code, json } = await sandbox.run(
-    'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '2',
+    'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '50',
   );
   assert.equal(code, 0);
   assert.equal(sandbox.requests[0].path, '/v1/twitter/vet/someone');
-  assert.equal(sandbox.requests[0].query.tier, '2');
+  assert.equal(sandbox.requests[0].query.posts, '50');
   assert.equal(json.verdict, 'unknown');
 });
 
-test('a bad tier is refused', async () => {
+// Zero is the profile pass, not a missing value, so it has to reach the API like any count.
+test('--posts 0 is the profile pass and is sent as 0', async () => {
+  const base = await sandbox.apiReturning({ verdict: 'unknown' });
+  sandbox.configured(base);
+  const { code } = await sandbox.run(
+    'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '0',
+  );
+  assert.equal(code, 0);
+  assert.equal(sandbox.requests[0].query.posts, '0');
+});
+
+// What counts X will serve is the API's business. This refuses only what is not a count.
+test('a post count that is not a whole number is refused', async () => {
   const base = await sandbox.apiReturning({});
   sandbox.configured(base);
-  for (const tier of ['0', '4', 'high']) {
+  for (const posts of ['-1', '2.5', 'deep', '']) {
     const { code } = await sandbox.run(
-      'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', tier,
+      'api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', posts,
     );
-    assert.notEqual(code, 0, tier);
+    assert.notEqual(code, 0, posts);
   }
   assert.equal(sandbox.requests.length, 0);
 });
 
-test('each tier caches separately — escalating re-fetches', async () => {
+test('each depth caches separately — the deep pass re-fetches', async () => {
   const base = await sandbox.apiReturning({ verdict: 'unknown' });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '1');
-  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--tier', '2');
-  assert.equal(sandbox.requests.length, 2, 'tier 2 is deeper data, not the same call');
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '0');
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '50');
+  assert.equal(sandbox.requests.length, 2, 'the deep pass is deeper data, not the same call');
 });
 
 // There is no user-side spend, so there is no verb for estimating one.
@@ -141,7 +153,7 @@ test('there is no plan-vet verb', async () => {
   const base = await sandbox.apiReturning({});
   sandbox.configured(base);
   const { code, err } = await sandbox.run(
-    'api.mjs', 'twitter', 'plan-vet', 'someone', '--tier', '1', '--topic', 'demo',
+    'api.mjs', 'twitter', 'plan-vet', 'someone', '--posts', '0', '--topic', 'demo',
   );
   assert.notEqual(code, 0);
   assert.match(err, /unknown/i);
@@ -164,7 +176,7 @@ test('no dollar figure survives, wherever the API puts it', async () => {
   const base = await sandbox.apiReturning({
     username: 'someone',
     estimated_cost_usd: 0.135,
-    meta: { estimated_cost_usd: 0.01, tier: 2 },
+    meta: { estimated_cost_usd: 0.01, tweets_sampled: 2 },
     tweets: [{ id: '1', estimated_cost_usd: 0.005 }],
   });
   sandbox.configured(base);
@@ -172,7 +184,7 @@ test('no dollar figure survives, wherever the API puts it', async () => {
   assert.ok(!out.includes('estimated_cost_usd'), 'stripped at every depth');
   assert.ok(!out.includes('0.135'));
   assert.ok(!out.includes('0.005'));
-  assert.match(out, /"tier":2/, 'the rest of the payload survives');
+  assert.match(out, /"tweets_sampled":2/, 'the rest of the payload survives');
 });
 
 test('the script itself carries no pricing', () => {

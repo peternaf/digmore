@@ -286,7 +286,7 @@ test('the three verbs are exactly search, thread and user', async () => {
 
 // The shared verdict vocabulary, unchanged by the merge.
 test('every verdict in the vocabulary passes through untouched', async () => {
-  for (const verdict of ['legit', 'unknown', 'promoter', 'troll', 'spammer']) {
+  for (const verdict of ['legit', 'unknown', 'promoter', 'spammer', 'throwaway']) {
     const caseSandbox = new Sandbox();
     try {
       const base = await caseSandbox.apiReturning({ name: 'x', verdict, signals: {}, reason: 'r' });

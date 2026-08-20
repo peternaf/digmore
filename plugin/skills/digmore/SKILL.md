@@ -48,7 +48,7 @@ Two cases, and they are different:
 
 Wait for the answer. If they pick a different command, load that reference file instead; nothing about the request needs restating.
 
-One question, not an interrogation. Do not also ask about the topic, the depth or the sources in the same breath — those belong to the reference file, and `brain/research_plan.md` already has its own confirmation inside Plan.
+One question, not an interrogation. Do not also ask about the topic, the depth or the sources in the same breath — Plan has its own confirmations for those, at `brain/phases/plan_phase_a.md` §1 and §3.1. This one settles which command runs, and nothing else.
 
 **In `--auto`, do not prompt.** State the command you picked and why, and run. `brain/modes.md` already has auto mode skip confirmation of detected intent and proceed on the best parse; this is the same rule. Name the pick in the run's Issues, so a wrong guess is visible in the output instead of silent.
 
@@ -56,7 +56,7 @@ If the user picks the catch-all when a specific command was offered, that is wor
 
 ## Step 3 — the brain
 
-Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the five phases, vetting, schemas, modes, topic mechanics, recency, long-form handling, and the per-source operating notes.
+Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the five phases, vetting, schemas, modes, topic mechanics, recency, and one directory per sub-agent holding that agent's own instructions and its per-source notes.
 
 **Re-read `brain/output.md` before writing any user-facing text or dispatching any sub-agent.** The writing-style rules are not optional, and they apply to sub-agent output as much as to the final report.
 
@@ -72,6 +72,8 @@ Full rules in `brain/modes.md`.
 ## Where the output goes
 
 `digmore/<topic-slug>/` in the user's working directory, with the summary at `digmore/<topic-slug>/<topic-slug>-executive-summary.md`. Never write anywhere else, and never write inside the plugin's own directory — it is an install cache that a plugin update replaces.
+
+The full layout, and which part of the run writes each file, is in `brain/phases/index.md` §"Where a run writes".
 
 ## What a run must never do
 

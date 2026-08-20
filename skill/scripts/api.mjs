@@ -14,7 +14,7 @@
  *   node api.mjs twitter user   <handle>           --topic <slug>
  *   node api.mjs twitter tweets <handle>           --topic <slug> [--limit 25]
  *   node api.mjs twitter tweet  <tweet-id>...      --topic <slug>
- *   node api.mjs twitter vet    <handle>           --topic <slug> --tier 1|2|3
+ *   node api.mjs twitter vet    <handle>           --topic <slug> --posts <n>
  *
  * stdout carries JSON, stderr carries errors.
  */
@@ -317,14 +317,26 @@ const twitter = {
     return { tweets: tweetIds.map((tweetId) => found[tweetId]).filter(Boolean) };
   },
 
+  /**
+   * Vetting runs at two depths, and `--posts` is the whole of the difference: 0 reads the
+   * profile alone, a positive number also reads that many of the handle's recent posts.
+   * Which counts X will actually serve is the API's business, so this refuses only what
+   * could never be a count at all.
+   *
+   * Each depth caches under its own name, so going deeper on a handle fetches the deeper
+   * answer instead of re-reading the shallow one already on disk.
+   */
   async vet(ctx, [handle], flags) {
     if (!handle) throw new ApiError('twitter vet needs a handle', EXIT.USAGE);
-    const tier = flags.tier;
-    if (!['1', '2', '3'].includes(String(tier))) {
-      throw new ApiError('twitter vet needs --tier 1, 2 or 3', EXIT.USAGE);
+    if (!/^\d+$/.test(String(flags.posts ?? ''))) {
+      throw new ApiError(
+        'twitter vet needs --posts, a whole number of posts to read (0 for the profile alone)',
+        EXIT.USAGE,
+      );
     }
-    return cached(ctx, `twitter-vet-${handle}-tier${tier}.json`, () =>
-      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { tier }),
+    const posts = Number(flags.posts);
+    return cached(ctx, `twitter-vet-${handle}-${posts}posts.json`, () =>
+      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { posts }),
     );
   },
 };

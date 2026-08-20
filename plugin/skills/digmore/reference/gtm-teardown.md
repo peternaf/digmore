@@ -6,7 +6,7 @@ A five-phase pass focused on ONE company's go-to-market behavior. Name every tac
 
 ## Input framing and chaining
 
-Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/research_plan.md` §"Branched topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
+Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/phases/plan_phase_a.md` §1 "Three flows beyond a fresh topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
 
 `research_plan.json.kind` is `gtm-teardown`.
 

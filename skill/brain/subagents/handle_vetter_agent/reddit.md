@@ -33,7 +33,7 @@ error.
 
 In the order the script applies them:
 
-1. Account age < 30 days with low karma → `unknown`.
+1. New account with low karma → `throwaway`. Both together, never one alone.
 2. Same URL host 5+ times across recent comments → `promoter`. 10+ → `spammer`.
 3. Same brand-shaped token (`acme.com`-style) 5+ times → `promoter`.
 4. 80%+ of recent comments in one subreddit, with at least 10 comments → `unknown`, the fanboy case.

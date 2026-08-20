@@ -51,6 +51,11 @@ multi-source test on its own.
 - **A draft reads exactly like a decision.** "We should raise prices to $60" may be a plan or a
   passing thought, and nothing in the file says which. Where the run leaned on one of those, flag it.
 
+## No roster on this source
+
+The user's own documents have nobody behind them to vet — they vouched for the material by handing it
+over. No `local-handles.json`. You write the notes and nothing else.
+
 ## Known gaps to record in `full_source_analysis/local.md`
 
 - Material the user referred to but did not hand over.

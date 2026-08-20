@@ -40,6 +40,19 @@ Three limits worth stating plainly in your file, because they bias everything th
 - **No impressions.** X does not expose them, so "reach" here means likes, retweets and replies, and
   nothing else.
 
+## The roster — `full_source_analysis/twitter-handles.json`
+
+The thinnest roster of the four, and the one where ranking matters most — Twitter is the only source
+with a second, deeper vetting pass, and this file decides who gets it.
+
+- **The handle form is `x/<name>`.**
+- **Only tweets the run actually quoted were ever fetched in full**, so `documentCount` here counts a
+  selection rather than a sample. Two handles with one document each are not comparable the way they
+  would be on Reddit — lean on `topImportance`.
+- **`signals` worth carrying:** follower count and timeline shape where a profile or timeline was
+  already pulled for vetting. Record them as facts, not as a ranking input: a view repeated by three
+  small accounts and one large one is not four independent signals, and reach is not expertise.
+
 ## Known gaps to record in `full_source_analysis/twitter.md`
 
 - The selection bias above, in one line, every run.

@@ -15,17 +15,17 @@ The command takes free-form args. The literal token `--auto` anywhere in the arg
 
 You run all scripts via the Bash tool. When something needs the user's judgment, prompt them in chat and wait.
 
-Three things trigger a prompt:
+Two things trigger a prompt, and both are about **intent** rather than cost:
 
-1. **Vetting batches that cross a per-tier confirmation threshold.** Twitter examples: more than 20 handles at Tier 1 or 2, more than 5 at Tier 3. Surface the handle count and which tier they would be vetted at, then wait for approval.
-2. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
-3. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
+1. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
+2. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
+
+**A run never stops to ask permission to spend.** Every ceiling is a number the user already set, printed by `preflight.mjs` at the start of the run — asking again mid-run is asking them to re-approve their own settings, which teaches them to say yes without reading.
 
 ## Auto mode (`--auto`)
 
 You run all scripts via the Bash tool but never prompt.
 
-- Per-tier confirmation thresholds become **hard caps** — above the cap, stop, don't ask.
 - Clarifying questions are not asked and not written down as questions. **Answer them yourself** on the best available evidence and carry on, then record what you assumed in the run's Issues and in `audit.md`. See `reporting.md` §"Questions for the user".
 - Nothing detected is confirmed — state the reading, proceed on your best parse, and record it in the run's Issues.
 
@@ -33,9 +33,9 @@ You run all scripts via the Bash tool but never prompt.
 
 Mode applies to the whole research run (all sources), not one.
 
-## Per-source caps in auto mode
+## Per-source caps
 
-Each source that costs depth defines its own request-count caps (count, not dollars). Twitter: Tier 1 max 20 handles/run, Tier 2 max 20, Tier 3 max 5. Cap hits surface in the Run footer of the summary.
+Every ceiling is a hard cap in both modes — the mode decides whether the run asks the user questions, never how much work it is allowed to do. `vet.handleCapPerSource` bounds each source's vetting on its own, and Twitter adds `twitter.handlesDeepVetted` for the handles whose posts are read too. Cap hits surface in the Run footer of the summary.
 
 ## Failure handling in auto mode
 
@@ -55,30 +55,33 @@ Standard research run as described in the rest of the brain. Roughly 2 hours wal
 
 10–15 minute wall-clock budget. Same five-phase shape, every phase scaled down. The output is still a complete summary + `players.csv` + `experts.csv` + `audit.md` — just shallower.
 
-Per-phase reductions vs full mode:
+**Every number is in `~/.digmore/settings.json`, and `preflight.mjs` prints them at the start of the run.** Read them off that report; do not carry a number from here, and never substitute one of your own. Where preflight shows `20 → 5`, the second value is this mode's. A `0` means that step is skipped entirely.
+
+The ceilings it prints, and what each bounds:
+
+| Group | Ceilings |
+|---|---|
+| `plan` | `minAngles`, `maxAngles`, `scopingSearches` |
+| `extract` | `fetchesPerBranch`, `maxPagesPerDocument` |
+| `vet` | `handleCapPerSource` |
+| `synthesize` | `expertsFollowed`, `urlsPerExpert`, `claimsFactChecked`, `manualVerifyFlagCap` |
+| `twitter` | `handlesDeepVetted`, `postsPerDeepVet` |
+| `hackernews` | `commentDepth`, `recentCommentsSampled` |
+| `subagents` | `repairAttempts` |
+
+**A user's own ceiling is never loosened by asking for a shallower run.** Fast takes the lower of the two, so someone who set `vet.handleCapPerSource` to 10 gets 10 in both modes. The exception is a fast value of `0`, which is a deliberate skip and wins.
+
+What fast changes that is not a number:
 
 | Phase | Full | Fast |
 |---|---|---|
-| **Plan — angles** | 3–6 | 2 |
-| **Search — URLs per branch** | `fetchesPerBranch`, 20 by default | 5, or `fetchesPerBranch` if that is lower |
-| **Search — Twitter** | Tier 1/2/3 per the rules | Tier 1 only, max 5 handles. Tier 2/3 + LLM-judgment layer skipped. |
+| **Vet — Twitter** | profile pass, then the deep pass over `twitter.handlesDeepVetted` handles | profile pass only, because `handlesDeepVetted` is `0`. The voice judgment goes with it — it needs posts a profile call never fetches |
 | **Source notes** | one per source | one per source (reads the smaller Search dataset, naturally faster) |
-| **Vet — handle filter** | every handle | only handles seen ≥ 2 times across Search AND with above-floor reputation signal (karma > 50 / age > 1y) |
-| **Vet — total handle cap** | `vetHandleCap`, 50 by default | 20 handles, or `vetHandleCap` if that is lower |
-| **Synthesize — filter + expand** | filter + follow experts elsewhere | filter + follow experts elsewhere, capped at top-3 experts × 3 URLs each |
 | **Synthesize — critic pass** | yes | yes |
-| **Audit — claims verified** | top 50 | top 10 |
-| **Audit — `manual-verify-required` cap** | 15 | 5 |
+
+**Fast mode does not pre-filter handles.** The smaller `handleCapPerSource` is the whole reduction, and the ranking in `phases/vet_phase_c.md` decides who fills it. A filter that cut handles before ranking would be a bound applied before the sort, which is the thing that section exists to prevent.
 
 The summary includes a `fast mode` tag in the Run footer when this mode was used, so the user knows what depth produced it.
-
-## Twitter in fast mode
-
-Fast mode runs Twitter at the shallowest tier only:
-
-- Tier 1 (profile only): max 5 handles per run.
-- Tier 2 + Tier 3: skipped (they need tweet payloads, which take longer).
-- LLM-judgment vetting layer: skipped (it needs Tier 2/3 tweet data).
 
 ## What fast mode is for
 
@@ -89,14 +92,14 @@ Fast mode runs Twitter at the shallowest tier only:
 ## What fast mode is not for
 
 - Final-deliverable competitor teardowns where confidence matters.
-- Topics where Twitter is central — Tier 1 profile data alone is too shallow to drive a teardown.
+- Topics where Twitter is central — a profile alone, with nobody's posts read, is too shallow to drive a teardown.
 - The first time you research a topic where you'll act on the result without re-reading.
 
 ## Fast mode in auto + manual
 
 Fast mode is orthogonal to interaction. The same reduction table applies in both:
 
-- `manual + fast`: prompts still fire (clarifying questions). Twitter confirmation gates don't trigger because Tier 1's 5-handle cap is below the >20 threshold.
+- `manual + fast`: prompts still fire (clarifying questions). The Twitter confirmation gates do not trigger, because fast lowers the same `twitter.*` ceilings the gates are measured against.
 - `auto + fast`: no prompts, hard caps. Anything that would have prompted is decided by you and recorded as an assumption.
 
 ## When a command changes these
