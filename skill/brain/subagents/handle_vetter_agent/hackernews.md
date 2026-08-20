@@ -75,14 +75,15 @@ angles is `high`; someone who mentioned it once in a thread about something else
 
 ## What lands on disk
 
-`digmore/<slug>/cache/hackernews/`:
+`digmore/<slug>/cache/hackernews/`, all written by the script:
 
-- `hackernews-user-page-<name>.html` — the HN web page.
+- `hackernews-vet-<name>.json` — the verdict.
+- `hackernews-user-<name>.json` — the assembled snapshot the verdict was computed from.
+- `hackernews-user-page-<name>.html` — the HN web page it was parsed out of.
 - `hackernews-user-comments-<name>.json` — the Algolia recent-comments payload.
 - `hackernews-user-algolia-<name>.json` — the fallback payload, when the web page was 429-blocked.
 
-## Known gap
-
-**The `vet` verb caches nothing.** It returns a verdict and leaves no file, so a resumed run re-vets
-every handle from scratch — at 15 seconds a request, on the slowest source there is. Worth knowing
-when a run is interrupted mid-Vet.
+**A handle already vetted is not vetted again.** The script checks for the verdict before it makes a
+single request, so an interrupted run resumes at the handle it stopped on rather than paying for the
+whole source twice. At one request every 15 seconds that is the difference between minutes and
+nothing.

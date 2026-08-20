@@ -22,7 +22,7 @@
  * stdout JSON, stderr errors.
  */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { browserHeaders, assertWorkspaceRoot } from './fetch.mjs';
@@ -89,7 +89,11 @@ const makeVerdict = (name, value, signals, reason) => ({ name, verdict: value, s
 export async function fetchStory(itemId, options = {}) {
   const client = options.client ?? createHttpClient(options);
   const algolia = options.algoliaBase ?? ALGOLIA_BASE;
-  const data = await client.getJson(`${algolia}/items/${itemId}`);
+  // Cached tree first. The depth it is flattened to is a ceiling the user can change, so
+  // the raw tree is what gets stored and the flattening is redone on every read.
+  const data =
+    readCacheJson(options.cacheDir, `hackernews-item-${itemId}.json`) ??
+    (await client.getJson(`${algolia}/items/${itemId}`));
   writeCacheFile(options.cacheDir, `hackernews-item-${itemId}.json`, JSON.stringify(data, null, 2));
 
   const id = Number(data.id ?? itemId);
@@ -124,6 +128,9 @@ export async function fetchUser(name, options = {}) {
   const hnWeb = options.hnWebBase ?? HN_USER_BASE;
   const now = options.now ?? Math.floor(Date.now() / 1000);
   const cutoff = now - (options.recencyWindowSeconds ?? RECENCY_WINDOW_SECONDS);
+
+  const cached = readCachedUser(name, options);
+  if (cached !== undefined) return cached;
 
   const settled = await Promise.allSettled([
     client.getText(hnWeb, { id: name }),
@@ -187,6 +194,8 @@ export async function fetchUser(name, options = {}) {
       : null;
   if (Number.isInteger(storiesMeta.value.nbHits)) user.stories_submitted = storiesMeta.value.nbHits;
   if (Number.isInteger(commentsMeta.value.nbHits)) user.comments_submitted = commentsMeta.value.nbHits;
+
+  writeCacheFile(options.cacheDir, `hackernews-user-${name}.json`, JSON.stringify(user, null, 2));
   return user;
 }
 
@@ -450,6 +459,46 @@ function writeCacheFile(dir, name, content) {
   }
 }
 
+/**
+ * The read half. Without it the files above are write-only, which is what they were: every
+ * `user` and `vet` call went out again, four requests, one of them against a host that
+ * allows one every 15 seconds. On the slowest source in the run, a resumed Vet paid the
+ * whole phase twice.
+ *
+ * A missing or corrupt file is a miss, never a failure — same rule as api.mjs.
+ */
+function readCacheFile(dir, name) {
+  if (!dir) return undefined;
+  try {
+    return readFileSync(join(dir, name), 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+function readCacheJson(dir, name) {
+  const text = readCacheFile(dir, name);
+  if (text === undefined) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The assembled snapshot, not the parts.
+ *
+ * fetchUser builds a user from four calls, and only two of them leave a file — the HN page
+ * and the recent-comment search. The lifetime counts and the true last-activity date come
+ * from two Algolia calls that cache nothing, so the parts cannot rebuild the whole. The
+ * finished object is written instead, and the raw page and comment payloads stay beside it
+ * as the evidence the Source Analyst reads.
+ */
+function readCachedUser(name, options) {
+  return readCacheJson(options.cacheDir, `hackernews-user-${name}.json`);
+}
+
 // ---------------------------------------------------------------- cli
 
 /** Parse the command line, dispatch to the verb's function, return its result. */
@@ -476,9 +525,20 @@ export async function runCommand(argv, options = {}) {
   };
 
   if (verb === 'story') return fetchStory(Number.parseInt(target, 10), resolvedOptions);
+
+  // Checked before the user is fetched, not after: the point is to skip the request chain,
+  // and on this source that chain is one 15s-throttled call plus three to Algolia.
+  if (verb === 'vet') {
+    const verdict = readCacheJson(resolvedOptions.cacheDir, `hackernews-vet-${target}.json`);
+    if (verdict !== undefined) return verdict;
+  }
+
   const user = await fetchUser(target, resolvedOptions);
   if (verb === 'user') return user;
-  return vetUser(user, resolvedOptions.now);
+
+  const verdict = vetUser(user, resolvedOptions.now);
+  writeCacheFile(resolvedOptions.cacheDir, `hackernews-vet-${target}.json`, JSON.stringify(verdict, null, 2));
+  return verdict;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
