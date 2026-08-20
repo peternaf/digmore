@@ -68,11 +68,11 @@ test('the fast block lists every ceiling group, not only the ones it reduces', (
   assert.equal(synthesize.claimsFactChecked, 50);
   assert.equal(twitter.handlesDeepVetted, 20);
   assert.equal(twitter.postsPerDeepVet, 50);
-  assert.equal(hackernews.commentDepth, 3);
+  assert.equal(hackernews.commentDepth, 5);
   assert.equal(subagents.repairAttempts, 1);
   assert.equal(fast.extract.fetchesPerBranch, 5);
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
-  assert.equal(fast.hackernews.commentDepth, 3, 'unchanged in fast, but still listed');
+  assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
 });
 
 test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {

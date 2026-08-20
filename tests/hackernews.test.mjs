@@ -108,8 +108,9 @@ test('story fetches the Algolia item tree and caches it as item-<N>.json', async
   assert.ok(existsSync(join(dir, 'item-42.json')));
 });
 
-// The comment tree flattens at depth 3.
-test('the comment tree flattens to depth 3 and no deeper', async () => {
+// The comment tree flattens at hackernews.commentDepth. Five, because the argument on a long
+// HN chain usually resolves below three.
+test('the comment tree flattens to the configured depth and no deeper', async () => {
   const nest = (depth) =>
     depth > 6
       ? []

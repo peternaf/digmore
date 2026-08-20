@@ -21,8 +21,10 @@ Two things, in that order:
 
 ## Search budget
 
-**Up to 10 WebSearch calls.** This is the only search in the run that happens before the plan
-exists, so it runs against the session's ceiling with nothing else bounding it.
+**`plan.scopingSearches` WebSearch calls, 10 by default.** `preflight.mjs` prints the number this run
+applies — read it there, and never substitute one of your own. This is the only search in the run
+that happens before the plan exists, so it runs against the session's ceiling with nothing else
+bounding it.
 
 ## What you return
 

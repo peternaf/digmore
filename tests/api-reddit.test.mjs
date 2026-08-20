@@ -7,19 +7,26 @@ let sandbox;
 beforeEach(() => (sandbox = new Sandbox()));
 afterEach(() => sandbox.cleanup());
 
-// The cache key carries md5(query)[:10]. This hash was cross-checked against an
-// independent MD5 implementation for this exact query, not against our own code.
+// The search cache name is readable, not hashed: reddit-search-<scope>-<four query words>.
 const QUERY = 'video api providers';
-const QHASH = 'f54e00109b';
 
-test('the search cache key carries the query hash, md5 and all', async () => {
+test('the search cache name is the scope plus four words of the query', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
   await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
   assert.ok(
-    existsSync(sandbox.cachePath('demo', 'reddit', `search-sitewide-relevance-year-${QHASH}.json`)),
-    'search-<subs-joined-or-sitewide>-<sort>-<t>-<qhash>.json',
+    existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-sitewide-video-api-providers.json')),
+    'reddit-search-<scope>-<query-in-4-words>.json',
   );
+});
+
+// Stopwords go, punctuation goes, and the name stops at four words however long the query.
+test('the query is reduced to four meaningful words', async () => {
+  const { queryWords, searchCacheName } = await import('../skill/scripts/api.mjs');
+  assert.equal(queryWords('what are the vram requirements for local llm inference'), 'vram-requirements-local-llm');
+  assert.equal(queryWords('Mux vs. Cloudflare Stream — pricing?'), 'mux-cloudflare-stream-pricing');
+  assert.equal(queryWords('the a of for'), 'query', 'a query that is all stopwords still names a file');
+  assert.equal(searchCacheName('video api providers', ['LocalLLaMA']), 'reddit-search-localllama-video-api-providers');
 });
 
 // An unqualified search asks for the last year, not for all time.
@@ -54,7 +61,7 @@ test('every search flag reaches the API', async () => {
   assert.deepEqual(sandbox.requests[0].query, {
     query: QUERY, subreddits: 'webdev', sort: 'top', time_window: 'month', limit: '50', after_date: '2024-08-06',
   });
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', `search-webdev-top-month-${QHASH}.json`)));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-webdev-video-api-providers.json')));
 });
 
 // sub is repeatable and the fan-out stays server-side. Order, `limit` and
@@ -82,27 +89,28 @@ test('the merged list is returned exactly as the API sent it', async () => {
   assert.deepEqual(json.results, results, 'no client-side re-ranking, dedupe or truncation');
 });
 
-test('multi-sub caches as one file naming every sub, in the order given', async () => {
+// Only the first sub is in the name; the rest are in the stored request, which is what
+// tells two files apart.
+test('multi-sub names the file after the first sub and keeps every sub in the request', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
   await sandbox.run(
     'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev', '--subreddit', 'saas',
   );
-  assert.ok(
-    existsSync(sandbox.cachePath('demo', 'reddit', `search-webdev+saas-relevance-year-${QHASH}.json`)),
-  );
+  const stored = sandbox.cached('demo', 'reddit', 'reddit-search-webdev-video-api-providers.json');
+  assert.deepEqual(stored._request.subreddits, ['webdev', 'saas'], 'order as given, never sorted');
 });
 
 // Order carries meaning — the first sub's hits rank above the second's — so the two
-// orderings are different queries and must not share a cache entry.
-test('reversing the subs is a different query, not a cache hit', async () => {
+// orderings are different requests and must not share a cache entry.
+test('reversing the subs is a different request, not a cache hit', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
   await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'a', '--subreddit', 'b');
   await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'b', '--subreddit', 'a');
   assert.equal(sandbox.requests.length, 2, 'both were fetched');
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', `search-a+b-relevance-year-${QHASH}.json`)));
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', `search-b+a-relevance-year-${QHASH}.json`)));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-a-video-api-providers.json')));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-b-video-api-providers.json')));
 });
 
 test('a repeated search is served from the one cache file', async () => {
@@ -114,20 +122,44 @@ test('a repeated search is served from the one cache file', async () => {
   assert.equal(json.results[0].title, 'A');
 });
 
-// A long sub list would otherwise build a filename that trips the path limit.
-test('a long sub list collapses to a hash rather than a huge filename', async () => {
-  const subs = Array.from({ length: 12 }, (_, i) => `averyverylongsubredditname${i}`);
+// Four words cannot carry the sort, so these two land on one name. Without the stored
+// request the second would open the first one's file and report its results as its own.
+test('two requests on one name do not share a file', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
+  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev');
   await sandbox.run(
-    'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo',
-    ...subs.flatMap((sub) => ['--subreddit', sub]),
+    'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev', '--sort', 'top',
   );
-  const { subsSegment } = await import('../skill/scripts/api.mjs');
-  const segment = subsSegment(subs);
-  assert.match(segment, /^12subs-[0-9a-f]{10}$/);
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', `search-${segment}-relevance-year-${QHASH}.json`)));
-  assert.equal(sandbox.requests[0].params.getAll('subreddits').length, 12, 'all 12 still reach the API');
+  assert.equal(sandbox.requests.length, 2, 'the second was fetched, not served from the first');
+  const first = sandbox.cached('demo', 'reddit', 'reddit-search-webdev-video-api-providers.json');
+  const second = sandbox.cached('demo', 'reddit', 'reddit-search-webdev-video-api-providers-2.json');
+  assert.equal(first._request.sort, 'relevance');
+  assert.equal(second._request.sort, 'top', 'the collision probed to -2');
+});
+
+// Order decides which number a request lands on, never which data it reads back.
+test('a probed request finds its own file on a re-run', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev');
+  await sandbox.run(
+    'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev', '--sort', 'top',
+  );
+  await sandbox.run(
+    'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev', '--sort', 'top',
+  );
+  assert.equal(sandbox.requests.length, 2, 'the third call hit -2 rather than fetching again');
+});
+
+// Files written before the request was stored carry no `_request`, so they miss once.
+test('a cache file with no stored request is a miss', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  sandbox.writeCache('demo', 'reddit', 'reddit-search-sitewide-video-api-providers.json', { results: [] });
+  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
+  assert.equal(sandbox.requests.length, 1, 're-fetched rather than trusted');
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-sitewide-video-api-providers-2.json')));
 });
 
 // scripts/subagent_returns.json — branch-searcher: {results:[{url,title,relevance}]}
@@ -137,7 +169,8 @@ test('search returns the Branch searcher shape', async () => {
   });
   sandbox.configured(base);
   const { json } = await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  assert.deepEqual(Object.keys(json), ['results']);
+  // `_request` rides along so the file says what it was fetched for; the shape is `results`.
+  assert.deepEqual(Object.keys(json).sort(), ['_request', 'results']);
   assert.deepEqual(Object.keys(json.results[0]).sort(), ['relevance', 'title', 'url']);
 });
 

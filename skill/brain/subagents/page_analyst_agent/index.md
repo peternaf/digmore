@@ -69,7 +69,13 @@ last page, and that is the normal way to stop.
 repeats the one before it, is the end of the document dressed up as another page. Two identical
 pages in a row means stop.
 
-Every page is a fetch and spends the branch's budget.
+**And stop at `extract.maxPagesPerDocument`**, 5 by default — `preflight.mjs` prints the number this
+run uses. It is the user's ceiling, not a suggestion, and it exists because one thread with forty
+pages would otherwise eat a whole branch's budget on its own.
+
+Every page is a fetch and spends the branch's budget. When the ceiling cuts a document short, say so
+in `pagesRead` and note that more existed: a thread read to page 5 of 12 is a partial read, and a
+claim about how the argument ended is not supported by it.
 
 ## Strip it — one markdown file per document
 
@@ -95,9 +101,31 @@ The raw pages `fetch.mjs` wrote are deleted once the merged file exists.
 
 Every claim carries a verbatim quote. A claim you cannot quote is one you drop.
 
-Each claim needs four fields, and two more when it is quantitative — the shape is in
-`../../../scripts/subagent_returns.json` under `page-claims`, and the file for your source says
-what that source's material looks like.
+A claim is this shape — `page-claims` in `../../../scripts/subagent_returns.json`, and your source's
+file says what that source's material looks like:
+
+```json
+{
+  "claim":      "one checkable statement, one line",
+  "quote":      "the words the source used, verbatim",
+  "handle":     "u/foo — who said it, where the source has accounts",
+  "importance": "central | supporting | tangential",
+  "kind":       "quantitative | qualitative",
+  "value":      105,
+  "unit":       "M USD raised"
+}
+```
+
+- **`claim`** is a statement someone could go and check. "Pricing is confusing" is not one; "Mux
+  charges $0.005 per minute of encoding" is.
+- **`quote`** is verbatim and never yours. A claim you cannot quote is one you drop.
+- **`handle`** — see below. Omitted on the open web and on the user's own documents.
+- **`importance`** decides what the run spends its verification budget on, and on the four sourced
+  platforms it also decides who gets vetted. `central` means a finding rests on it; `tangential`
+  means the page mentioned it in passing. Be honest — marking everything `central` makes the field
+  useless and the ranking random.
+- **`kind`**, and `value` + `unit` **only** when it is `quantitative`. A number without its unit is
+  not a measurement, so the checker refuses one.
 
 **Record who said it.** Where your source has accounts — Reddit, Hacker News, Twitter, forums — every
 claim carries the `handle` it came from, written as that source writes it: `u/foo`, `hn/foo`,

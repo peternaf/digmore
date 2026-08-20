@@ -19,7 +19,6 @@
  * stdout carries JSON, stderr carries errors.
  */
 
-import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -113,24 +112,68 @@ function writeCache(dir, key, payload) {
   writeFileSync(join(dir, key), JSON.stringify(payload), 'utf8');
 }
 
-/** brain/subagents/branch_searcher_agent/reddit.md — search keys carry md5(query)[:10]. */
-export function queryHash(query) {
-  return createHash('md5').update(query, 'utf8').digest('hex').slice(0, 10);
+/**
+ * Search cache names are readable rather than hashed, so a person opening
+ * digmore/<slug>/cache/reddit/ can see what each file is without opening it:
+ *
+ *   reddit-search-<scope>-<four words of the query>.json
+ *
+ * The name does not have to be unique — see cachedSearch() for how collisions are
+ * settled. That is the trade: a hash cannot collide and cannot be read; four words can
+ * do both.
+ */
+
+/** Dropped before the query becomes a filename: common in queries, useless in a name. */
+const FILENAME_STOPWORDS = new Set([
+  'a', 'the', 'of', 'for', 'in', 'on', 'to', 'and', 'or', 'is', 'are',
+  'what', 'how', 'why', 'do', 'does', 'vs',
+]);
+
+const QUERY_WORDS_IN_NAME = 4;
+
+/**
+ * The query, reduced to its first four meaningful words.
+ *
+ * Derived here rather than passed in by the caller: a cache key has to be a pure function
+ * of the request, and two sub-agents summarising the same query in their own words would
+ * never hit the same file twice.
+ */
+export function queryWords(query) {
+  const words = String(query ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((word) => word && !FILENAME_STOPWORDS.has(word));
+  return (words.length ? words : ['query']).slice(0, QUERY_WORDS_IN_NAME).join('-');
+}
+
+/** The first subreddit in the order given, or `sitewide`. Readability only. */
+export function searchScope(subs = []) {
+  if (!subs.length) return 'sitewide';
+  const first = String(subs[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return first || 'sitewide';
+}
+
+export function searchCacheName(query, subs = []) {
+  return `reddit-search-${searchScope(subs)}-${queryWords(query)}`;
 }
 
 /**
- * The sub segment of a search cache key. One file per request now that the API merges,
- * so the whole sub list has to be in the name.
+ * Everything that makes one search different from another, stored inside the cache file
+ * and compared on read.
  *
- * Order is preserved, never sorted: the first sub's hits rank above the second's, so
- * `--subreddit a --subreddit b` and `--subreddit b --subreddit a` are different queries
- * with different results and must not share a cache entry. Long lists collapse to a hash
- * rather than build a filename that trips the path limit.
+ * `subreddits` keeps the order given and is never sorted: the first sub's hits rank above
+ * the second's, so `a,b` and `b,a` are different requests with different results.
  */
-export function subsSegment(subs = []) {
-  if (!subs.length) return 'sitewide';
-  const joined = subs.join('+');
-  return joined.length <= 60 ? joined : `${subs.length}subs-${queryHash(joined)}`;
+export function searchRequestKey({ query, subreddits = [], sort, timeWindow, limit, afterDate }) {
+  return {
+    query: String(query),
+    subreddits: [...subreddits],
+    sort,
+    time_window: timeWindow,
+    limit,
+    after_date: afterDate ?? null,
+  };
 }
 
 // ---------------------------------------------------------------- http
@@ -202,15 +245,24 @@ const reddit = {
     // brain/recency.md is `--time-window all --after-date <today-minus-2y>`, passed
     // by the caller.
     const timeWindow = flags.timeWindow ?? 'year';
-    const cacheKey = `reddit-search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
+    const subreddits = flags.subreddit ?? [];
+    const limit = flags.limit ?? 20;
+    const requestKey = searchRequestKey({
+      query,
+      subreddits,
+      sort,
+      timeWindow,
+      limit,
+      afterDate: flags.afterDate,
+    });
 
-    return cached(ctx, cacheKey, () =>
+    return cachedSearch(ctx, searchCacheName(query, subreddits), requestKey, () =>
       request(ctx.config, '/v1/reddit/search', {
         query,
         subreddits: flags.subreddit,
         sort,
         time_window: timeWindow,
-        limit: flags.limit ?? 20,
+        limit,
         after_date: flags.afterDate,
       }),
     );
@@ -351,6 +403,49 @@ async function cached(ctx, key, fetcher) {
   const fresh = await fetcher();
   writeCache(ctx.dir, key, fresh);
   return fresh;
+}
+
+/** A runaway loop guard, not a real ceiling — two collisions on one name is already rare. */
+const MAX_CACHE_PROBES = 20;
+
+/**
+ * The search cache, where the filename is readable and therefore not unique.
+ *
+ * Four words of a query cannot carry the other subreddits, the sort, the window, the limit
+ * or the rest of the query, so two different searches can land on one name. Left unchecked
+ * the second one opens the first one's file and reports another query's results as its own
+ * — no error, just a wrong answer that looks like a normal one.
+ *
+ * So the full request is written into the file and compared on read: open <name>.json, and
+ * if the stored request matches, that is a hit; if it does not, try <name>-2.json, then -3,
+ * until either a match or a free slot, which gets written.
+ *
+ * The match is on the stored request, never on the number — so a resumed or repeated run
+ * finds its own file whichever number it landed on first, and order decides which number,
+ * never which data. A file written before this existed carries no `_request`, so it misses
+ * and is re-fetched once.
+ */
+async function cachedSearch(ctx, baseName, requestKey, fetcher) {
+  const wanted = JSON.stringify(requestKey);
+
+  for (let attempt = 1; attempt <= MAX_CACHE_PROBES; attempt += 1) {
+    const key = attempt === 1 ? `${baseName}.json` : `${baseName}-${attempt}.json`;
+    const hit = readCache(ctx.dir, key);
+
+    if (hit === undefined) {
+      const fresh = await fetcher();
+      // A bare array is accepted from the API; store it under `results` so `_request` has
+      // somewhere to sit beside it and the file still reads as the search response.
+      const body = Array.isArray(fresh) ? { results: fresh } : { ...fresh };
+      const stored = { _request: requestKey, ...body };
+      writeCache(ctx.dir, key, stored);
+      return stored;
+    }
+
+    if (JSON.stringify(hit._request ?? null) === wanted) return hit;
+  }
+
+  throw new ApiError(`too many cache collisions on ${baseName}`, EXIT.FAILED);
 }
 
 /** The API may answer with a bare array or wrap it; both are accepted. */

@@ -6,7 +6,7 @@
 
 | File | What it is |
 |---|---|
-| `reddit-search-<subs>-<sort>-<window>-<qhash>.json` | one per branch query — the URLs that branch found, and the ones it ranked below the cut |
+| `reddit-search-<scope>-<query-in-4-words>.json` | one per search — the URLs it found, and the ones the run ranked below the cut. `_request` inside says exactly what was asked for |
 | `reddit-thread-<id>.json` | one per thread the run read: the full `Post`, with `comments` |
 | `reddit-thread-<id>-claims.json` | the Page Analyst's extraction from that thread |
 

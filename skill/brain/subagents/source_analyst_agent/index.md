@@ -87,17 +87,15 @@ otherwise get.
 than writing an empty file: an empty roster and a source with no handles look identical, and one of
 them is a failure.
 
-**You write this file once and never return to it.** After Vet, the orchestrator adds each handle's
-verdict, topical relevance and reason to the rows you wrote, so the finished file is the whole record
-of that source's people: who appeared, what they contributed, and what the run decided about them.
-That is the only reason the verdict fields exist in the shape — leave them out.
+**The shape carries four fields you leave empty** — `verdict`, `topicalRelevance`, `verdictReason`
+and `inExperts`. Vet fills them in later. You write this file once and never return to it.
 
 ## Coverage gaps belong here too
 
 Where the material itself shows the run did not see everything, record it with the numbers:
 
 - A Reddit thread whose `num_comments` exceeds the comments returned.
-- A Hacker News discussion that clearly ran deeper than the three levels the script returns.
+- A Hacker News discussion that clearly ran deeper than the levels the script returns.
 
 Say how much was missed, not just that something was. `../../phases/audit_phase_e.md` carries the
 blocked and unavailable sources; this file carries what was partially read.

@@ -30,11 +30,12 @@ weighing a pattern.
 
 ## Coverage, in numbers
 
-**The comment tree is flattened at depth 3, and everything deeper is dropped by the script.** That is
+**The comment tree is flattened at `hackernews.commentDepth`, 5 by default, and everything deeper is
+dropped by the script.** That is
 not a truncation you can measure from the file — the deeper replies are simply absent.
 
 What you can do is say where it mattered: a story whose visible discussion is clearly mid-argument at
-depth 3 was read partially, and any claim about how that argument resolved is unsupported.
+the cut was read partially, and any claim about how that argument resolved is unsupported.
 
 Where `num_comments` on the story greatly exceeds what is in the tree, record both numbers.
 

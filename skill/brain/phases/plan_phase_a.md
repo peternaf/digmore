@@ -113,8 +113,11 @@ reading.
 
 ## 4. Angles — check what came back
 
-The angles are the Scoping agent's, but they are yours to accept. Three things make one unusable,
-and all three are visible without re-searching:
+The angles are the Scoping agent's, but they are yours to accept. Nothing downstream can tell whether
+they were right: every branch query in the run is written from them, and a bad angle returns a full
+set of plausible results about the wrong thing.
+
+**Three faults are visible without re-searching:**
 
 - **It is written in generic market language** rather than in the vocabulary the agent just
   returned. That is the failure the whole step exists to prevent.
@@ -123,8 +126,22 @@ and all three are visible without re-searching:
 - **The count is wrong for the mode** — between `plan.minAngles` and `plan.maxAngles`, both printed by `preflight.mjs`; `ask` sets its own
   (`../modes.md`).
 
-Send it back once if any of those hold, per `../subagents/dispatch_structured_subagent.md`. Do not quietly
-rewrite them: an angle you wrote yourself is one the agent's reading no longer stands behind.
+**Then read them and ask whether the set makes sense.** The three checks above are mechanical and a
+set can pass all of them and still be wrong. Read each angle against the request the user actually
+made:
+
+- **Does this angle answer part of the question?** An angle that is interesting about the subject but
+  answers nothing the user asked is a branch spent on the wrong thing.
+- **Do they overlap?** Two angles that would return the same pages are one angle and a wasted set of
+  branches.
+- **Is anything obviously missing?** A `gtm` run with no angle on reception, a `competitor` run with
+  no angle on pricing — the gap is visible from the request, not from the results.
+- **Does the vocabulary actually belong to this subject?** The agent returns the words it found; if
+  they read like the words anyone would have guessed, it did not look hard enough.
+
+Send the set back once if any of the three faults hold or if this read fails, per
+`../subagents/dispatch_structured_subagent.md`, saying which angle and why. Do not quietly rewrite
+them: an angle you wrote yourself is one the agent's reading no longer stands behind.
 
 ## 5. Branches
 

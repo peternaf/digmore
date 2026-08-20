@@ -26,7 +26,9 @@ So, per source:
 2. Vet straight down it until the cap is reached.
 3. Record in `audit.md`, **per source**: how many distinct handles the roster held, how many were vetted, and that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community, and the summary must not read as though it had.
 
-**A source with no roster cannot be vetted.** Its Source Analyst either failed or was never dispatched. Do not fall back to ranking by hand off whatever is in context — you no longer hold the claims, so any ranking you built would be by frequency alone, which is the thing the roster exists to replace. Record the source as unvetted in `audit.md`, name it in the run's Issues, and carry on.
+**A source with no roster cannot be vetted.** Extract already re-dispatched its Source Analyst once and it still produced no roster (`extract_phase_b.md` §"When a Source Analyst fails"), so there is nothing left to try here. Do not fall back to ranking by hand off whatever is in context — you no longer hold the claims, so any ranking you built would be by frequency alone, which is the thing the roster exists to replace. Record the source as unvetted in `audit.md`, name it in the run's Issues, and carry on.
+
+A source that produced no handles at all is different and is not a failure: no roster is the right outcome, and there is nobody to vet.
 
 The roster also saves requests: whatever the pages already showed about a handle — forum post counts, badges, trust levels, accepted-answer marks — is in its `signals`, and the Handle Vetter gets it without paying for it.
 

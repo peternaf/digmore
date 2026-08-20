@@ -55,9 +55,31 @@ WebSearch IS the right tool for generic web discovery, `site:` filters on outlet
 
 On Reddit the API separates the last two for you: it detects a wall, retries on a fresh connection, and reports exit 3 only once every attempt is walled. So exit 0 with no results is an empty topic and can be stated as one.
 
+## Dedupe the URLs before dispatching a single reader
+
+Every branch's results are in your context and nowhere else, so this is the one moment the whole
+candidate set exists in one place. Cut the duplicates here.
+
+A page that five branches found is one page. Read it five times and you have spent five fetches to
+get one document, extracted the same claims five times into five files, and given the Source Analyst
+five copies of one thread to weigh as five.
+
+1. **Collect every branch's `results` and match on the URL.** Normalise before comparing — trailing
+   slash, `http` vs `https`, a `?utm_*` query, a `#fragment`, and on Reddit the same thread reached
+   through `old.reddit.com` and `www.reddit.com`. Those are one URL.
+2. **Keep the highest `relevance` of the copies**, and remember every branch that found it. One
+   Page Analyst is dispatched, and its fetch counts against the branch whose copy ranked highest.
+3. **Record the duplicates in `audit.md` under "URL duplicates"**, with the branches that shared
+   each one. A page several branches independently surfaced is a signal about the topic, and it is
+   lost the moment the copies are dropped silently.
+
+Only what survives this step is dispatched.
+
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL a branch kept, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, four fields: what the outcome was, how many claims, how many pages it cost, and which tool got the page.
+Print `[2.2/5] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, four fields: what the outcome was, how many claims, how many pages it cost, and which tool got the page.
+
+**Dispatch them all at once, up to the harness limit `preflight.mjs` reported** — the same rule as the searchers above, and for the same reason: nothing here shares a rate limit, so the only bound is how many sub-agents Claude Code will run. Batch only when the limit errors, exactly as in §Search. Do not invent a smaller batch size of your own.
 
 **The claims do not come back into your context, and you do not read the files.** Several hundred of these run in one job; a run that holds every claim runs out of room before it reaches the report. What needs them reads them: the Source Analyst for its roster, the Report Writer for the summary, the fact checker for verification. What you keep is the receipts — enough to total the branch's fetches, and to write `audit.md`'s two page-level records: the URLs that came back `blocked`, and the ones WebFetch had to take. Both vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
@@ -100,6 +122,49 @@ These are an LLM-only artifact — Synthesize reads them alongside the claims. T
 
 **Vet depends on this file and cannot rank for itself** — the ranking needs every document a source produced, and this is the only agent that reads them all. A source whose roster is missing is a source that cannot be vetted (`vet_phase_c.md`), so a Source Analyst that fails is worth noticing here rather than in the next phase.
 
+### Tell it to write a heartbeat
+
+This agent returns no schema, so it never receives the dispatch template and nothing gives it the
+heartbeat instruction automatically. Write it into the dispatch yourself, in these words:
+
+> Before each step you take, append one line to
+> `digmore/<slug>/cache/_progress/source-analyst-<source>.log`: the time, and what you are about to do.
+
+It reads every page and every claims file a source produced, so it is one of the longest silences in
+the run and the only one with no script behind it to explain the wait. Without the line there is
+nothing to read when it goes quiet (`index.md` §"When a sub-agent goes quiet").
+
+### Check the roster
+
+The notes are prose and there is nothing to check. **The roster is JSON with a shape**, and Vet
+cannot run without it, so check it the way every other payload is checked — the call is yours,
+because this agent gets no dispatch template to carry it:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" handle-roster \
+  digmore/<slug>/full_source_analysis/<source>-handles.json
+```
+
+One repair attempt on exit 1, then a recorded drop, per `../subagents/dispatch_structured_subagent.md`
+§"The repair pass". A roster that still fails is a source that cannot be vetted — treat it as a
+missing one below.
+
+### When a Source Analyst fails
+
+A source with no handles correctly writes no roster, and that is not this case. This is the agent
+**dying** on a source that did produce documents: the material is on disk, the roster is not, and on
+disk that looks identical to a source with nobody in it.
+
+1. **Re-dispatch it once.**
+2. If the second attempt also ends with `<source>.md` written and `<source>-handles.json` missing or
+   still failing its check, **that source is not vetted.** Record it in `audit.md` and name it in the
+   run's Issues.
+3. **Do not rank the handles by hand instead.** You no longer hold the claims — any ranking you built
+   would be by frequency alone, which is the thing the roster exists to replace.
+
+The claims from that source still reach the report. What is lost is the verdict on the people behind
+them, and the run says so rather than quietly quoting unvetted voices.
+
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json` on the four sources that carry handles. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json`, checked, on the four sources that carry handles. A source whose roster is missing after one re-dispatch is complete too, and recorded as unvetted. No marker file is written — resume infers completion from the presence of these artifacts.
