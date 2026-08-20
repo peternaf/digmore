@@ -35,7 +35,7 @@ content farm; a marketer can cite a regulatory filing. Tag both, separately.
 
 Each finding in the summary gets a `high` / `medium` / `low` confidence tag:
 
-- `high` — `primary-3p`, OR multi-source corroboration (different domain AND different source AND different expert — any 2 of 3 axes per `phases/synthesize_phase_d.md`).
+- `high` — `primary-3p`, OR multi-source corroboration (different domain AND different source AND different expert — any 2 of 3 axes per `phases/synthesize_phase_e.md`).
 - `medium` — single `primary-self` or `secondary` source, or split signal.
 - `low` — blog/forum single source, OR `manual-verify-required` / `low-confidence-unverified` after Audit.
 

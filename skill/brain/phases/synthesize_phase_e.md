@@ -1,13 +1,17 @@
 # Synthesize
 
-Print `[4/5] Synthesize` when this phase starts (`../reporting.md`).
+Print `[5/6] Synthesize` when this phase starts (`../reporting.md`).
 
 Inputs, all of them **on disk rather than in your context**: Extract's claims files under `cache/<source>/`, the Source Analysts' notes under `full_source_analysis/`, and Vet's `experts.csv`. You hold the Page Analysts' receipts — what came of each page, not what was in it. The Report Writer reads the files.
 
 Outputs (written incrementally):
 - `digmore/<topic-slug>/raw_research_outcomes.md` — LLM-facing index of structured claims.
-- `digmore/<topic-slug>/players.csv` — full player matrix. Columns and the player-inclusion test are command-specific (see the command's reference file).
 - the summary — user-facing, named per `index.md` §"Where a run writes". Sections are command-specific.
+
+**`players.csv` is not one of them.** Enrichment chose the rows and filled them before this phase
+started (`enrich_phase_d.md`), which is what makes §3.6 possible: an enumeration section is rendered
+from a finished file, and the agent rendering it cannot also be the one writing it. Read that file
+here; never add a row to it.
 
 Re-read `../output.md` before writing any output. Read `../vetting.md` for the verdict schema and the confidence-tag rule.
 
@@ -26,7 +30,7 @@ The filter runs **inside the Report Writer**, not here — it is per-claim work 
 
 **`unknown` is not a reason to drop someone.** It means the check found nothing disqualifying and nothing conclusive — and every handle that reached vetting at all got there by ranking high on what they contributed to this question. Throwing that away loses evidence the run paid for and already judged relevant. The caveat is the answer: the reader sees the quote and sees that we could not confirm who wrote it.
 
-This holds on every source, forums included. A forum handle with no reputation signal is the weakest voice in the run, and it is still a voice that said something the roster ranked worth reading.
+This holds on every source, forums included. A forum handle with no reputation signal is the weakest voice in the run, and it is still a voice that said something Extract ranked worth reading.
 
 Independent of the person, on page quality alone:
 
@@ -79,23 +83,6 @@ Two blog posts on different domains from the same author = NOT corroboration. Re
 
 Corroboration drives the confidence tag — see `../vetting.md` §"Confidence tag rule".
 
-## 3.5. Players.csv enrichment
-
-Mandatory per-row. Blanket-skip not allowed.
-
-For each row:
-1. Identify `marketing_domain`. `url` is a hint — many open-source projects with a code-host `url` also have a marketing site (Frigate → `frigate.video`). Check before defaulting to "code-host only".
-2. `monthly_visits` per `../subagents/player_profiler_agent.md`. SimilarWeb is free; fetch every row.
-   - SimilarWeb returns data → numeric.
-   - Subdomain → try parent first.
-   - Domain not indexed → `UNAVAILABLE — not-indexed`.
-   - No marketing domain, only a code host → `github-only`.
-   - **Fetch failure (captcha, network error, blocked)** → STOP. In manual mode, surface it to the user with options: (a) retry now, (b) skip this row, (c) abort the phase. In auto mode, retry once, then skip the row. Either way a skipped row is recorded in `audit.md` and named in Issues. Do NOT silently write UNAVAILABLE.
-   Bare `UNAVAILABLE` is not allowed.
-3. **Topic-lens framing.** Descriptive columns (`positioning`, `recent_moves`, `top_user_sentiment`) describe how the entity connects to THIS topic, not generically. Coral in an IP-camera landscape: "Frigate's former recommended accelerator, dropped as abandonware; 3x retail markup" — not "Google's edge TPU." Test: if it'd read identically in an unrelated topic, re-frame it.
-
-A row with no identifiable presence at all is a research error — record it in `audit.md` and name it in Issues.
-
 ## 3.6. Enumeration sections are rendered from the CSV, not written from memory
 
 Any summary section that **lists things** — hubs, communities, players, accounts, tools, leaderboards — is produced by reading the finished CSV and emitting one entry per row. It is not composed from recollection with the file sitting beside it.
@@ -106,7 +93,7 @@ The distinction matters because the two linking jobs are different, and only one
 
 How to render:
 
-- **One row, one entry.** The row set decides what appears. An entity you would have mentioned that has no row is a data error: add the row in §3.5 first, then render.
+- **One row, one entry.** The row set decides what appears. An entity you would have mentioned that has no row does not get one here — the row set was settled in Enrichment, from a count across every source, and a row added at drafting time would have no profile behind it and no record of why it qualified. Record it in `audit.md` as a known-gap and name it in Issues instead.
 - **The name is the link** — `[r/LocalLLaMA](https://old.reddit.com/r/LocalLLaMA)`, `[Rhasspy forum](https://community.rhasspy.org)` — taken from the row's `url`. Never a separate URL column, and never a bare name.
 - **Keep the sections apart.** Rows carry their kind, so people render into the people section and communities into theirs. Rendering from one file does not merge them.
 - **A row whose `url` is genuinely unknown** renders its name unlinked and is recorded in `audit.md` as a known-gap. It is never quietly dropped, and the gap is never hidden by omitting the entity.
@@ -149,7 +136,6 @@ Apply the dedup in place.
 
 Synthesize is complete when:
 - `raw_research_outcomes.md` exists and contains every surviving claim.
-- `players.csv` exists with the command's required columns.
 - the summary exists with every required section drafted (no `<!-- SYNTHESIZE-INCOMPLETE -->` header).
 - All three passes have run: §4 critic (gaps), §4.5 readability (jargon rewrite), §4.6 dedup (cross-section dedup). Each is mandatory; none is optional.
 

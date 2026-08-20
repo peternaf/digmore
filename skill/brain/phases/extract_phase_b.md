@@ -1,6 +1,6 @@
 # Extract
 
-Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/5] Extract · Search`, `[2.2/5] Extract · Read`, `[2.3/5] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/full_source_analysis/`.
+Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/6] Extract · Search`, `[2.2/6] Extract · Read`, `[2.3/6] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/full_source_analysis/`.
 
 The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
@@ -77,7 +77,7 @@ Only what survives this step is dispatched.
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, which says what became of the page rather than what was in it.
+Print `[2.2/6] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, which says what became of the page rather than what was in it.
 
 **Dispatch them all at once, up to the harness limit `preflight.mjs` reported** — the same rule as the searchers above, and for the same reason: nothing here shares a rate limit, so the only bound is how many sub-agents Claude Code will run. Batch only when the limit errors, exactly as in §Search. Do not invent a smaller batch size of your own.
 
@@ -108,7 +108,7 @@ Vetting fetches are **not** in this cap — they are bounded separately in `vet_
 
 ## Source notes
 
-For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes two files, both to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
+For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes three files, all to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
 
 **`<source>.md` — the notes.** Unstructured observations, no schema:
 - Patterns that aren't claims (recurring tone, vibe shifts, "everyone is suddenly talking about X").
@@ -118,9 +118,13 @@ For each source that pulled data, dispatch ONE Source Analyst that reads everyth
 
 These are an LLM-only artifact — Synthesize reads them alongside the claims. They do NOT appear in the summary directly. Surprises mined from them feed into "Non-trivial insights" via the Report Writer. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
 
-**`<source>-handles.json` — the roster.** Only on Reddit, Hacker News, Twitter and forums; the open web and the user's own documents have no accounts to vet. Every handle the source produced, ranked by the highest importance of the claims attributed to them and then by how many documents they appear in, with whatever the pages already showed about them. The `handle-roster` shape in `../../scripts/subagent_returns.json`.
+**`<source>-handles.json` — the handles.** Only on Reddit, Hacker News, Twitter and forums; the open web and the user's own documents have no accounts to vet. Every handle the source produced, ranked by the highest importance of the claims attributed to them and then by how many documents they appear in, with whatever the pages already showed about them. The `source-handles` shape in `../../scripts/subagent_returns.json`.
 
-**Vet depends on this file and cannot rank for itself** — the ranking needs every document a source produced, and this is the only agent that reads them all. A source whose roster is missing is a source that cannot be vetted (`vet_phase_c.md`), so a Source Analyst that fails is worth noticing here rather than in the next phase.
+**Vet depends on this file and cannot rank for itself** — the ranking needs every document a source produced, and this is the only agent that reads them all. A source missing this file is a source that cannot be vetted (`vet_phase_c.md`), so a Source Analyst that fails is worth noticing here rather than in the next phase.
+
+**`<source>-players.json` — every entity this source named.** All six sources: unlike handles, there is no source without players. One entry per company, project or product the material named, with how many of this source's documents named it, one line on how it showed up in that source's conversation, and one entry per claim about it carrying the handle that said it. The `source-players` shape in `../../scripts/subagent_returns.json`.
+
+**Nobody reads these six files here.** Enrichment's script merges them, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide.
 
 ### Tell it to write a heartbeat
 
@@ -134,37 +138,45 @@ It reads every page and every claims file a source produced, so it is one of the
 the run and the only one with no script behind it to explain the wait. Without the line there is
 nothing to read when it goes quiet (`index.md` §"When a sub-agent goes quiet").
 
-### Check the roster
+### Check the two JSON files
 
-The notes are prose and there is nothing to check. **The roster is JSON with a shape**, and Vet
-cannot run without it, so check it the way every other payload is checked — the call is yours,
-because this agent gets no dispatch template to carry it:
+The notes are prose and there is nothing to check. **The other two are JSON with a shape**, and the
+phase after each of them cannot run without it, so check them the way every other payload is checked
+— the calls are yours, because this agent gets no dispatch template to carry them:
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" handle-roster \
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-handles \
   digmore/<slug>/full_source_analysis/<source>-handles.json
+
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-players \
+  digmore/<slug>/full_source_analysis/<source>-players.json
 ```
 
 One repair attempt on exit 1, then a recorded drop, per `../subagents/dispatch_structured_subagent.md`
-§"The repair pass". A roster that still fails is a source that cannot be vetted — treat it as a
-missing one below.
+§"The repair pass". A handles file that still fails is a source that cannot be vetted — treat it as
+a missing one below. A players file that still fails is a source whose entities never reach
+Enrichment: record it in `audit.md` and name it in the run's Issues, because the run's subject list
+will be short by whatever that source alone would have contributed.
 
 ### When a Source Analyst fails
 
-A source with no handles correctly writes no roster, and that is not this case. This is the agent
-**dying** on a source that did produce documents: the material is on disk, the roster is not, and on
-disk that looks identical to a source with nobody in it.
+A source with no handles correctly writes no handles file, and a source that named no companies
+correctly writes an empty players file. Neither is this case. This is the agent **dying** on a source
+that did produce documents: the material is on disk, one of its files is not, and on disk that looks
+identical to a source with nobody and nothing in it.
 
 1. **Re-dispatch it once.**
-2. If the second attempt also ends with `<source>.md` written and `<source>-handles.json` missing or
-   still failing its check, **that source is not vetted.** Record it in `audit.md` and name it in the
-   run's Issues.
-3. **Do not rank the handles by hand instead.** You no longer hold the claims — any ranking you built
-   would be by frequency alone, which is the thing the roster exists to replace.
+2. If the second attempt also ends with `<source>.md` written and a JSON file missing or still
+   failing its check, record it in `audit.md` and name it in the run's Issues. A missing
+   `<source>-handles.json` means **that source is not vetted**; a missing `<source>-players.json`
+   means **its entities never reach Enrichment**.
+3. **Do not rebuild either file by hand.** You no longer hold the claims, so any ranking or count you
+   built would be by frequency alone — the thing these files exist to replace.
 
-The claims from that source still reach the report. What is lost is the verdict on the people behind
-them, and the run says so rather than quietly quoting unvetted voices.
+The claims from that source still reach the report either way. What is lost is the verdict on the
+people behind them, or the companies they named, and the run says so rather than quietly quoting
+unvetted voices or reporting a subject list it knows is short.
 
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json`, checked, on the sources that carry handles. A source whose roster is missing after one re-dispatch is complete too, and recorded as unvetted. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` and its checked `<source>-players.json` — plus its checked `<source>-handles.json`, on the sources that carry handles. A source still missing one of the two JSON files after a re-dispatch is complete too, and recorded as unvetted or as missing from the subject list. No marker file is written — resume infers completion from the presence of these artifacts.

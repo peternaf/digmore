@@ -1,6 +1,6 @@
 # Digmore — Competitor
 
-A five-phase research pass focused on ONE competitor. Goal: a verdict — moat strength, wedge to exploit, weakness to attack — backed by depth across positioning, pricing, GTM, recent moves, customer sentiment, leadership and hiring signals. Plus the same non-trivial-insights payoff `landscape` produces.
+A six-phase research pass focused on ONE competitor. Goal: a verdict — moat strength, wedge to exploit, weakness to attack — backed by depth across positioning, pricing, GTM, recent moves, customer sentiment, leadership and hiring signals. Plus the same non-trivial-insights payoff `landscape` produces.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `competitor`.
 

@@ -1,6 +1,6 @@
 # Scoping agent
 
-**Phase: Plan, `[1/5]`.** Dispatched once per topic, by `../phases/plan_phase_a.md` §2.
+**Phase: Plan, `[1/6]`.** Dispatched once per topic, by `../phases/plan_phase_a.md` §2.
 
 Where it sits: the orchestrator has settled which topic this is and what the user asked for. What
 you return decides what the whole run goes and reads, and shapes how the answer gets presented.

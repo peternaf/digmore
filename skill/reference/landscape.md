@@ -1,6 +1,6 @@
 # Digmore — Landscape
 
-A five-phase research pass over a market or space. The goal is a fact-checked, expert-vetted map of who exists, what they sell, what users say, and where the surprises are. No verdict, no recommendation — just the map.
+A six-phase research pass over a market or space. The goal is a fact-checked, expert-vetted map of who exists, what they sell, what users say, and where the surprises are. No verdict, no recommendation — just the map.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `landscape`.
 
@@ -39,7 +39,7 @@ Sections in this exact order.
    Row 2 cells (plain text): recent moves · segment + deployment · integrations · funding.
 
    - Price values: `$50/mo`, `$0.005/min`, `~$25 one-time`, `bundled hardware`, `free`, or `contact sales`. NOT `tiered + usage` / `usage-based` — fetch the vendor's pricing page.
-   - Funding values: total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. NOT round names (`seed`, `Series B`).
+   - Funding: the cell renders `funding_raised_usd` — total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. NOT round names (`seed`, `Series B`) — those live in `funding_stage` and do not reach this table.
 
    No truncation. Below the table: one line linking to `players.csv`.
 
@@ -86,10 +86,11 @@ Required columns (in this order):
 - `offerings` (semicolon-separated)
 - `pricing_model` (e.g. usage-based, seat-based, tiered)
 - `entry_tier_price_usd` — numeric (e.g. `40`, `0.005`), `free`, or `contact sales` (not `POA`).
-- `monthly_visits` — encoded per `../brain/subagents/player_profiler_agent.md`, filled per `../brain/phases/synthesize_phase_d.md` §3.5.
+- `monthly_visits` — encoded per `../brain/subagents/player_profiler_agent.md`, filled in Enrichment per `../brain/phases/enrich_phase_d.md`.
 - `top_user_sentiment` (one-line: positive / mixed / negative + the dominant theme)
 - `recent_moves` (last 90 days; semicolon-separated; each with date)
-- `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired)
+- `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired) — the round, and only the round.
+- `funding_raised_usd` — the amount, in the vocabulary the Players table's funding cell renders: `$180M total`, or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Never a round name; that is `funding_stage`. Two columns because the table forbids the vocabulary the other one holds.
 
 Optional columns the run may add when surfaced (decide per-topic):
 - `target_segment` (B2B / B2C / B2B-prosumer)

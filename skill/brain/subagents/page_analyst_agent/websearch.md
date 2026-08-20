@@ -13,8 +13,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/fetch.mjs" <url> \
 The script names the file from the URL and returns the path it wrote. If the page is already there
 it comes back with `cached: true` and no request is spent.
 
-Walled? `fetch.mjs` first, then WebFetch, saving under the `filename_only` the error carried. See
-`index.md` §"when the page is walled".
+Walled? `../../fetching.md` §"When the site blocks you".
 
 ## Is a fetch needed at all
 

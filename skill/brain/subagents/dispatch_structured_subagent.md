@@ -56,12 +56,12 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" <shape> digmore
 ```
 
 `<shape>` is the key in `scripts/subagent_returns.json`: `scope`, `branch-searcher`,
-`page-analyst`, `vet-judgment`, `synthesizer`, `verifier`.
+`page-analyst`, `player-profile`, `synthesizer`, `verifier`.
 
-Two shapes are checked as **files rather than returns**, because they never enter the orchestrator's
-context: `page-claims`, which every Page Analyst writes beside its stripped page, and
-`handle-roster`, which each Source Analyst writes for Vet to work from. Same command, pointed at the
-file the agent wrote rather than at `_returns/`.
+Three shapes are checked as **files rather than returns**, because they never enter the
+orchestrator's context: `page-claims`, which every Page Analyst writes beside its stripped page, and
+`source-handles` and `source-players`, which each Source Analyst writes for Vet and Enrichment to
+work from. Same command, pointed at the file the agent wrote rather than at `_returns/`.
 
 Exit 0 means use it. Exit 1 prints the problems, one line each, already worded to be pasted at the
 sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong — there is no
@@ -97,10 +97,10 @@ record it in `audit.md`. Never a second repair: a fix-and-recheck loop that can 
 forever, and `subagents.repairAttempts` in `~/.digmore/settings.json` is 1 so the limit is a fact rather than a judgement
 call.
 
-Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_e.md` §5). A shape that
+Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_f.md` §5). A shape that
 needs repairing on most returns is a broken dispatch prompt, and that is only visible if the number
 is written down.
 
 ## Count them
 
-Every dispatch counts toward the run's total, recorded in `audit.md` (`phases/audit_phase_e.md` §5). A full run reaches into the hundreds — one per source × angle, one per URL read, one per claim verified, plus the review passes — and the number is only knowable after the fact if it is written down.
+Every dispatch counts toward the run's total, recorded in `audit.md` (`phases/audit_phase_f.md` §5). A full run reaches into the hundreds — one per source × angle, one per URL read, one per claim verified, plus the review passes — and the number is only knowable after the fact if it is written down.

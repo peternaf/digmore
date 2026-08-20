@@ -1,6 +1,6 @@
 # Page Analyst — the agent
 
-**Phase: Extract, sub-step `[2.2/5]` Extract · Read.** Dispatched by `../../phases/extract_phase_b.md`.
+**Phase: Extract, sub-step `[2.2/6]` Extract · Read.** Dispatched by `../../phases/extract_phase_b.md`.
 
 One dispatch per document: one URL, or one post from Reddit, Hacker News or Twitter. A single piece
 of online material, got and analysed.
@@ -19,38 +19,19 @@ to in Audit. What you return is what the report is built from.
 
 ## Get it — the fetch
 
-```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/fetch.mjs" <url> \
-  --output-dir digmore/<slug>/cache/<source>
-```
+**`../../fetching.md`, which you are sent with this file.** It is the whole of how a page is got:
+the `fetch.mjs` command, that the script names the file and hands back a cached one without a
+request, and what to do when a site blocks you — `fetch.mjs` first, WebFetch on a wall, saved under
+the name the failed call handed back, and say which tool got it.
 
-**The script names the file.** You pass the directory; it derives the filename from the URL and
-returns the path it wrote. One URL always produces one file, which is what lets a later run skip
-work it has already done.
-
-Three things it does for you:
-
-- **Already on disk → it comes back without a request**, answering `cached: true`. No existence
-  check of your own.
-- **Content type decides the extension.** Read the written name off the returned `path`.
-- **A failure carries the filename with it.** See the wall rule below.
+Your `--output-dir` is `digmore/<slug>/cache/<source>`, for the source you were given.
 
 Reddit, Hacker News and Twitter do not go through `fetch.mjs` — each has its own script, in its own
 file in this directory.
 
-## Get it — when the page is walled
-
-`fetch.mjs` gets the whole page but is blocked by bot walls. WebFetch gets through walls but
-**silently shortens long pages and never says where it cut**. So:
-
-1. **`fetch.mjs` first, always.**
-2. **On a wall, use WebFetch** — and save what it returns under the `filename_only` the failed call
-   put in its error payload, so the file lands where the rest of the run will look for it.
-3. **Say which tool got it.** A page taken by WebFetch may be missing a tail nobody can see, and a
-   claim drawn from it carries that risk.
-
-What is not a fallback: `curl`, third-party proxies, reader services, archive mirrors. Two tools,
-in that order.
+Two things follow from the wall rule and are yours rather than that file's: `fetchedWith` on your
+receipt is where you say which tool got the page, and a page you could not read either way is
+`outcome: blocked`.
 
 ## Get it — follow the document to its end
 

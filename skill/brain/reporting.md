@@ -9,20 +9,22 @@ What the terminal shows while a run is going and when it finishes, and what neve
 A run is long. Print one line to the terminal as each step begins, so the user can see where they are and how much is left:
 
 ```
-[1/5] Plan
-[2.1/5] Extract · Search
-[2.2/5] Extract · Read
-[2.3/5] Extract · Source notes
-[3/5] Vet
-[4/5] Synthesize
-[5/5] Audit
+[1/6] Plan
+[2.1/6] Extract · Search
+[2.2/6] Extract · Read
+[2.3/6] Extract · Source notes
+[3/6] Vet
+[4/6] Enrichment
+[5/6] Synthesize
+[6/6] Audit
 ```
 
-- **The counter is always out of 5** — Plan, Extract, Vet, Synthesize, Audit. A phase with sub-steps numbers them after the point — `[2.1/5]` through `[2.3/5]` — so progress inside a phase that runs for an hour is visible without it becoming a sixth phase.
+- **The counter is always out of 6** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. A phase with sub-steps numbers them after the point — `[2.1/6]` through `[2.3/6]` — so progress inside a phase that runs for an hour is visible without it becoming a seventh phase.
 - **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line.
-- **A step working through a queue against an outside limit says how big the queue is, then counts it down.** Only that shape: a number of items, and a rate you do not control. `[3/5] Vet · 50 handles, ~12 min (Hacker News allows one request per 15s)`, then `[3/5] Vet · 18/50`. It goes on the marker, and it is the whole message.
-- **On resume, say what is being skipped**: `[1/5] Plan — already complete, resuming from Vet`. The user needs to know the run did not start over.
-- **A step that could not run says so on its own line** and the run continues: `[3/5] Vet — Reddit and Twitter unavailable, no API key`.
+- **A step working through a queue against an outside limit says how big the queue is, then counts it down.** Only that shape: a number of items, and a rate you do not control. `[3/6] Vet · 50 handles, ~12 min (Hacker News allows one request per 15s)`, then `[3/6] Vet · 18/50`. It goes on the marker, and it is the whole message.
+
+- **On resume, say what is being skipped**: `[1/6] Plan — already complete, resuming from Vet`. The user needs to know the run did not start over.
+- **A step that could not run says so on its own line** and the run continues: `[3/6] Vet — Reddit and Twitter unavailable, no API key`.
 
 ## Questions for the user — never in a file
 

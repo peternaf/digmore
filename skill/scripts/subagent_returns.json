@@ -137,7 +137,7 @@
     }
   },
   "page-claims": {
-    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. The Report Writer reads these to build the summary; the Source Analyst reads them to build its handle roster.",
+    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. The Report Writer reads these to build the summary; the Source Analyst reads them to build its handles and players files.",
     "type": "object",
     "required": [
       "url",
@@ -230,7 +230,7 @@
       }
     }
   },
-  "handle-roster": {
+  "source-handles": {
     "description": "Written by the Source Analyst to full_source_analysis/<source>-handles.json, one per handle-bearing source: reddit, hackernews, twitter, forums. Vet reads it instead of ranking for itself — the ranking needs every document that source produced, and the Source Analyst is the only agent that reads the whole pile at once. The array order IS the ranking, so Vet takes from the top and stops at the cap.",
     "type": "object",
     "required": [
@@ -327,34 +327,198 @@
       }
     }
   },
-  "vet-judgment": {
-    "description": "Returned by a Handle Vetter when a verdict needs a judgment the heuristics cannot make — on Twitter, when the API sets needs_llm_judgment and the sampled tweets have to be read. Distinct from the vet_user object the source scripts emit on stdout, which the script and the API enforce rather than this checker.",
+  "source-players": {
+    "description": "Written by the Source Analyst to full_source_analysis/<source>-players.json, one per source — all six, because unlike handles there is no source without players. Validated as a file rather than as a return, since it never enters the orchestrator's context. Read by `players.mjs candidates` alone, which merges the six, joins each claim's handle to its verdict, filters, recounts across sources and applies the inclusion floor. Recording the handle beside the claim is the point: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets Enrichment decide.",
     "type": "object",
     "required": [
-      "verdict",
-      "reason"
+      "source",
+      "players"
     ],
     "properties": {
-      "verdict": {
+      "source": {
         "type": "string",
         "enum": [
-          "legit",
-          "unknown",
-          "promoter",
-          "spammer",
-          "throwaway"
+          "reddit",
+          "hackernews",
+          "twitter",
+          "websearch",
+          "forums",
+          "local"
         ]
+      },
+      "players": {
+        "type": "array",
+        "description": "Every company, project, product or service this source's material named. Not pre-filtered: the inclusion floor is applied across all six sources at once, so an entity named twice here and three times elsewhere clears it while neither source could have known.",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "documentCount",
+            "claimCount",
+            "topImportance",
+            "relevance",
+            "claims"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "As this source's material writes it."
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every other string seen for the same entity here — 'acme.com', 'Acme Video', 'ACME'. This is what the six sources are merged on, and handles never needed it because a handle is a literal string."
+            },
+            "documentCount": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many of this source's documents named it. One document, one count, however many times the name appears inside it — a long thread repeating a name forty times is one document."
+            },
+            "claimCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "topImportance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential",
+                "none"
+              ],
+              "description": "The highest importance of any claim about this entity. 'none' when it was named but produced no claim."
+            },
+            "relevance": {
+              "type": "string",
+              "description": "One line on how it showed up in THIS source's conversation — 'named as the incumbent people are migrating off'. Not what the company is; that is looked up live later. A line that would read identically in an unrelated topic is wrong."
+            },
+            "claims": {
+              "type": "array",
+              "description": "One entry per claim about this entity. Empty when the entity was named and nothing checkable was said about it.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "index"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "The claims file, relative to the topic directory: cache/<source>/<name>-claims.json."
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Which claim within that file's claims array."
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "Who said it, as the source writes it. Omitted on the open web and the user's own documents, which have authors rather than accounts — those claims are filtered on pageQuality instead of on a verdict."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "player-profile": {
+    "description": "Returned by a Player Profiler, one per players.csv row, in Enrichment. Every cell of one player's row: the orchestrator writes them into the row it already created. Which columns a run actually carries is command-specific and partly per-topic, so the optional ones below are validated only when present.",
+    "type": "object",
+    "required": [
+      "fetch_failed"
+    ],
+    "requiredWhen": [
+      {
+        "field": "fetch_failed",
+        "equals": false,
+        "require": [
+          "marketing_domain",
+          "monthly_visits",
+          "offerings",
+          "positioning",
+          "pricing_model",
+          "entry_tier_price_usd",
+          "funding_stage",
+          "funding_raised_usd",
+          "recent_moves",
+          "top_user_sentiment"
+        ]
+      },
+      {
+        "field": "fetch_failed",
+        "equals": true,
+        "require": [
+          "reason"
+        ]
+      }
+    ],
+    "properties": {
+      "fetch_failed": {
+        "type": "boolean",
+        "description": "True when the look failed — captcha, network, blocked. Then no cells come back at all: a failure is the orchestrator's to retry or skip, and a cell that hides it is worse than no cell."
       },
       "reason": {
         "type": "string",
-        "description": "Short justification, no fluff."
+        "description": "Required when fetch_failed is true. What stopped it."
       },
-      "evidence": {
-        "type": "array",
-        "items": {
-          "type": "string",
-          "description": "Short verbatim excerpts from the read tweets that support the verdict."
-        }
+      "marketing_domain": {
+        "type": "string",
+        "description": "The real marketing site, not the code host. Plenty of open-source projects carry a code-host url and still have one."
+      },
+      "monthly_visits": {
+        "type": "string",
+        "description": "Three forms, and no fourth: the number as SimilarWeb gives it ('1.4M'); 'github-only' when there is no marketing site anywhere; or 'UNAVAILABLE — not-indexed' when the domain and its parent are both unknown to SimilarWeb. A bare 'UNAVAILABLE' is never acceptable. The checker can only confirm this is a string — the three forms are not expressible as an enum, so they are enforced by the agent's own file."
+      },
+      "offerings": {
+        "type": "string",
+        "description": "What it actually ships, semicolon-separated."
+      },
+      "positioning": {
+        "type": "string",
+        "description": "How it sits against THIS topic. A cell that would read identically in an unrelated topic is wrong."
+      },
+      "pricing_model": {
+        "type": "string",
+        "description": "usage-based, seat-based, tiered, and so on — from the vendor's own pricing page."
+      },
+      "entry_tier_price_usd": {
+        "type": [
+          "number",
+          "string"
+        ],
+        "description": "A number, 'free', or 'contact sales'. Never 'POA', and never a model name — the model belongs in pricing_model."
+      },
+      "funding_stage": {
+        "type": "string",
+        "description": "The round, in the command's vocabulary: bootstrapped, seed, A, B, public, acquired. Distinct from the amount, which is funding_raised_usd."
+      },
+      "funding_raised_usd": {
+        "type": "string",
+        "description": "The amount, as the summary's Players table renders it: '$180M total', or 'public', 'none', 'donations', 'foundation: <name>', 'acquired by <buyer>', 'academic: <institution>', 'solo dev'. Never a round name — that is funding_stage."
+      },
+      "recent_moves": {
+        "type": "string",
+        "description": "Last 90 days, semicolon-separated, each carrying its date."
+      },
+      "top_user_sentiment": {
+        "type": "string",
+        "description": "positive / mixed / negative plus the dominant theme. Read from two places together: the claims the agent was pointed at — the run's own evidence, already filtered to the voices it listens to — and a fresh search aimed at sentiment rather than at the company."
+      },
+      "target_segment": {
+        "type": "string"
+      },
+      "deployment_model": {
+        "type": "string"
+      },
+      "key_integrations": {
+        "type": "string"
+      },
+      "notable_customers": {
+        "type": "string"
       }
     }
   },

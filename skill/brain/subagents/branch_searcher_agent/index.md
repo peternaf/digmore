@@ -1,6 +1,6 @@
 # Branch Searcher — the agent
 
-**Phase: Extract, sub-step `[2.1/5] Extract · Search`.** Dispatched by `../../phases/extract_phase_b.md`.
+**Phase: Extract, sub-step `[2.1/6] Extract · Search`.** Dispatched by `../../phases/extract_phase_b.md`.
 
 One dispatch per **branch**: one angle paired with one source. A run with 5 angles and 5 available
 sources dispatches 25 of these, all at once.

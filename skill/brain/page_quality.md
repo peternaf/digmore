@@ -16,7 +16,7 @@ Two things, and nothing else:
 
 - **Ranking claims for verification.** Audit checks the top `synthesize.claimsFactChecked` claims by
   `importance × page-quality`, so this tag decides which claims are worth going back to the source
-  for (`phases/audit_phase_e.md` §1).
+  for (`phases/audit_phase_f.md` §1).
 - **The confidence label** on each finding in the summary — see `vetting.md` §"Confidence tag rule".
 
 It is **not** a filter on its own, with one exception: `unreliable` claims are dropped in Synthesize
@@ -62,5 +62,5 @@ matters — the author of the thing being discussed answering for it in a thread
 the claim rather than promoting the tag.
 
 Your source's file in `subagents/page_analyst_agent/` says how its material maps onto this table:
-`websearch.md` carries a page-shape-to-tag table, and the scripted sources each name their default and
-their one exception.
+`subagents/page_analyst_agent/websearch.md` carries a page-shape-to-tag table, and the scripted
+sources each name their default and their one exception.

@@ -37,9 +37,9 @@ Every thread file carries `num_comments`. Compare it to the length of `comments`
 Record the shortfall per thread, both numbers. A thread read at 500 of 3,000 comments does not
 support a claim about what "the thread concluded".
 
-## The roster — `full_source_analysis/reddit-handles.json`
+## The handles — `full_source_analysis/reddit-handles.json`
 
-Reddit gives you the richest roster of any source, because every comment names both its author and
+Reddit gives you the richest handle list of any source, because every comment names both its author and
 its subreddit.
 
 - **The handle form is `u/<name>`**, as Reddit writes it.
@@ -48,6 +48,19 @@ its subreddit.
   the Handle Vetter would otherwise have to infer — and it is what tells a genuine specialist apart
   from the fanboy the script's 80%-in-one-sub rule fires on.
 - **`[deleted]` and `[removed]` are not handles.** Skip them; there is nobody to vet.
+
+## The players — `full_source_analysis/reddit-players.json`
+
+Reddit names products constantly and links them rarely. Expect bare names, misspellings and
+shorthand — `elevenlabs`, `11labs`, `EL` in the same thread — so `aliases` earns its place here more
+than on any other source.
+
+- **The subreddit is part of the relevance.** "Praised in r/selfhosted, called overpriced in
+  r/startups" is a better line than either half alone, and it is visible only to you.
+- **A recommendation thread is not five mentions.** One document naming eight tools counts once for
+  each of them. Do not inflate a comparison thread into evidence of eight popular products.
+- **`[deleted]` comments still name products.** The claim has no handle, so it will be judged on page
+  quality rather than dropped — record the entity.
 
 ## Known gaps to record in `full_source_analysis/reddit.md`
 

@@ -1,6 +1,6 @@
 # Plan
 
-Print `[1/5] Plan` when this phase starts (`../reporting.md`).
+Print `[1/6] Plan` when this phase starts (`../reporting.md`).
 
 This phase settles two things and writes them to one file: **which topic this is**, and **what the run will go looking for**. Every later phase inherits both.
 
@@ -38,7 +38,7 @@ Slug rules:
 
 1. **Incremental update of an existing topic.** The user extends `experts.csv`, or experts were auto-added by an earlier run. Re-running re-vets old datapoints against the new expert list and surfaces new datapoints introduced by those experts.
 
-2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_d.md` §1.
+2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_e.md` §1.
 
 3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary. The user decides what is worth a follow-up; do not pre-suggest one.
 

@@ -1,6 +1,6 @@
 # Digmore — GTM teardown
 
-A five-phase pass focused on ONE company's go-to-market behavior. Name every tactic, channel, insider promoter and community reaction — with measured reach and worked-example URLs.
+A six-phase pass focused on ONE company's go-to-market behavior. Name every tactic, channel, insider promoter and community reaction — with measured reach and worked-example URLs.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `gtm`.
 

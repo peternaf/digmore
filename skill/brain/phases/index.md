@@ -1,10 +1,10 @@
 # Phases — overview
 
-All five phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
+All six phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
 
-**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run with verdicts on the top-ranked claims (`audit_phase_e.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
+**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run with verdicts on the top-ranked claims (`audit_phase_f.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
 
-Each step announces itself with one line — `[3/5] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
+Each step announces itself with one line — `[3/6] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
 
 Re-read `../output.md` before any sub-agent dispatch or before writing any user-facing text. The writing-style rules apply *at output time*, not only in final deliverables.
 
@@ -13,8 +13,9 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 - `plan_phase_a.md` — **Plan**: the topic, its angles, the branches they make with each available source, written to `research_plan.json`.
 - `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then per-source notes.
 - `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped.
-- `synthesize_phase_d.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
-- `audit_phase_e.md` — **Audit**: deep verification of the top-ranked claims + per-claim verdict log.
+- `enrich_phase_d.md` — **Enrichment**: who the research is about — the player candidates, the selection, and one profiler per row.
+- `synthesize_phase_e.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
+- `audit_phase_f.md` — **Audit**: deep verification of the top-ranked claims + per-claim verdict log.
 
 Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
 
@@ -29,11 +30,14 @@ digmore/<topic-slug>/
   experts.csv                    # curated experts (legit verdict only)
   raw_research_outcomes.md       # LLM-facing structured claims index
   players.csv                    # competitor / subject matrix
+  player_candidates.json         # who qualified as a player, and their claim references
   <section-name>.csv             # one per invented enumerable section — ../sections.md
   audit.md                       # Audit verdict log
-  full_source_analysis/<source>.md          # free-flow notes per source
-  full_source_analysis/<source>-handles.json # the ranked handle roster Vet works from
+  full_source_analysis/<source>.md           # free-flow notes per source
+  full_source_analysis/<source>-handles.json # every handle that source produced, ranked, for Vet
+  full_source_analysis/<source>-players.json # every entity that source named, and who said what
   cache/<source>/<file>          # raw fetched content, per-source
+  cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
   cache/_misc/<file>             # scratch that belongs to no source
@@ -47,9 +51,11 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 |---|---|
 | `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled, a `run_history` entry at the end of the run |
 | `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
-| `players.csv`, `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
+| `player_candidates.json` | `players.mjs candidates`, once, at the start of Enrichment |
+| `players.csv` | the orchestrator, in Enrichment — the rows before profiling, the returned cells after. The Report Writer only reads it |
+| `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
 | `audit.md` | the orchestrator, in Audit |
-| `full_source_analysis/<source>.md` | one Source Analyst per source, each to its own file |
+| `full_source_analysis/<source>.md`, `full_source_analysis/<source>-players.json` | one Source Analyst per source, each to its own files |
 | `full_source_analysis/<source>-handles.json` | the Source Analyst creates it in Extract; the orchestrator adds the verdicts at the end of Vet. Two writers, never at the same time — the phases are ordered, and the Handle Vetters hand their verdicts back rather than writing here themselves |
 | `cache/**` | whichever sub-agent fetched or produced it, each to its own filename |
 
@@ -61,13 +67,14 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 
 **Claims and source notes live on disk. You hold neither.** Whatever step needs them opens the files itself.
 
-Your context has to survive all five phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, six sets of source notes — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
+Your context has to survive all six phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, six sets of source notes — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
 
 | What | Written by | Read by |
 |---|---|---|
-| `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst for its roster, the Report Writer for the summary, the fact checker to verify |
+| `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst for its handles and players files, the Report Writer for the summary, the fact checker to verify |
 | `full_source_analysis/<source>.md` | each Source Analyst | the Report Writer |
 | `full_source_analysis/<source>-handles.json` | each Source Analyst, then the orchestrator at the end of Vet | Vet, to know who to vet and in what order; every later run, as the record of who was rejected and why |
+| `full_source_analysis/<source>-players.json` | each Source Analyst, in Extract | `players.mjs candidates` alone. Nobody reads the six files directly — the script merges them, joins the verdicts and hands back candidates |
 
 What you keep across the run: the receipts, the plan, the verdicts, and the run's own record. Never the bodies.
 
@@ -116,6 +123,7 @@ If a phase errors, runs out of context, or the process is killed, the run still 
 - **Plan failure** → an empty or absent `scope` in `research_plan.json`, so nothing was fetched. Resume re-plans from scratch; it costs one sub-agent.
 - **Extract failure** → `research_plan.json` holds the branch list; the cache holds whatever was fetched. Resume compares the two and runs only the branches with nothing on disk. It does not re-scope: new angles would not match the cache the half-finished run built.
 - **Vet failure** → handles seen so far are in `cache/`. Already-promoted experts are in `experts.csv`. Resume re-runs `vet_user` only on un-vetted handles.
+- **Enrichment failure** → `player_candidates.json` records who qualified and `players.csv` the rows already chosen. Resume reads both, dispatches only the rows whose fetched cells are still empty, and does not re-choose: the selection is a decision this run already made and recorded.
 - **Synthesize failure** → `raw_research_outcomes.md` written from what was collected; partial summary with a `<!-- SYNTHESIZE-INCOMPLETE -->` header. Resume re-runs synthesis on the full claim set.
 - **Audit failure** → the summary exists without verification annotations; `audit.md` notes `audit-incomplete`. Resume re-runs Audit from scratch, which is cheap next to the phases before it.
 

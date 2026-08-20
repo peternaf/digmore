@@ -1,6 +1,6 @@
 # Audit
 
-Print `[5/5] Audit` when this phase starts (`../reporting.md`).
+Print `[6/6] Audit` when this phase starts (`../reporting.md`).
 
 Verifier posture: **default to `manual-verify-required` if uncertain.** Verification must be active confirmation, not absence of doubt.
 
@@ -14,7 +14,7 @@ Dispatch one sub-agent with **no context from this run** — not the drafter, no
 
 A fresh context is the point. The drafter cannot see this failure, because it knows what it meant. Reading the report cold is the only way to notice that twelve communities were named and none of them can be visited.
 
-Cross-check against `research_plan.json.scope.deliverables`: every enumeration declared in Plan has a section, and every section's entries match its CSV row set (`synthesize_phase_d.md` §3.6).
+Cross-check against `research_plan.json.scope.deliverables`: every enumeration declared in Plan has a section, and every section's entries match its CSV row set (`synthesize_phase_e.md` §3.6).
 
 What comes back:
 
@@ -35,7 +35,7 @@ How many is `synthesize.claimsFactChecked`, printed by `preflight.mjs`. Read it 
 Dispatch one Verifier sub-agent per claim in the checked set, per `../subagents/dispatch_structured_subagent.md`. The sub-agent returns the Verifier schema (see `../../scripts/subagent_returns.json`): `{verdict, evidence, refuted?, counterSource?}`.
 
 For each claim, the Verifier must:
-- Confirm the URL still resolves and the cited content matches the claim. Use `fetch.mjs` (not `WebFetch`) for any URL likely to be long-form.
+- Confirm the URL still resolves and the cited content matches the claim. Fetch it per `../fetching.md` — `fetch.mjs` first on every page, WebFetch only where that one is walled.
 - Confirm the quote source's handle is in `experts.csv`.
 - If anything is ambiguous (paywalled URL, dead link, content changed, ambiguous match) → return `manual-verify-required` with the reason.
 - If the claim is contradicted by another source, is marketing fluff, or the page quality is too weak for the claim's strength → return `refuted` with the kill reason and (when available) the counter-source URL.

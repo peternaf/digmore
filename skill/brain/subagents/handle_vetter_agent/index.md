@@ -1,13 +1,13 @@
 # Handle Vetter — the agent
 
-**Phase: Vet, `[3/5]`.** Dispatched by `../../phases/vet_phase_c.md`, one per handle.
+**Phase: Vet, `[3/6]`.** Dispatched by `../../phases/vet_phase_c.md`, one per handle.
 
 Where it sits: Extract surfaced far more handles than a run can check — thousands on a busy topic.
 The Source Analyst ranked them into `full_source_analysis/<source>-handles.json`, by the importance of
 what they said rather than by how often they appeared, and Vet cut that list at the cap. You get one
 of the survivors.
 
-**Your dispatch carries that handle's roster row.** Whatever the pages already showed — subreddits,
+**Your dispatch carries that handle's row from `<source>-handles.json`.** Whatever the pages already showed — subreddits,
 post counts, badges, trust levels, accepted-answer marks, whether they authored the thread — is in
 its `signals`, already paid for. Read it before you spend a request, and on forums, where there is no
 script at all, it may be everything you get.

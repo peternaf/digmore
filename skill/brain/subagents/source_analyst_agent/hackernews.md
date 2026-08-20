@@ -39,15 +39,28 @@ the cut was read partially, and any claim about how that argument resolved is un
 
 Where `num_comments` on the story greatly exceeds what is in the tree, record both numbers.
 
-## The roster — `full_source_analysis/hackernews-handles.json`
+## The handles — `full_source_analysis/hackernews-handles.json`
 
 - **The handle form is `hn/<name>`.**
 - **`signals` worth carrying:** whether they submitted the story or only commented, their depth in
   the tree, and whether they disclosed working for something being discussed — employees answering in
   the thread are common on HN and usually say so.
 - **Depth 3 hides handles.** The script flattens the tree and drops everything below, so a person who
-  only ever replied deep in a chain is absent from the material and cannot appear in the roster at
-  all. That is a coverage gap, not an empty roster — say so in the notes.
+  only ever replied deep in a chain is absent from the material and cannot appear in this file at
+  all. That is a coverage gap, not an empty source — say so in the notes.
+
+## The players — `full_source_analysis/hackernews-players.json`
+
+Hacker News is the one source where a document often **is** a player: a Show HN or a launch thread is
+a company introducing itself, and the story's own `url` is that company's site. Record it as an
+alias — it is the most reliable identifier this source produces.
+
+- **The submitter is frequently the founder**, disclosed or not. That makes the story's own claims
+  the company's own words, and their handle will usually vet as `promoter`. Record the entity
+  normally; whether those claims count is decided later, not by you.
+- **Comparison comments name a dozen tools in a line.** One document, one count each.
+- **Depth-3 flattening hides players too.** A tool only ever recommended deep in a reply chain is
+  absent from the material entirely. Say so in the notes where you can see it happening.
 
 ## Known gaps to record in `full_source_analysis/hackernews.md`
 

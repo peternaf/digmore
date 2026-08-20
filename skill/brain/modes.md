@@ -53,7 +53,7 @@ Standard research run as described in the rest of the brain. Roughly 2 hours wal
 
 ## Fast mode (`--fast`)
 
-10–15 minute wall-clock budget. Same five-phase shape, every phase scaled down. The output is still a complete summary + `players.csv` + `experts.csv` + `audit.md` — just shallower.
+10–15 minute wall-clock budget. Same six-phase shape, every phase scaled down. The output is still a complete summary + `players.csv` + `experts.csv` + `audit.md` — just shallower.
 
 **Every number is in `~/.digmore/settings.json`, and `preflight.mjs` prints them at the start of the run.** Read them off that report; do not carry a number from here, and never substitute one of your own. Where preflight shows `20 → 5`, the second value is this mode's. A `0` means that step is skipped entirely.
 

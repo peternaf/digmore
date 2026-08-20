@@ -78,7 +78,7 @@ Rules for a cell:
 ## Rendering the section
 
 One row, one entry. The section and the file match: nothing in the section that is not a row, no row
-silently missing. See `phases/synthesize_phase_d.md` §3.6, which owns this rule for every enumerable
+silently missing. See `phases/synthesize_phase_e.md` §3.6, which owns this rule for every enumerable
 section, predefined or invented.
 
 A row whose `url` is genuinely unknown renders unlinked and is recorded in `audit.md` as a
@@ -87,4 +87,4 @@ known-gap. It is never quietly dropped.
 ## What the audit checks
 
 Every section in `scope.deliverables` exists in the summary, and every enumerable one matches its
-file row for row (`phases/audit_phase_e.md` §0).
+file row for row (`phases/audit_phase_f.md` §0).

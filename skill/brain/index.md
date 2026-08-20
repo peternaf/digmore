@@ -7,7 +7,7 @@ Entry point for every command. The command's reference file tells you to read th
 The same for every command. A command's reference file names its deliverable — the sections its report carries, who counts as a player, its own angles, any extra output file. Everything below belongs to the brain, and a reference file does not repeat it. Where a command genuinely works differently, its file states the difference alone; depth and interaction settings are the one thing whose per-command differences live here too, in `modes.md`, so a run reads one table rather than four.
 
 1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, then scope it and write `research_plan.json`. `phases/plan_phase_a.md`.
-2. **The five phases, in order** — Plan, Extract, Vet, Synthesize, Audit. `phases/index.md`. None of them is optional.
+2. **The six phases, in order** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. `phases/index.md`. None of them is optional.
 3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
 4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output` must resolve under `digmore/<slug>/cache/<source>/`.
 5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `scripts/subagent_returns.json`.
@@ -25,12 +25,14 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | When | Read |
 | --- | --- |
 | Before any external request | `recency.md` |
+| Fetching a web page — the command, the cache hit, the bot-wall fallback | `fetching.md` |
 | Plan — slugging the topic, deciding fresh / re-run / branched, the angles, the sections, the branches, and `research_plan.json` itself | `phases/plan_phase_a.md`, `modes.md`, `sections.md`, `scripts/subagent_returns.json` (`scope` shape) |
 | Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `page_quality.md`, `subagents/handle_vetter_agent/` |
-| Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
-| Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `scripts/subagent_returns.json` (Verifier schema) |
-| Salvage paths, where a run writes, one writer per file, why claims and source notes stay on disk, how the five phases connect | `phases/index.md` |
+| Enrichment — who the research is about: the player candidates, the selection, the profiling | `phases/enrich_phase_d.md`, `subagents/player_profiler_agent.md` |
+| Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_e.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
+| Audit — verify the top claims against their sources | `phases/audit_phase_f.md`, `scripts/subagent_returns.json` (Verifier schema) |
+| Salvage paths, where a run writes, one writer per file, why claims and source notes stay on disk, how the six phases connect | `phases/index.md` |
 | Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `subagents/dispatch_structured_subagent.md` |
 | Deciding the summary's sections, or filling and rendering one | `sections.md` |
 | Writing ANY user-facing or sub-agent output (always) | `output.md` |
@@ -52,9 +54,11 @@ agent reads a rule written for a different one.
 | Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — one file per source |
 | Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source |
 | Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums |
-| Player Profiler | Synthesize §3.5 | `subagents/player_profiler_agent.md` |
+| Player Profiler | Enrichment | `subagents/player_profiler_agent.md` |
 
-The Claim Fact Checker fetches pages in Audit and reads `subagents/page_analyst_agent/` for how.
+**Every agent that fetches a page is also sent `fetching.md`** — the Page Analyst, the Expert
+Document Analyst, the Player Profiler and the Claim Fact Checker. It owns the `fetch.mjs` command
+and the bot-wall fallback, so no agent carries its own copy of either.
 
 The six sources are Reddit, Hacker News, Twitter, the open web, specialty forums, and the user's
 own documents. **The Handle Vetter does not cover all of them**, because a web page and a handed-over document have

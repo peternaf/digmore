@@ -37,9 +37,9 @@ This is the weakest source for credibility and the most uneven for coverage:
   Analyst reported those; carry them forward so the absence is on the record.
 - **Discord threads are partial** wherever they appear. Only the visible slice loads.
 
-## The roster — `full_source_analysis/forums-handles.json`
+## The handles — `full_source_analysis/forums-handles.json`
 
-This is the roster that earns the most, because the Handle Vetter has no script here and no profile
+This is the handles file that earns the most, because the Handle Vetter has no script here and no profile
 to fetch — whatever you record is very nearly all it will ever have.
 
 - **The handle form is the forum's own**, prefixed with the domain so two forums' identical display
@@ -47,11 +47,24 @@ to fetch — whatever you record is very nearly all it will ever have.
   person; never merge them.
 - **`signals` matter more here than anywhere.** Post count, join date, badges, Discourse trust level,
   accepted-answer status, staff or moderator marking. Any of those plus on-topic activity is enough
-  for `legit`; without them the verdict is `unknown`, and on this source `unknown` means the quote is
-  dropped entirely (`../../phases/synthesize_phase_d.md` §1). What you record here decides whether a
-  forum voice survives at all.
+  for `legit`; without them the verdict is `unknown`, which keeps the quote with an "anonymous,
+  unverified" caveat rather than dropping it (`../../phases/synthesize_phase_e.md` §1). What you
+  record here decides how much weight a forum voice carries, not whether it appears.
 - **Anonymised posts have no handle.** Where a forum scrubs attribution after an account closes, the
   words remain and the person does not. No row.
+
+## The players — `full_source_analysis/forums-players.json`
+
+Forums are where niche tools surface that no article covers, so this file often carries entities that
+appear nowhere else in the run. Those are exactly the ones a five-document floor will cut, and that
+is the intended outcome — record them anyway and let the count decide.
+
+- **Users call things what users call them.** The forum's name for a product frequently is not the
+  vendor's, and both belong in `aliases`.
+- **A long support thread is one document**, however many times the product is named in it. Forums
+  repeat a name more than any other source; the count must not.
+- **Vendor staff post here.** A brand-name mention from an account with a staff badge is the company
+  talking about itself — record the entity, and the handle carries the rest.
 
 ## Known gaps to record in `full_source_analysis/forums.md`
 

@@ -28,7 +28,7 @@ Hacker News or Twitter with a `legit` verdict, that carries — say which source
 `unknown`, and that is the honest answer rather than a failure.
 
 `unknown` is an honest answer here and it does not kill the quote — Synthesize keeps it, marked
-"anonymous, unverified" (`../../phases/synthesize_phase_d.md` §1). The handle reached you by ranking
+"anonymous, unverified" (`../../phases/synthesize_phase_e.md` §1). The handle reached you by ranking
 high on what they contributed to the question, and that is worth keeping even when the forum tells
 you nothing about who they are. What your verdict changes is how much weight the reader gives them,
 not whether they appear.
