@@ -8,8 +8,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit user <name> -
 
 `--topic <slug>` is mandatory.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## One call gives you everything
 

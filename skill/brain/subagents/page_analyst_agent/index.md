@@ -136,10 +136,13 @@ This is the only link between a claim and a person that exists anywhere in the r
 cannot tell whose words the report actually rests on, and ranks people by how often they turned up
 instead of by what they said.
 
-**`sourceQuality` is one of seven words, and `../../vetting.md` says what each one means.** It goes on
-the claims file, not in what you hand back. The schema gives you the list; read the definitions before
-choosing, and read your source's file — a forum post and a vendor pricing page are not judged the same
-way.
+**`pageQuality` is defined in `../../page_quality.md`.** Read it before your first tag — the schema
+gives you the allowed words and nothing else, and the difference between `primary-self` and
+`secondary` decides how far up the verification ranking every claim on this page sits. It goes on the
+claims file, not in what you hand back.
+
+Your source's file in this directory says how its material maps onto those values — a forum post and a
+vendor pricing page are not judged the same way.
 
 ## What you write to disk
 
@@ -162,7 +165,7 @@ Plus `digmore/<slug>/cache/_returns/page-analyst-<filename>.json` — a copy of 
 The `page-analyst` shape, and it is four fields: `outcome`, `claimCount`, `pagesRead`,
 `fetchedWith`.
 
-**Nothing else comes back with you** — not the claims, not the source quality, not the page's date.
+**Nothing else comes back with you** — not the claims, not the page quality, not the page's date.
 All of that is in the file you wrote, and the Source Analyst, the Report Writer and the fact checker
 open it there. Not even the path: your file sits in `cache/<source>/` under the name the fetch gave
 it, and they find it by reading the directory.

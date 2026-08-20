@@ -13,8 +13,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" twitter tweet <id>..
 Takes one or more tweet ids, batched up to 100 per call, and asks only for ids not already cached.
 The Branch Searcher harvested each id as the last path segment of `x.com/<handle>/status/<id>`.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## Always run this before quoting a tweet
 
@@ -46,7 +45,7 @@ the causes are the API's business, not the user's, and not the user's to fix.
 
 Report Twitter as a source the run could not fully reach. Already-cached tweets stay usable.
 
-## Source quality
+## Page quality
 
 `primary-self` when the account is the subject speaking for itself — a company account, a founder
 announcing something. `forum` when it is commentary from anyone else. Definitions in

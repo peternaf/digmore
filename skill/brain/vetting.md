@@ -2,9 +2,9 @@
 
 Two independent dimensions are tagged per datapoint:
 1. **Person credibility** — the commenter / author.
-2. **Source quality** — the URL itself.
+2. **Page quality** — the URL itself. In `page_quality.md`.
 
-Both must be tagged. They feed different downstream decisions (credibility filters Synthesize, source quality ranks Audit).
+Both must be tagged. They feed different downstream decisions (credibility filters Synthesize, page quality ranks Audit).
 
 ## Person credibility — `vet_user`
 
@@ -21,20 +21,15 @@ Verdicts:
 
 Verdict schema is shared across sources. Source-specific signals live in `subagents/handle_vetter_agent/<source>.md`.
 
-## Source quality (per URL, independent of commenter)
+## Page quality (per URL, independent of commenter)
 
-Each fetched source is classified independently of who posted it:
-- `primary-self` — the subject's own vendor docs, pricing pages, company changelogs, first-party benchmarks. Factually accurate for THEIR product but biased; never trust marketing claims at face value.
-- `primary-3p` — independent primary sources: analyst reports, regulatory filings, third-party benchmarks, academic papers, government data.
-- `secondary` — established outlets (Stripe blog, TechCrunch, Smashing Magazine), well-known engineering blogs.
-- `blog` — individual blogs, Medium, Substack, personal sites.
-- `forum` — Reddit, HN, Discord, specialty forums.
-- `internal` — a document or text the user handed over. See `subagents/page_analyst_agent/local.md`.
-- `unreliable` — content farms, marketing collateral, dead links, paywalled-no-cache.
+**In `page_quality.md`** — what each value means, their scores, and what the tag is
+for. It is its own file because the agents that need it are not the agents that need the rest of this
+one: the Page Analyst tags every page it reads and never vets a handle, so it gets that file and not
+this one.
 
-Used to (a) rank claims in Audit, (b) drive the confidence label on each finding in the summary.
-
-Rank order: `primary-3p` > `primary-self` > `secondary` > `blog` > `forum` > `unreliable`. `internal` sits outside the ranking — see `subagents/page_analyst_agent/local.md`.
+What matters here is only that the two dimensions are independent. A `legit` expert can link to a
+content farm; a marketer can cite a regulatory filing. Tag both, separately.
 
 ## Confidence tag rule
 

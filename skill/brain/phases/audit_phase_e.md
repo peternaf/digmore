@@ -23,10 +23,10 @@ What comes back:
 
 ## 1. Rank
 
-Rank all claims in the summary by `importance × source-quality`. Importance is primary; source quality is the tiebreaker.
+Rank all claims in the summary by `importance × page-quality`. Importance is primary; page quality is the tiebreaker.
 
 - Importance comes from the `page-claims` shape (`central` / `supporting` / `tangential` → 3 / 2 / 1).
-- Source quality from `../vetting.md` (`primary-3p`=5, `primary-self`=4, `secondary`=3, `blog`=2, `forum`=1, `unreliable`=0). `internal` — a document the user handed over — scores 4: it sits outside the public ranking in `../vetting.md`, and this number exists only so a claim from the user's own files can be ranked into the checked set rather than dropping out of the audit entirely.
+- Page quality from `../page_quality.md` (`primary-3p`=5, `primary-self`=4, `secondary`=3, `blog`=2, `forum`=1, `unreliable`=0). `internal` — a document the user handed over — scores 4: it sits outside the public ranking there, and this number exists only so a claim from the user's own files can be ranked into the checked set rather than dropping out of the audit entirely.
 
 ## 2. Verify the top-ranked claims
 
@@ -38,9 +38,9 @@ For each claim, the Verifier must:
 - Confirm the URL still resolves and the cited content matches the claim. Use `fetch.mjs` (not `WebFetch`) for any URL likely to be long-form.
 - Confirm the quote source's handle is in `experts.csv`.
 - If anything is ambiguous (paywalled URL, dead link, content changed, ambiguous match) → return `manual-verify-required` with the reason.
-- If the claim is contradicted by another source, is marketing fluff, or the source quality is too weak for the claim's strength → return `refuted` with the kill reason and (when available) the counter-source URL.
+- If the claim is contradicted by another source, is marketing fluff, or the page quality is too weak for the claim's strength → return `refuted` with the kill reason and (when available) the counter-source URL.
 
-Lower-ranked claims (everything outside the checked set) pass through with their existing source-quality tag, no deep check. **This is a real bound on what "verified" means here, and the report must not imply otherwise:** the checked claims are verified against their sources; the rest carry their source-quality tag and nothing more.
+Lower-ranked claims (everything outside the checked set) pass through with their existing page-quality tag, no deep check. **This is a real bound on what "verified" means here, and the report must not imply otherwise:** the checked claims are verified against their sources; the rest carry their page-quality tag and nothing more.
 
 A claim sourced to a document the user handed over is verified against that file on disk, not over the network. See `../subagents/page_analyst_agent/local.md`.
 
@@ -54,7 +54,7 @@ For each Verifier verdict, edit the summary:
 
 ## 4. Cap on `manual-verify-required`
 
-The cap is `synthesize.manualVerifyFlagCap`, printed by `preflight.mjs`. If more claims would be flagged than that, keep the highest-scoring ones by `importance × source-quality`. The rest are auto-tagged `low-confidence-unverified` in `audit.md` but stay in their original sections without the inline AUDIT annotation.
+The cap is `synthesize.manualVerifyFlagCap`, printed by `preflight.mjs`. If more claims would be flagged than that, keep the highest-scoring ones by `importance × page-quality`. The rest are auto-tagged `low-confidence-unverified` in `audit.md` but stay in their original sections without the inline AUDIT annotation.
 
 Reason: prevents the summary from being papered with manual-verify flags the user can't realistically chase.
 
@@ -64,7 +64,7 @@ Per-claim verdict log. Replace the file entirely (not append) — see "Re-run be
 
 Sections:
 - **Unanswered** — from §0: anything the request asked for that the report does not deliver, or delivers in an unusable form. One line each: what was asked, what is there instead, and why it was not fixed in this run. Empty is the expected state; an entry here is the run telling the user it fell short of its own brief.
-- **Verdicts** — one line per checked claim: `verdict: <verified | url-broken | content-changed | uncited | manual-verify-required | low-confidence-unverified | refuted>`, the claim text, the source URL, and the `importance × source-quality` score that placed it in the checked set.
+- **Verdicts** — one line per checked claim: `verdict: <verified | url-broken | content-changed | uncited | manual-verify-required | low-confidence-unverified | refuted>`, the claim text, the source URL, and the `importance × page-quality` score that placed it in the checked set.
 - **Verification ranking** — which claims got the deep check, in rank order, with their scores.
 - **Assumptions made without the user** — anything decided on the user's behalf in auto mode, or under uncertainty in either mode: one line each, what was assumed and what it changed. No questions here; see `../reporting.md` §"Questions for the user".
 - **Synthesize critic-pass known-gaps** — gaps the critic surfaced that Synthesize didn't close cheaply.

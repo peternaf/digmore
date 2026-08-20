@@ -77,7 +77,7 @@ Only what survives this step is dispatched.
 
 ## Read — one sub-agent per URL
 
-Print `[2.2/5] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, four fields: what the outcome was, how many claims, how many pages it cost, and which tool got the page.
+Print `[2.2/5] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, which says what became of the page rather than what was in it.
 
 **Dispatch them all at once, up to the harness limit `preflight.mjs` reported** — the same rule as the searchers above, and for the same reason: nothing here shares a rate limit, so the only bound is how many sub-agents Claude Code will run. Batch only when the limit errors, exactly as in §Search. Do not invent a smaller batch size of your own.
 
@@ -167,4 +167,4 @@ them, and the run says so rather than quietly quoting unvetted voices.
 
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json`, checked, on the four sources that carry handles. A source whose roster is missing after one re-dispatch is complete too, and recorded as unvetted. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` — plus its `<source>-handles.json`, checked, on the sources that carry handles. A source whose roster is missing after one re-dispatch is complete too, and recorded as unvetted. No marker file is written — resume infers completion from the presence of these artifacts.

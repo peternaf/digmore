@@ -17,8 +17,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit search <query
 `--topic <slug>` is mandatory; the script refuses to run without it. JSON on stdout, errors on
 stderr.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## NEVER use WebSearch for Reddit
 
@@ -80,12 +79,6 @@ is readable rather than misleading: site-wide found plenty and your subs found l
 were off, both thin means the topic really is thin on Reddit. Guessing wrong is cheap here; not
 guessing at all is what loses the specialist sub nobody would have found.
 
-### What you return
-
-**One list, both searches merged, deduped on URL.** A thread found by both is one candidate, keeping
-the higher `relevance`. Say in your log which subs you chose and why the second search was scoped that
-way.
-
 ### How multi-sub behaves
 
 **Multi-sub is one request, merged on the API's side.** Three consequences:
@@ -124,7 +117,8 @@ fresh connection, and reserves exit 3 for the case where every attempt was walle
 
 The `branch-searcher` shape — `{"results":[{"url","title","relevance"}]}`, `relevance` rank-based.
 Each search's output already matches it; what you hand back is **both searches merged and deduped on
-URL**, per §"Two searches" above.
+URL**, per §"Two searches" above. A thread found by both is one candidate, keeping the higher
+`relevance`. Say in your log which subs you chose.
 
 ## What lands on disk
 
@@ -151,5 +145,5 @@ number it landed on first.
 None of that is yours to manage. Run the command; the script decides where the answer goes and hands
 you back what it fetched or what it already had.
 
-That one file is what this dispatch leaves behind. The threads behind those URLs belong to the Page
+Those two files are what this dispatch leaves behind. The threads behind the URLs belong to the Page
 Analyst.

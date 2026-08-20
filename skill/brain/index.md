@@ -4,7 +4,7 @@ Entry point for every command. The command's reference file tells you to read th
 
 ## How every run goes
 
-The same for all four commands. A command's reference file names its deliverable — the sections its report carries, who counts as a player, its own angles, any extra output file. Everything below belongs to the brain, and a reference file does not repeat it. Where a command genuinely works differently, its file states the difference alone; depth and interaction settings are the one thing whose per-command differences live here too, in `modes.md`, so a run reads one table rather than four.
+The same for every command. A command's reference file names its deliverable — the sections its report carries, who counts as a player, its own angles, any extra output file. Everything below belongs to the brain, and a reference file does not repeat it. Where a command genuinely works differently, its file states the difference alone; depth and interaction settings are the one thing whose per-command differences live here too, in `modes.md`, so a run reads one table rather than four.
 
 1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, then scope it and write `research_plan.json`. `phases/plan_phase_a.md`.
 2. **The five phases, in order** — Plan, Extract, Vet, Synthesize, Audit. `phases/index.md`. None of them is optional.
@@ -27,7 +27,7 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | Before any external request | `recency.md` |
 | Plan — slugging the topic, deciding fresh / re-run / branched, the angles, the sections, the branches, and `research_plan.json` itself | `phases/plan_phase_a.md`, `modes.md`, `sections.md`, `scripts/subagent_returns.json` (`scope` shape) |
 | Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
-| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `subagents/handle_vetter_agent/` |
+| Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `page_quality.md`, `subagents/handle_vetter_agent/` |
 | Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_d.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
 | Audit — verify the top claims against their sources | `phases/audit_phase_e.md`, `scripts/subagent_returns.json` (Verifier schema) |
 | Salvage paths, where a run writes, one writer per file, why claims and source notes stay on disk, how the five phases connect | `phases/index.md` |
@@ -48,16 +48,16 @@ agent reads a rule written for a different one.
 | Agent | Phase | Directory |
 |---|---|---|
 | Scoping agent | Plan | `subagents/scoping_agent.md` |
-| Branch Searcher | Extract · Search | `subagents/branch_searcher_agent/` — all six sources |
-| Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — all six sources |
-| Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — all six sources |
+| Branch Searcher | Extract · Search | `subagents/branch_searcher_agent/` — one file per source |
+| Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — one file per source |
+| Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source |
 | Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums |
 | Player Profiler | Synthesize §3.5 | `subagents/player_profiler_agent.md` |
 
 The Claim Fact Checker fetches pages in Audit and reads `subagents/page_analyst_agent/` for how.
 
 The six sources are Reddit, Hacker News, Twitter, the open web, specialty forums, and the user's
-own documents. **The Handle Vetter has four**, because a web page and a handed-over document have
+own documents. **The Handle Vetter does not cover all of them**, because a web page and a handed-over document have
 authors rather than accounts, and there is nothing to vet.
 
 **Reddit and Twitter need an API key.** Without one, Plan builds no branches on them, the run

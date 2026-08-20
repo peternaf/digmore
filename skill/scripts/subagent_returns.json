@@ -141,7 +141,7 @@
     "type": "object",
     "required": [
       "url",
-      "sourceQuality",
+      "pageQuality",
       "claims"
     ],
     "properties": {
@@ -149,7 +149,7 @@
         "type": "string",
         "description": "The document these claims came from. A path under cache/local/ on the local source, which has no URL."
       },
-      "sourceQuality": {
+      "pageQuality": {
         "type": "string",
         "enum": [
           "primary-self",
@@ -398,14 +398,14 @@
                 "type": "object",
                 "required": [
                   "url",
-                  "sourceQuality"
+                  "pageQuality"
                 ],
                 "properties": {
                   "url": {
                     "type": "string",
                     "format": "uri"
                   },
-                  "sourceQuality": {
+                  "pageQuality": {
                     "type": "string",
                     "enum": [
                       "primary-self",

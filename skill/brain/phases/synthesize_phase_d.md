@@ -28,11 +28,11 @@ The filter runs **inside the Report Writer**, not here — it is per-claim work 
 
 This holds on every source, forums included. A forum handle with no reputation signal is the weakest voice in the run, and it is still a voice that said something the roster ranked worth reading.
 
-Independent of the person, on source quality alone:
+Independent of the person, on page quality alone:
 
 - Sources tagged `unreliable` are dropped.
 
-A claim carries the `handle` that said it, so the verdict rules apply claim by claim. Claims from the open web and from the user's own documents carry no handle — no account, nobody to vet — and are filtered on source quality alone.
+A claim carries the `handle` that said it, so the verdict rules apply claim by claim. Claims from the open web and from the user's own documents carry no handle — no account, nobody to vet — and are filtered on page quality alone.
 
 **Carryover revalidation.** When the topic was branched from a sibling (`research_plan.json.parent_slug` is set), every player or expert pulled from the sibling's CSVs must re-pass the new topic's inclusion test (see the command's "Who counts as a player"). Players that fail revalidation move to §7 Adjacent spaces, §3 complaints, or §5 buying signals — they do NOT stay as rows in `players.csv`.
 

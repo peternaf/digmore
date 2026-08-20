@@ -35,7 +35,7 @@ default, and never resolve it against them either.
 
 ## What `internal` means here
 
-Everything from this source is tagged `internal`, and it sits outside the source-quality ranking on
+Everything from this source is tagged `internal`, and it sits outside the page-quality ranking on
 purpose: first-hand and probably the most accurate account of the user's own business anywhere, and
 at the same time unverifiable by anyone else, possibly an early draft, a stale number, or one
 colleague's opinion written down.

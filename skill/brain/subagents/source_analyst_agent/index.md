@@ -87,7 +87,7 @@ otherwise get.
 than writing an empty file: an empty roster and a source with no handles look identical, and one of
 them is a failure.
 
-**The shape carries four fields you leave empty** — `verdict`, `topicalRelevance`, `verdictReason`
+**The shape carries verdict fields you leave empty** — `verdict`, `topicalRelevance`, `verdictReason`
 and `inExperts`. Vet fills them in later. You write this file once and never return to it.
 
 ## Coverage gaps belong here too

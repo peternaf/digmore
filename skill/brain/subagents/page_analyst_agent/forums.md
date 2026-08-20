@@ -28,10 +28,10 @@ and who was answering whom.** Keep the nesting and the author on every post. Quo
 matter too — a post that quotes an earlier one and disagrees is an argument, and flattened it reads
 as agreement.
 
-## Source quality
+## Page quality
 
 `forum` — this is community discussion. One exception: the forum's own pinned moderator post
-stating a policy is `primary-self` for that forum. Definitions in `../../vetting.md`.
+stating a policy is `primary-self` for that forum. Definitions in `../../page_quality.md`.
 
 Forum handles carry the weakest credibility signal of any source. Where the forum exposes reputation
 — post count, badges, Discourse trust level, accepted-answer status — record it with the claim, so

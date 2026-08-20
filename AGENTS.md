@@ -9,6 +9,12 @@
   what it is for — `response`, `timeWindow`, `sandbox`, `index` — not `r`, `t`, `s`, `i`. Applies
   everywhere: loop counters, callback parameters, catch bindings, import aliases, destructured
   names, and shell scripts. No exceptions.
+- **One place defines a data piece; everywhere else points at it.** Allowed values, schema fields,
+  ceilings, exit codes, filename patterns — and counts of any of them. Never restate, re-list or
+  count from outside; the copy that drifts is the one nobody notices. Name the thing rather than
+  number it: "the sources that carry handles" survives a seventh source, "the four sources" does not.
+  A sub-agent is the exception — it is sent its own files and cannot follow a pointer, so give it the
+  value.
 - **Anything new that writes a shared file needs a lock or a single writer.** A step that fans out
   writers to one file loses rows silently — no error, no trace. Today only `experts.csv` is written
   by a fan-out, and `experts.mjs` takes a lock for it; every other file has one writer. The current

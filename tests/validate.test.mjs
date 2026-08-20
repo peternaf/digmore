@@ -40,7 +40,7 @@ const scoutReturn = () => ({
 
 const pageClaims = () => ({
   url: 'https://example.com/mux-pricing',
-  sourceQuality: 'secondary',
+  pageQuality: 'secondary',
   claims: [
     { claim: 'Mux charges per minute', quote: '$0.005 per minute', importance: 'central', kind: 'qualitative' },
   ],
@@ -104,7 +104,7 @@ test('an empty string is missing, not present', async () => {
 
 test('a bad enum value lists what was allowed', async () => {
   const payload = pageClaims();
-  payload.sourceQuality = 'pretty-good';
+  payload.pageQuality = 'pretty-good';
   const result = await check('page-claims', payload);
   assert.equal(result.code, 1);
   assert.match(result.json.errors[0].message, /must be one of/);
@@ -142,14 +142,14 @@ test('number bounds are enforced', async () => {
 test('every problem is reported at once, not just the first', async () => {
   // The repair pass gets one attempt, so it has to be told everything in one go.
   const payload = pageClaims();
-  delete payload.sourceQuality;
+  delete payload.pageQuality;
   delete payload.claims[0].claim;
   payload.claims[0].importance = 'vital';
   const result = await check('page-claims', payload);
   assert.deepEqual(paths(result).sort(), [
     'claims[0].claim',
     'claims[0].importance',
-    'sourceQuality',
+    'pageQuality',
   ]);
 });
 
@@ -182,7 +182,7 @@ test('internal is an allowed source quality', async () => {
   // The user's own documents are tagged `internal`; before this the enum stopped at
   // `unreliable` and the branch could not label its own content.
   const payload = pageClaims();
-  payload.sourceQuality = 'internal';
+  payload.pageQuality = 'internal';
   const result = await check('page-claims', payload);
   assert.equal(result.code, 0);
 });
@@ -193,7 +193,7 @@ test('internal is allowed on a synthesized finding source too', async () => {
       {
         claim: 'churn is concentrated in month two',
         confidence: 'medium',
-        sources: [{ url: 'digmore/x/cache/local/churn.md', sourceQuality: 'internal' }],
+        sources: [{ url: 'digmore/x/cache/local/churn.md', pageQuality: 'internal' }],
       },
     ],
     stats: {},
