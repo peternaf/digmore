@@ -40,6 +40,7 @@ digmore/<topic-slug>/
   cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
+  cache/_verify/<file>           # Audit's own fresh pull of a cited page, kept beside Extract's
   cache/_misc/<file>             # scratch that belongs to no source
 ```
 

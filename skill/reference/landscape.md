@@ -32,14 +32,14 @@ Sections in this exact order.
 
    ```
    | **[Ollama](https://ollama.com)** | **11.1M** | Local LLM runtime hosting the VLMs builders run on-device | free |
-   | Recent moves: Substrate beneath visaioss / LLM Vision / Aegis AI | Segment: B2B-prosumer · Deployment: self-hosted | Integrations: LLM Vision, Frigate genai, visaioss, Aegis AI, Home Assistant | Funding: VC-backed (undisclosed) |
+   | Recent moves: Substrate beneath visaioss / LLM Vision / Aegis AI | Segment: B2B-prosumer · Deployment: self-hosted | Integrations: LLM Vision, Frigate genai, visaioss, Aegis AI, Home Assistant | Funding: A · $30M total |
    ```
 
    Row 1 cells (linked, visits bold): name · visits · positioning · price.
    Row 2 cells (plain text): recent moves · segment + deployment · integrations · funding.
 
    - Price values: `$50/mo`, `$0.005/min`, `~$25 one-time`, `bundled hardware`, `free`, or `contact sales`. NOT `tiered + usage` / `usage-based` — fetch the vendor's pricing page.
-   - Funding: the cell renders `funding_raised_usd` — total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. NOT round names (`seed`, `Series B`) — those live in `funding_stage` and do not reach this table.
+   - Funding: **one cell holding both columns**, `funding_stage · funding_raised_usd` — `Funding: B · $180M total`. The stage is the round (`bootstrapped`, `seed`, `A`, `B`, `public`, `acquired`); the amount is total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Where only one is known, render that one alone. They are two columns in `players.csv` because they are two facts, and one cell here because a reader wants them together.
 
    No truncation. Below the table: one line linking to `players.csv`.
 
@@ -90,7 +90,7 @@ Required columns (in this order):
 - `top_user_sentiment` (one-line: positive / mixed / negative + the dominant theme)
 - `recent_moves` (last 90 days; semicolon-separated; each with date)
 - `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired) — the round, and only the round.
-- `funding_raised_usd` — the amount, in the vocabulary the Players table's funding cell renders: `$180M total`, or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Never a round name; that is `funding_stage`. Two columns because the table forbids the vocabulary the other one holds.
+- `funding_raised_usd` — the amount: `$180M total`, or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Never a round name; that is `funding_stage`. Two columns because they are two facts and a CSV is sorted and filtered on them separately — the summary's Players table renders both in one cell (§1.1).
 
 Optional columns the run may add when surfaced (decide per-topic):
 - `target_segment` (B2B / B2C / B2B-prosumer)

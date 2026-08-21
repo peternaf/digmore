@@ -26,6 +26,18 @@ Three things it does for you:
 - **Already on disk → no request.** It answers `cached: true` with the path. Never check for the file
   yourself first; that was the old rule and it never worked, because the caller could not know the
   name.
+
+  **What the cache is for: not paying twice when a run is retried.** A run that stops half way and
+  resumes should not re-fetch what it already has. It is not a shared store for reading later — a
+  step that wants to know what a page says *now* fetches it into a directory of its own, and Audit
+  does exactly that.
+
+  **What comes back may not be what was fetched.** The match is on the filename stem plus any
+  extension, and the Page Analyst replaces the raw page it fetched with a stripped markdown file
+  under the same stem. So a hit in `cache/<source>/` usually returns the finished document rather
+  than the original HTML — right for an agent resuming its own work, and the reason no other step
+  reads that directory. On Reddit, Hacker News and Twitter nothing matches at all: those files are
+  named by their own scripts, not derived from the URL.
 - **The extension comes from the response.** Read the written name off the returned `path` rather
   than assuming the one you passed.
 - **A failure hands back the filename it would have used**, as `filename_only`. That is what makes

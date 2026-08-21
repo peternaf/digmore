@@ -15,18 +15,23 @@ That is the point of the agent: one owner per player, so no cell falls between t
 fact about the company — what it ships, what it charges, who funded it, how much traffic it gets, how
 people talk about it — it is yours. A column added to `players.csv` later belongs to you by default.
 
-**Gather everything, then aggregate it into the row.** Four places to gather from:
+**Gather everything, then aggregate it into the row. In this order:**
 
-1. **Its own site** — what it ships, how it positions itself, the marketing domain.
-2. **Its pricing page** — what it charges.
-3. **SimilarWeb** — the traffic.
-4. **What people said about it** — the run's own claims, and a fresh search. Both.
+1. **The run's own claims** — what this research already found about the company.
+2. **A sentiment search** — what people say about it more widely.
+3. **Its own site** — what it ships, how it positions itself, the marketing domain.
+4. **Its pricing page** — what it charges.
+5. **SimilarWeb** — the traffic.
+6. **A funding search** — the round, the amount, recent moves.
 
-The sections below are ordered by where you go, not by which cell comes from where. **A cell is
-written from everything you hold, not from the one page that mostly answers it.** A company's own
-site says what it claims to ship; the claims say what people found when they used it, and
-`positioning` is better for having read both. `recent_moves` shows up in a launch post, a funding
-story and a complaint thread about the change. Gather first, write the row last.
+**Start with what the run already knows, because it tells you what to look for.** The claims name
+the thing people complain about, the release that annoyed them, the competitor they left for. Read
+them first and every fetch after is aimed; read them last and you have spent the fetches already.
+
+**A cell is written from everything you hold, not from the one page that mostly answers it.** A
+company's own site says what it claims to ship; the claims say what people found when they used it,
+and `positioning` is better for having read both. `recent_moves` shows up in a launch post, a funding
+story and a complaint thread about the change. Gather first, compose the cells last.
 
 ## How you fetch
 
@@ -41,7 +46,34 @@ beside it; your pages have none, and a re-run's Source Analyst would read them a
 
 SimilarWeb is the one exception, below.
 
-## 1. Its own site
+## 1. The run's own claims — read these first
+
+Your dispatch gives you the path to `player_candidates.json`. Find your player's entry and follow its
+claim references: each names a claims file, which claim inside it, and the handle that said it. Open
+them and read them.
+
+Already filtered to the voices the run listens to, and small — a handful of claims, not the hundreds
+of files the run collected.
+
+**This is the step that aims every other one.** The claims name what people complain about, the
+release that annoyed them, the competitor they left for. Knowing that before you open the pricing
+page tells you which tier the argument is about; knowing it before you search funding tells you
+which move people reacted to. Read them last instead and you have spent the fetches blind.
+
+## 2. A sentiment search
+
+Then go and look more widely, with a search aimed at sentiment rather than at the company: what
+people say about this product, what they complain about, why they left. `fetch.mjs` on what comes
+back, into `cache/players/`.
+
+Worth doing on top of §1 because the run's claims came from queries written for the **topic**, not
+for this company — a player that surfaced as a passing mention has a whole review surface nobody
+looked at.
+
+`top_user_sentiment` — *positive / mixed / negative plus the dominant theme* — is one concise cell
+out of both readings, in the vocabulary of what you read. If neither turns anything up, `—`.
+
+## 3. Its own site
 
 The `url` on the row is a hint, not the answer, and it is often empty — the material that named this
 company usually did not link it. Plenty of open-source projects carry a code-host `url` and still
@@ -51,7 +83,7 @@ Find the real marketing domain and look at the front page before defaulting to "
 gives you `marketing_domain`, `offerings` — what it actually ships — and the raw material for
 `positioning`.
 
-## 2. Its pricing page
+## 4. Its pricing page
 
 `entry_tier_price_usd` and `pricing_model` come from the vendor's own pricing page, and the command's
 reference file is explicit that they are not to be guessed from a description: *"NOT `tiered + usage`
@@ -62,7 +94,7 @@ reference file is explicit that they are not to be guessed from a description: *
 
 A vendor with no public pricing is a finding, not a blank: `contact sales` is the answer.
 
-## 3. Traffic — SimilarWeb, and the one WebFetch exception
+## 5. Traffic — SimilarWeb, and the one WebFetch exception
 
 ```
 WebFetch https://www.similarweb.com/website/<domain>/
@@ -91,7 +123,7 @@ up. Other free traffic estimators are blocked; do not spend requests on them.
 **A bare `UNAVAILABLE` is never acceptable.** It carries its reason. A failed fetch is not a reason —
 it is a retry, and that is the orchestrator's call rather than yours.
 
-## 4. Funding and recent moves — a search, not a known URL
+## 6. Funding and recent moves — a search, not a known URL
 
 `funding_stage`, `funding_raised_usd`, `recent_moves` and `notable_customers` are not on the
 company's own site. A raise is announced in the press and in a funding database, an acquisition in a
@@ -109,21 +141,6 @@ the second and explicitly forbids the first.
 
 `recent_moves` is the last 90 days, semicolon-separated, each move carrying its date.
 
-## 5. What people said
-
-`top_user_sentiment` — *positive / mixed / negative plus the dominant theme*. Two places to read,
-and you read both:
-
-- **The run's own claims.** Your dispatch gives you the path to `player_candidates.json`. Find your
-  player's entry and follow its claim references — each names a claims file, which claim inside it,
-  and the handle. Already filtered to the voices the run listens to, and small: a handful of claims,
-  not the hundreds of files the run collected.
-- **A fresh search**, aimed at sentiment rather than at the company: what people say about this
-  product, what they complain about, why they left. `fetch.mjs` on what comes back, into
-  `cache/players/`. Worth doing because the run's claims came from queries written for the *topic* —
-  a player that surfaced as a passing mention has a whole review surface nobody looked at.
-
-One cell out of both, concise, in the vocabulary of what you read. If neither turns anything up, `—`.
 
 ## Every descriptive cell is about this topic
 

@@ -36,6 +36,8 @@ Dispatch one Verifier sub-agent per claim in the checked set, per `../subagents/
 
 For each claim, the Verifier must:
 - Confirm the URL still resolves and the cited content matches the claim. Fetch it per `../fetching.md` — `fetch.mjs` first on every page, WebFetch only where that one is walled.
+
+  **Fetch it fresh, against Extract's copy rather than from it.** This phase asks whether the page *still* resolves and *still* says what was claimed, and a file pulled hours ago cannot answer that — a dead link, an edited page and a new paywall all look fine in a stored copy. Your `--output-dir` is `digmore/<topic-slug>/cache/_verify/`, this phase's own directory, so `fetch.mjs` makes a real request instead of returning Extract's file. Comparing the two snapshots is how `content-changed` is decided.
 - Confirm the quote source's handle is in `experts.csv`.
 - If anything is ambiguous (paywalled URL, dead link, content changed, ambiguous match) → return `manual-verify-required` with the reason.
 - If the claim is contradicted by another source, is marketing fluff, or the page quality is too weak for the claim's strength → return `refuted` with the kill reason and (when available) the counter-source URL.
