@@ -69,6 +69,7 @@ test('the fast block lists every ceiling group, not only the ones it reduces', (
   assert.equal(twitter.handlesDeepVetted, 20);
   assert.equal(twitter.postsPerDeepVet, 50);
   assert.equal(hackernews.commentDepth, 5);
+  assert.equal(hackernews.deadSampleSize, 5);
   assert.equal(subagents.repairAttempts, 1);
   assert.equal(fast.extract.fetchesPerBranch, 5);
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
@@ -259,8 +260,15 @@ for (const bad of [0, -5, '20', 1.5, null]) {
 // Zero is a real instruction for the ceilings that can be switched off, and must not be
 // treated as the mistake it would be elsewhere.
 test('zero is honoured where it means "skip this step"', () => {
-  writeSettings(JSON.stringify({ twitter: { handlesDeepVetted: 0 }, subagents: { repairAttempts: 0 } }));
+  writeSettings(
+    JSON.stringify({
+      twitter: { handlesDeepVetted: 0 },
+      subagents: { repairAttempts: 0 },
+      hackernews: { deadSampleSize: 0 },
+    }),
+  );
   const { out } = run('show');
   assert.equal(JSON.parse(out).twitter.handlesDeepVetted, 0);
   assert.equal(JSON.parse(out).subagents.repairAttempts, 0);
+  assert.equal(JSON.parse(out).hackernews.deadSampleSize, 0, 'the shadowban test can be switched off');
 });

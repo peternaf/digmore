@@ -46,6 +46,45 @@
   write down what happens instead: decide it yourself and note what you assumed, stop the run and
   say why, or skip it and say it was skipped.
 
+## Writing a sub-agent file
+
+Every agent's own file under `skill/brain/subagents/` — the flat `<agent>.md`, or the `index.md`
+where an agent has a directory — **opens with a summary table before any prose.** One field per row,
+in this order, so two agents can be compared without reading either in full.
+
+| Field | What goes in it |
+|---|---|
+| Phase | which of the six, with its marker — `Extract [2.2/6]`. More than one where the agent runs twice |
+| Purpose | the one job it exists to do, in a sentence |
+| Input text | what the orchestrator writes into the prompt. The part that differs per dispatch |
+| Input rule files | paths it opens for instructions |
+| Input data files | paths it opens for material |
+| What it does | the work, in a few lines |
+| Tools it runs | the scripts and tools it calls — `api.mjs reddit thread`, `fetch.mjs`, WebSearch, WebFetch — or `none` |
+| What it must not do | the boundary, explicitly. The neighbouring job it would otherwise drift into |
+| Settings that control it | every `~/.digmore/settings.json` ceiling that bounds it, each saying whether **this agent** enforces it or the orchestrator counts it from outside |
+| Held in its context | what it reads that never leaves the dispatch |
+| Returns to main context | what comes back, and the shape name from `subagent_returns.json` — or `none`, which decides whether it gets the dispatch template at all |
+| Writes to disk | every file, by directory and filename pattern |
+| Logs | the exact heartbeat lines, or `none` |
+| How it reports failure | its own half only — `fetch_failed`, `blocked`, "the check was not made". What the orchestrator does next belongs in the phase file |
+| One dispatch per | the unit of work: one URL, one handle, one player's row, the whole run |
+| Instances per run | how many of that unit a full run dispatches |
+| `--fast` | the reduced number, and `0` where the step is skipped entirely |
+| Concurrency | how many at once, **and why that number** — the harness limit, or a scraping limit against one host |
+| Model tier | placeholder, unused for now |
+
+Three rules hold it together:
+
+- **The table is the definition; the prose never restates it.** The body explains *how* and *why*,
+  and says each thing once — see the one-place rule above. A summary duplicated in a paragraph is a
+  summary that starts lying at the first edit.
+- **A field that does not apply says `n/a`, and is never dropped.** An absent row reads as forgotten
+  rather than considered, which is the same reason a shadowban sample of zero means "not tested"
+  rather than "clean".
+- **Motivation goes beside the thing it motivates.** Why an output must keep its shape belongs in
+  *Writes to disk*, next to the requirement — not in a separate paragraph about who reads it later.
+
 ## Plans & Specs
 
 - Design docs hold all substance — content, copy, formulas, decisions. Plan docs are todo lists only, with manual verification gates that reference the design for details.

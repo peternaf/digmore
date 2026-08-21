@@ -107,13 +107,13 @@ Caveat: on the way into the step, never on a schedule. Reporting every N seconds
 
 Every sub-agent notifies on completion, so the signal is a notification that never arrives. Do not poll on a timer.
 
-1. **Wait 5 minutes** from dispatch with no notification before suspecting anything. The longest honest silence is one request chain: `hackernews.mjs` throttles HN to one request per 15s and backs off 5s + 15s + 45s on top of a 30s timeout, so roughly two minutes. Five is the margin.
-2. **Read every heartbeat at once**, not one agent at a time:
+1. **Read every heartbeat at once**, not one agent at a time:
    `tail -n 1 digmore/<slug>/cache/_progress/*.log`
    The last line says what each agent is waiting on; the file's mtime says for how long.
-3. **Decide from the line, not the clock alone.** A fetch or a documented backoff is work — leave it. A line that has not changed while its subject should have completed, or a heartbeat that stopped mid-step, is stuck.
+2. **Two minutes without that mtime moving is the trigger — not two minutes since dispatch.** Time since dispatch says nothing: an agent twenty minutes into a long branch whose heartbeat moved ten seconds ago is working, and one that fell over thirty seconds in is not. Two minutes is the default because the open web is the slow case — the sources with their own scripts all answer in about a second. **A source whose every call is fast sets a tighter threshold in its own `subagents/<agent>/<source>.md`**; where one does, that value wins for its sub-agents and this one applies to the rest.
+3. **Decide from the line, not the clock alone.** The trigger is when to look, never a reason on its own to act. A fetch in flight or a documented backoff is work — a request that times out and retries its way through the 5s + 15s + 45s schedule can hold one line for three minutes and be perfectly healthy, and that is the open web, not Reddit, Hacker News or Twitter. Leave it. A line that has not changed while its subject should have completed, or a heartbeat that stopped mid-step, is stuck.
 4. **Confirm liveness** with `TaskOutput(task_id, block: false)`, which returns `running` / `success` / `killed` and nothing else. It reports that an agent is alive, never that it is progressing — the heartbeat is the only progress signal there is.
-5. **Stop it** with `TaskStop(task_id)` if it is still `running` at 10 minutes. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
+5. **Stop it** with `TaskStop(task_id)` if it is still `running` and its heartbeat has not moved for 10 minutes. Same instrument as above, a longer patience — a live agent is never killed for being slow, only for having stopped. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
 
 **Killing a working agent is an acceptable cost.** With one verb over one item, a wrong kill loses one URL rather than a batch, anything already fetched is on disk, and the drop is recorded rather than silent. That is cheaper than trying to detect stuckness from a signal that does not exist.
 

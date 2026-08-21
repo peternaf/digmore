@@ -230,6 +230,132 @@
       }
     }
   },
+  "source-raw-report": {
+    "description": "The file a Source Analyst writes to full_source_analysis/<source>-raw-report.json, one per source that pulled data. Validated as a file rather than as a return, since it never enters the orchestrator's context. It holds everything one source produced: its claims, deduplicated within that source, and the observations that are not claims. JSON rather than markdown because the verdict join, the citation filter and the scoring downstream are script work, and a script parsing prose fails quietly - a citation written slightly differently yields a dropped one, and a dropped citation looks exactly like a claim nobody made. The Raw report writer reads all six of these and nothing else.",
+    "type": "object",
+    "required": [
+      "source",
+      "claims",
+      "observations"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums",
+          "websearch",
+          "local"
+        ]
+      },
+      "claims": {
+        "type": "array",
+        "description": "Every claim this source produced, deduplicated WITHIN this source only. The same claim made in three of this source's threads is one entry with three citations. Merging ACROSS sources is not this agent's job - the Raw report writer does that, because it is the only actor holding all six files.",
+        "items": {
+          "type": "object",
+          "required": [
+            "claim",
+            "quote",
+            "importance",
+            "kind",
+            "citations"
+          ],
+          "requiredWhen": [
+            {
+              "field": "kind",
+              "equals": "quantitative",
+              "require": [
+                "value",
+                "unit"
+              ]
+            }
+          ],
+          "properties": {
+            "claim": {
+              "type": "string",
+              "description": "One-line checkable statement."
+            },
+            "quote": {
+              "type": "string",
+              "description": "Verbatim supporting quote, exactly as the source wrote it. Compared character by character against a live page when the claim is fact-checked, so it must survive storage unaltered."
+            },
+            "importance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential"
+              ],
+              "description": "On a merged claim, the HIGHEST of the merged set - the same rule source-handles and source-players already use for topImportance."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "quantitative",
+                "qualitative"
+              ]
+            },
+            "value": {
+              "type": [
+                "number",
+                "string"
+              ],
+              "description": "Required if kind=quantitative."
+            },
+            "unit": {
+              "type": "string",
+              "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."
+            },
+            "citations": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every place this claim was made in this source. One entry when it appeared once; three when the same claim was made in three threads. The array is what makes deduplication lossless - nothing is thrown away by merging, and the join downstream drops citations rather than claims.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "document",
+                  "handle"
+                ],
+                "properties": {
+                  "document": {
+                    "type": "string",
+                    "description": "The claims file this citation came from, so the page beside it can be found."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Where the claim can be read. A path under cache/local/ on the local source, which has no URL."
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "Who said it, as the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form. Omit on the open web and on the user's own documents, which have authors rather than accounts. This is what the verdict join matches on, per citation - one claim can carry three citations from three people with three different verdicts."
+                  },
+                  "pageQuality": {
+                    "type": "string",
+                    "enum": [
+                      "primary-self",
+                      "primary-3p",
+                      "secondary",
+                      "blog",
+                      "forum",
+                      "internal",
+                      "unreliable"
+                    ],
+                    "description": "The page quality of the document this citation came from. Kept per citation, not per claim, because merged citations can differ."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "observations": {
+        "type": "string",
+        "description": "Markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers, and the coverage gaps this source's own material revealed. The rule that it must not re-list the claims governs THIS FIELD ONLY - it was written when the notes were this agent's only output about content, and does not forbid the claims array beside it."
+      }
+    }
+  },
   "source-handles": {
     "description": "Written by the Source Analyst to full_source_analysis/<source>-handles.json, one per handle-bearing source: reddit, hackernews, twitter, forums. Vet reads it instead of ranking for itself — the ranking needs every document that source produced, and the Source Analyst is the only agent that reads the whole pile at once. The array order IS the ranking, so Vet takes from the top and stops at the cap.",
     "type": "object",

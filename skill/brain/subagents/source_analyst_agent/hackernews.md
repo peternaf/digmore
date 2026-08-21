@@ -65,5 +65,8 @@ alias — it is the most reliable identifier this source produces.
 ## Known gaps to record in `full_source_analysis/hackernews.md`
 
 - **Depth-3 flattening**, per above — the single biggest limit on this source.
-- **Dead and flagged comments** do not come back. A thread that reads oddly one-sided may have been
-  moderated, and the absence is invisible in the file.
+- **Dead and flagged comments** do not come back — Algolia 404s a dead item, so a moderated thread
+  reads as an intact one that happens to be one-sided, and the absence is invisible in the file.
+  Vet can see it for a handle it vets (`../handle_vetter_agent/hackernews.md` §"The shadowban
+  check"), but nothing recovers it for a thread. Where a discussion reads as though a side is
+  missing, say so.

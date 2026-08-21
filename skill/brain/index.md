@@ -70,6 +70,7 @@ proceeds on the rest and says which sources it could not reach.
 ## The scripts behind them
 
 - `api.mjs reddit` and `api.mjs twitter` — through digmore's API. No account, no OAuth.
-- `hackernews.mjs` — Algolia plus the HN user page, throttled hard at one request per 15s.
+- `hackernews.mjs` — Algolia for threads and per-author searches, the official Firebase HN API for
+  profiles and the `dead` flag. Neither is throttled.
 - `fetch.mjs` — the open web and forums. Derives its own filenames, returns a cached page without
   re-fetching, and reports the filename it would have used when a bot wall stops it.

@@ -21,7 +21,7 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 
 - **The counter is always out of 6** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. A phase with sub-steps numbers them after the point — `[2.1/6]` through `[2.3/6]` — so progress inside a phase that runs for an hour is visible without it becoming a seventh phase.
 - **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line.
-- **A step working through a queue against an outside limit says how big the queue is, then counts it down.** Only that shape: a number of items, and a rate you do not control. `[3/6] Vet · 50 handles, ~12 min (Hacker News allows one request per 15s)`, then `[3/6] Vet · 18/50`. It goes on the marker, and it is the whole message.
+- **A step working through a queue says how big the queue is, then counts it down.** Only that shape: a number of items, and a pace you do not set. `[3/6] Vet · 50 handles on Hacker News`, then `[3/6] Vet · 18/50`. It goes on the marker, and it is the whole message.
 
 - **On resume, say what is being skipped**: `[1/6] Plan — already complete, resuming from Vet`. The user needs to know the run did not start over.
 - **A step that could not run says so on its own line** and the run continues: `[3/6] Vet — Reddit and Twitter unavailable, no API key`.

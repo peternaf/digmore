@@ -52,7 +52,7 @@ export const CEILING_DEFAULTS = Object.freeze({
   vet: { handleCapPerSource: 50 },
   synthesize: { expertsFollowed: 10, urlsPerExpert: 10, claimsFactChecked: 50, manualVerifyFlagCap: 15 },
   twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50 },
-  hackernews: { commentDepth: 5, recentCommentsSampled: 50 },
+  hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
   subagents: { repairAttempts: 1 },
 });
 
@@ -107,6 +107,7 @@ export const CEILING_NOTES = Object.freeze({
   'twitter.postsPerDeepVet': 'posts read for one of those handles',
   'hackernews.commentDepth': 'reply depth kept when a thread is flattened — below this the argument is lost',
   'hackernews.recentCommentsSampled': 'recent comments read when vetting a handle',
+  'hackernews.deadSampleSize': "recent submissions checked for the dead flag — 0 skips the shadowban test",
   'subagents.repairAttempts': 'retries when a sub-agent return fails its shape check',
 });
 
@@ -117,6 +118,7 @@ export const CEILING_NOTES = Object.freeze({
  */
 const ZERO_IS_MEANINGFUL = new Set([
   'twitter.handlesDeepVetted',
+  'hackernews.deadSampleSize',
   'synthesize.expertsFollowed',
   'synthesize.urlsPerExpert',
   'synthesize.manualVerifyFlagCap',

@@ -2,11 +2,11 @@
 
 Print `[3/6] Vet` when this phase starts (`../reporting.md`).
 
-**This is the longest silent stretch of a run, so say how long once and then count.** Hacker News allows one request every 15 seconds, and vetting a handle costs four — but only one of the four hits that throttled host; the rest go to Algolia, which is not rate-limited. So the wall-clock is one handle every 15 seconds, and `vet.handleCapPerSource` handles at the default of 50 is roughly 12 minutes on Hacker News alone — the other sources run beside it and cost nothing extra — and two topics vetting at once queue against the same limit. State the count and the reason on the marker, then reprint it with a running count. A phase that goes quiet for forty minutes reads as a hang, and a run that thinks it has hung starts narrating instead of working.
+**This phase is a long queue of small identical jobs, so say how big it is once and then count.** Every source's handles are capped by `vet.handleCapPerSource`, and the phase is that many handles per source, one script call each. State the count on the marker, then reprint it with a running count. A phase that goes quiet reads as a hang, and a run that thinks it has hung starts narrating instead of working.
 
 **Vet in batches of about ten handles, one Bash call each.** A command's output reaches you only when it returns, so a single call covering every handle is a stretch of time in which nothing can be printed and nothing can be judged — the count above becomes impossible, and a stall is indistinguishable from work. Between batches you print the count and can stop early if the verdicts are coming back useless.
 
-**Hacker News works through its handles one at a time; put other work beside it, never more Hacker News.** Reddit and Twitter go through digmore's API and share no limit with it, so their handles cost nothing extra while HN waits. The HN loop holds the shell, so the rest goes to sub-agents. **Enrichment cannot be brought forward to fill the wait** — it filters claims by the verdicts this phase is still producing, so it has nothing to work from until Vet is done (`enrich_phase_d.md`).
+**Every source can be vetted beside every other.** Reddit and Twitter go through digmore's API; Hacker News goes to Algolia and Firebase. They share no limit, so run them together rather than in sequence. **Enrichment cannot be brought forward** — it filters claims by the verdicts this phase is still producing, so it has nothing to work from until Vet is done (`enrich_phase_d.md`).
 
 For every handle seen in Extract, run `vet_user` (or the source equivalent). Read `../vetting.md` for the verdict schema and how cross-source identity / experts.csv inheritance work. Read `../subagents/handle_vetter_agent/<source>.md` for source-specific signals.
 
@@ -70,7 +70,7 @@ It can only be set on the deep pass, since the profile pass samples nothing. The
 
 ## Write the verdicts back into `<source>-handles.json`
 
-**One write per source, as that source finishes** — not one write at the end of the phase. Hacker News alone runs for twelve minutes; holding every source's verdicts until the last one returns means a run that dies during HN loses the Reddit and Twitter work too.
+**One write per source, as that source finishes** — not one write at the end of the phase. Holding every source's verdicts until the last one returns means a run that dies in the middle loses the sources that had already finished.
 
 So when a source's handles are all back, write what you decided into `full_source_analysis/<source>-handles.json`: `verdict`, `topicalRelevance`, `verdictReason` and `inExperts` on every handle you vetted. Handles below the cap keep their row and gain nothing — an absent verdict means never vetted, which is not the same as vetted and rejected.
 

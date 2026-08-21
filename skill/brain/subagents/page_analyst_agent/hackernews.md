@@ -32,11 +32,8 @@ partially read, and a claim drawn from the levels you were given carries that li
 
 ## Rate limits
 
-Calls to `news.ycombinator.com` are serialised at one every 15 seconds, with backoff at 5s, 15s and
-45s on a 429. Algolia is not rate-limited in practice.
-
-This means a Hacker News dispatch can sit quiet for a couple of minutes and still be working. Log
-the wait rather than retrying around it.
+None worth planning around. The whole tree arrives in one Algolia call, and Algolia is not
+rate-limited in practice. Nothing on this path touches `news.ycombinator.com`.
 
 ## What lands on disk
 

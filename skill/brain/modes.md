@@ -66,7 +66,7 @@ The ceilings it prints, and what each bounds:
 | `vet` | `handleCapPerSource` |
 | `synthesize` | `expertsFollowed`, `urlsPerExpert`, `claimsFactChecked`, `manualVerifyFlagCap` |
 | `twitter` | `handlesDeepVetted`, `postsPerDeepVet` |
-| `hackernews` | `commentDepth`, `recentCommentsSampled` |
+| `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize` |
 | `subagents` | `repairAttempts` |
 
 **A user's own ceiling is never loosened by asking for a shallower run.** Fast takes the lower of the two, so someone who set `vet.handleCapPerSource` to 10 gets 10 in both modes. The exception is a fast value of `0`, which is a deliberate skip and wins.
