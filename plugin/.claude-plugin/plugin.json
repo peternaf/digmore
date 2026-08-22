@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "digmore",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "An LLM plugin that turns AI research into decision-ready data.",
   "author": {
     "name": "Peter Naftaliev"
