@@ -59,9 +59,7 @@ in this order, so two agents can be compared without reading either in full.
 | Input text | what the orchestrator writes into the prompt. The part that differs per dispatch |
 | Input rule files | paths it opens for instructions |
 | Input data files | paths it opens for material |
-| What it does | the work, in a few lines |
-| Tools it runs | the scripts and network calls it makes — `api.mjs reddit thread`, `fetch.mjs`, WebSearch, WebFetch. **Reading and writing files does not count**, so an agent that only opens what is already on disk says `no scripts, no network` and names what it reads and writes instead — never a bare `none`, which reads as an agent that does nothing |
-| What it must not do | the boundary, explicitly. The neighbouring job it would otherwise drift into |
+| Runs | one line: what it does and what it runs, in the order it does them — each step with the script or network call it makes, `api.mjs reddit thread`, `fetch.mjs`, WebSearch, WebFetch. **Reading and writing files is not a tool**, so an agent that only opens what is already on disk says `no scripts, no network` and names what it reads and writes instead — never a bare `none`, which reads as an agent that does nothing |
 | Settings that control it | every `~/.digmore/settings.json` ceiling that bounds it, each saying whether **this agent** enforces it or the orchestrator counts it from outside |
 | Held in its context | what it reads that never leaves the dispatch |
 | Returns to main context | what comes back, and the shape name from `subagent_returns.json` — or `none`, which decides whether it gets the dispatch template at all |
@@ -70,7 +68,7 @@ in this order, so two agents can be compared without reading either in full.
 | How it reports failure | its own half only — `fetch_failed`, `blocked`, "the check was not made". What the orchestrator does next belongs in the phase file |
 | One dispatch per | the unit of work: one URL, one handle, one player's row, the whole run |
 | Run instances | how many of that unit a full run dispatches |
-| `--fast` | the reduced number, and `0` where the step is skipped entirely |
+| `--fast` | **name the configuration, never the number** — `preflight.mjs` prints what this run applies, and a number written here is one the user may have changed. A default beside the name is illustration only. Say where a `0` skips the step entirely, and say `the same in both modes` where nothing reduces |
 | Concurrency | how many at once, **and why that number** — the harness limit, or a scraping limit against one host |
 | Model tier | placeholder, unused for now |
 
