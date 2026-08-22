@@ -10,6 +10,8 @@ The same for every command. A command's reference file names its deliverable —
 2. **The six phases, in order** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. `phases/index.md`. None of them is optional.
 3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
 4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output-dir` must resolve under `digmore/<slug>/cache/`, and the script names the file itself.
+
+   **Never `cd`, and never `mkdir`.** You are already in the directory the user is working in, and every script builds its paths from there as `digmore/<slug>/...` and creates what it needs on the way. A `cd` into the topic would nest a second copy under the first — which is why the scripts refuse to run from inside one. A `cd` in the same command as a write also asks the user to approve something that did not need doing, and a run that opens by asking permission for its own scaffolding reads as a run that does not know where it is.
 5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `scripts/subagent_returns.json`.
 6. **End of run** — append the run to `research_plan.json.run_history`, then print the four terminal sections in `reporting.md`. Nothing else reaches the terminal.
 

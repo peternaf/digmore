@@ -5,11 +5,11 @@ Two orthogonal axes set how a research run behaves.
 - **Interaction axis** — `manual` (default) vs `--auto` (no prompts). Controls whether the run pauses for the user mid-run.
 - **Depth axis** — full (the default, ~2 hour run) vs `--fast` (10–15 minute run). Controls how much work each phase does.
 
-Both flags are token-matched anywhere in the command's free-form args. Any combination is valid: `--auto`, `--fast`, `--auto --fast`, neither.
+Both flags are matched anywhere in the command's free-form args, as whole words. Any combination is valid: `--auto`, `--fast`, `--auto --fast`, neither.
 
 # Interaction modes — manual and auto
 
-The command takes free-form args. The literal token `--auto` anywhere in the args switches to auto mode. No flag → manual (the safer default).
+The command takes free-form args. The literal flag `--auto` anywhere in the args switches to auto mode. No flag → manual (the safer default).
 
 ## Manual mode (default)
 

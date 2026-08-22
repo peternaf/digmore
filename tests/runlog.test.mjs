@@ -235,6 +235,22 @@ test('start, done and note each need their text', () => {
   }
 });
 
+// A model that knows a run log is required and not how to write one probes for --help before
+// reading the file that documents it. A probe that errors costs a turn and teaches it nothing.
+test('--help prints the verbs and writes nothing', () => {
+  const result = run(['--help'], { at: START });
+  assert.equal(result.wrote, 'nothing');
+  for (const verb of ['header', 'start', 'done', 'note']) {
+    assert.match(result.usage, new RegExp(`runlog\\.mjs ${verb}`), verb);
+  }
+  assert.match(result.usage, /--topic is required/);
+  assert.ok(!existsSync(logFile()), 'a usage request creates no log');
+});
+
+test('no arguments at all is a usage request, not a crash', () => {
+  assert.equal(run([], { at: START }).wrote, 'nothing');
+});
+
 test('an unknown verb is refused rather than written', () => {
   assert.throws(() => run(['finish', '[1/6] Plan', '--topic', 'demo'], { at: START }), /unknown command/);
   assert.ok(!existsSync(logFile()), 'and nothing is created on the way');

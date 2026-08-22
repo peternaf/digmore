@@ -17,12 +17,27 @@ Do the work inline with the tools you already have: one kind of work over one it
 return what you found. Anything you cannot do yourself is a finding to report back — never
 a script to write, an agent to dispatch, or something to wait on.
 
+Run every command in the foreground and wait for it to finish. Never background one, never
+start something and poll it, never spawn a child and wait on it. You receive no completion
+notification for anything you start, so whatever you start you wait on forever.
+
+Run each script once. A script that failed has already retried — the 429 backoff is inside
+it, three waits and four attempts, and it exits only once those are spent. A non-zero exit
+is the answer, not a reason to try again: exit 3 means the source is unavailable right now
+and calling it a ninth time changes nothing except how long the run takes. Report what the
+command said on stderr and move on.
+
 Run from the directory you were started in. Never cd. Every script builds its own paths
 from there as digmore/<slug>/..., so stepping into the topic directory first makes it
 nest a second copy inside itself — the scripts now refuse rather than do it silently.
 
-Before each step you take, append one line to
-digmore/<slug>/cache/_progress/<your-label>.log: the time, and what you are about to do.
+Before each step you take, say what you are about to do:
+
+  node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" beat "<what>" \
+    --topic <slug> --label <your-label>
+
+That is the whole of it. Do not stamp it with a time, do not read the file back, and do
+not write to it any other way.
 
 Read ${CLAUDE_PLUGIN_ROOT}/skills/digmore/brain/output.md before you write anything you
 return. Its rules govern your output as much as the final report.
@@ -40,7 +55,7 @@ They are here now, and no phase file writes them in by hand any more.
 Return exactly this JSON, and write the same JSON to
 digmore/<slug>/cache/_returns/<your-label>.json:
 
-<THE SHAPE — the matching entry from scripts/subagent_returns.json, verbatim.>
+<THE SHAPE — verbatim, from `validate.mjs --shape <name>`.>
 
 <THE FORMAT SPEC — only where the job produces formatted output. The column rules, cell
 format and worked example from the command's reference file, verbatim. A sub-agent
@@ -50,7 +65,7 @@ pointed at a file instead of given the spec defaults to the shortest plausible c
 | Slot | Where it comes from |
 |---|---|
 | The job | The phase file dispatching it — one item, named. |
-| The shape | `scripts/subagent_returns.json`, the entry matching what this agent returns. Its `description` says what the shape is for; paste the whole entry. |
+| The shape | **Print it, do not open the file:** `node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" --shape <name>`. Paste the whole entry; its `description` says what the shape is for. `--shapes` lists the names. |
 | The format spec | The command's reference file, and only for agents that render a section of the summary. |
 
 **A `_returns/` copy is written because `validate.mjs` reads a file, not a message.** The one

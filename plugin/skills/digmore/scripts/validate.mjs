@@ -7,6 +7,12 @@
  *
  *   node validate.mjs <shape> <file>       # "-" reads stdin
  *   node validate.mjs --shapes             # list the shape names
+ *   node validate.mjs --shape <name>       # print one shape, to paste into a dispatch
+ *
+ * `--shape` exists because the dispatch template tells the orchestrator to paste a shape into
+ * the prompt verbatim and gave it no way to get one. Left to improvise it reaches for
+ * `node -e` and a hand-written JSON.parse, which is a second place the file is read and a
+ * first place it can be read wrongly.
  *
  * The verdict is the result, not a failure of this script, so it goes to stdout either
  * way and the exit code carries it:
@@ -191,8 +197,23 @@ function main(argv) {
     process.stdout.write(`${JSON.stringify({ shapes: Object.keys(loadSchemas()) })}\n`);
     return;
   }
+
+  // Printed indented rather than on one line: it goes into a dispatch prompt, where a wall of
+  // minified JSON is what a sub-agent reads its contract off.
+  if (shapeName === '--shape') {
+    const schemas = loadSchemas();
+    if (!file) return fail(`--shape needs a name — one of ${Object.keys(schemas).join(', ')}`);
+    if (!schemas[file]) {
+      return fail(`unknown shape: ${file} — expected ${Object.keys(schemas).join(', ')}`);
+    }
+    process.stdout.write(`${JSON.stringify(schemas[file], null, 2)}\n`);
+    return;
+  }
+
   if (!shapeName || !file) {
-    return fail('usage: validate.mjs <shape> <file>   ("-" reads stdin, --shapes lists them)');
+    return fail(
+      'usage: validate.mjs <shape> <file>   ("-" reads stdin, --shapes lists them, --shape <name> prints one)',
+    );
   }
 
   let text;

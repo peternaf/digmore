@@ -52,7 +52,16 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" done  "[2.1/6] Ex
 - **The `done` line's note says what the step did** — agents dispatched, and the one count that explains the duration. An hour is only debuggable beside the number of things it was doing.
 - **A failed or skipped step says so on its `done` line** rather than writing nothing. A missing pair reads as a crash, and a skipped phase is not one. A conditional step that never ran writes no pair, exactly as it prints no marker.
 - **The script stamps the time and works out the elapsed figure.** Never compose either yourself: you have no clock, and a wrong stamp makes every elapsed figure after it wrong, silently.
-- **`runlog.mjs header` opens the run**, once, naming the kind and the mode. The file is appended across runs, never replaced — the second run is when the first run's timings become useful.
+- **`runlog.mjs header` opens the run**, once, before the first marker. It takes its own flags —
+  `--note` is the `done` line's, and passing it here names nothing:
+
+  ```
+  node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" header --topic <slug> --kind fresh --mode "manual, full"
+  ```
+
+  `--kind` is `fresh`, `re-run` or `branch`; `--mode` is the two axes as you would say them. The file
+  is appended across runs, never replaced — the second run is when the first run's timings become
+  useful. **`runlog.mjs --help` lists every verb and its flags**, which is quicker than guessing at one.
 
 Nothing reads this file during the run. The stuck-agent check reads `cache/_progress/*.log`: different question, different time, different file.
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | Extract `[2.1/6]`, and again in Enrichment `[4/6]` at its search sub-step — see §"Enrichment mode" |
 | **Purpose** | Find what is worth reading for one branch, rank it, and hand back the list with a relevance score per URL — that ranking is what decides which pages the run spends its budget on |
-| **Input text** | **in Extract**, one angle `{label, query, rationale}`, one source name, the topic slug. **In Enrichment**, one handle, the research question to rank against, and the path to that handle's vetting cache — no angle and no query |
+| **Input text** | **in Extract**, one angle `{label, query, rationale}`, one source name, the topic slug, and **the recency cutoff date** `preflight.mjs` printed — never worked out here, or six branches filter on six different days. **In Enrichment**, one handle, the research question to rank against, and the path to that handle's vetting cache — no angle and no query |
 | **Input rule files** | `subagents/branch_searcher_agent/index.md` · that agent's `<source>.md` · `output.md` |
 | **Input data files** | **none in Extract** — this agent is the one creating material. **In Enrichment**, that expert's vetting cache, which is the whole of what it picks from |
 | **Runs** | `api.mjs reddit search` **twice** on Reddit — site-wide, then scoped to subs it picks itself · WebSearch with a `site:` filter on Hacker News, Twitter and forums · plain WebSearch on the web source · on local, copies the user's named files into `cache/local/`. **In Enrichment it runs nothing**: it reads the vetting cache it was handed |

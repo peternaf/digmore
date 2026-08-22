@@ -40,7 +40,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { browserHeaders, assertWorkspaceRoot } from './fetch.mjs';
-import { loadOrCreateConfig, MALFORMED, CONFIGURATION_DEFAULTS } from './config.mjs';
+import { loadOrCreateConfig, MALFORMED, CONFIGURATION_DEFAULTS, RECENCY_WINDOW_YEARS } from './config.mjs';
 
 // ---------------------------------------------------------------- constants
 
@@ -83,9 +83,9 @@ export const BACKOFF_DELAYS = Object.freeze([5000, 15000, 45000]);
 
 const DAY = 86400;
 const NINETY_DAYS = 90 * DAY;
-const TWO_YEARS = 2 * 365 * DAY;
+const TWO_YEARS = RECENCY_WINDOW_YEARS * 365 * DAY;
 
-/** brain/recency.md — every search filters to the last two years. */
+/** brain/recency.md — every search filters to the window, which config.mjs defines once. */
 export const RECENCY_WINDOW_SECONDS = TWO_YEARS;
 
 /**

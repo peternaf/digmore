@@ -641,6 +641,36 @@ test('troll is gone from the vocabulary', async () => {
   assert.deepEqual(paths(result), ['handles[0].verdict']);
 });
 
+// The dispatch template tells the orchestrator to paste a shape into the prompt verbatim and
+// gave it no way to get one. Left to improvise it reaches for `node -e` and a hand-written
+// JSON.parse — a second place the file is read, and a first place it can be read wrongly.
+test('--shape prints one entry, indented, ready to paste', async () => {
+  const sandbox = new Sandbox();
+  try {
+    const result = await sandbox.run('validate.mjs', '--shape', 'scope');
+    assert.equal(result.code, 0);
+    assert.deepEqual(result.json, schemasJson.scope, 'the entry, unaltered');
+    assert.match(result.out, /\n {2}"type"/, 'indented — it goes into a prompt a sub-agent reads');
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('--shape with an unknown or missing name exits 2 and lists the real ones', async () => {
+  const sandbox = new Sandbox();
+  try {
+    const unknown = await sandbox.run('validate.mjs', '--shape', 'nope');
+    assert.equal(unknown.code, 2);
+    assert.match(unknown.err, /claim-index/);
+
+    const missing = await sandbox.run('validate.mjs', '--shape');
+    assert.equal(missing.code, 2);
+    assert.match(missing.err, /needs a name/);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
 test('an unknown shape name exits 2 and lists the real ones', async () => {
   const result = await check('claims', {});
   assert.equal(result.code, 2);

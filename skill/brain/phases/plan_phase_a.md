@@ -191,7 +191,7 @@ Identity fields, set once and then left alone:
 - `slug` — kebab-case directory name (matches the folder, and the summary filename).
 - `title` — human-readable full title; what shows up when listing topics.
 - `kind` — command identity. Allowed values: `landscape`, `competitor`, `inquiry`, `gtm-teardown`.
-- `created_at` — ISO timestamp of topic creation.
+- `created_at` — ISO timestamp of topic creation. **Get it from `runlog.mjs stamp`**, which is also where each `run_history` entry's `ts` comes from. You have no clock, and a composed timestamp is wrong in a way nothing downstream catches.
 - `parent_slug` — null for fresh topics, set for branched/chained ones.
 - `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
 

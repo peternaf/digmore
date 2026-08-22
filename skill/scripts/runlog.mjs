@@ -23,7 +23,7 @@
  * stdout JSON, stderr errors.
  */
 
-import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, topicDir } from './players.mjs';
@@ -91,6 +91,44 @@ function append(path, text) {
   appendFileSync(path, text, 'utf8');
 }
 
+/** One heartbeat file per dispatch, named for the label that dispatch was given. */
+export function progressPath(topicSlug, label) {
+  const safe = String(label).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!safe) throw new Error('--label must contain something nameable');
+  return join(topicDir(topicSlug), 'cache', '_progress', `${safe}.log`);
+}
+
+/**
+ * Every heartbeat at once: what each agent last said, and how long ago it said it.
+ *
+ * The stuck-agent check needs both halves and they live in different places — the last line is
+ * in the file, the elapsed time is its modification time. Reading them separately means a `tail`
+ * and a `stat` per agent; this is one call over all of them, and the answer is already sorted
+ * with the stalest first, which is the order the check reads in.
+ */
+export function readBeats(topicSlug, now = Date.now()) {
+  const dir = join(topicDir(topicSlug), 'cache', '_progress');
+  let names;
+  try {
+    names = readdirSync(dir).filter((name) => name.endsWith('.log'));
+  } catch {
+    return []; // no dispatches yet is not a failure
+  }
+
+  return names
+    .map((name) => {
+      const path = join(dir, name);
+      const lines = readFileSync(path, 'utf8').split('\n').filter(Boolean);
+      return {
+        label: name.replace(/\.log$/, ''),
+        last: lines[lines.length - 1] ?? '',
+        steps: lines.length,
+        quietSeconds: Math.round((now - statSync(path).mtimeMs) / 1000),
+      };
+    })
+    .sort((left, right) => right.quietSeconds - left.quietSeconds);
+}
+
 /**
  * One step line: the time, the marker in its own column, what happened, and how long it took.
  *
@@ -117,8 +155,43 @@ export function stepLine(marker, phase, { note, sinceMs, at = new Date() } = {})
 
 // ---------------------------------------------------------------- cli
 
+/**
+ * The four verbs and their arguments, printed by `--help`.
+ *
+ * It exists because a model that knows a run log is required and not how to write one probes
+ * for `--help` before reading the file that documents it, and a probe that errors costs a turn
+ * and teaches it nothing. `reporting.md` is still where the rule lives; this is the reminder.
+ */
+export const USAGE = `runlog.mjs — the run log, appended a line at a time.
+
+  runlog.mjs header --topic <slug> [--kind fresh|re-run|branch] [--mode "manual, full"] [--run <n>]
+  runlog.mjs start  "[2.1/6] Extract · Search" --topic <slug>
+  runlog.mjs done   "[2.1/6] Extract · Search" --topic <slug> [--note "25 branch searchers, 302 URLs"]
+  runlog.mjs note   "resumed at Vet, from an unfinished start" --topic <slug>
+  runlog.mjs beat   "fetching https://example.com/a" --topic <slug> --label page-analyst-websearch-7
+  runlog.mjs beats  --topic <slug>
+  runlog.mjs stamp
+
+Writes digmore/<slug>/run_log.md, appending. --topic is required on every call, except stamp,
+which writes nothing and prints the current time for research_plan.json's created_at and ts.
+Only a done carries an elapsed figure, measured from the line above it. The step name is the
+marker reporting.md prints, so the log and the terminal never invent separate vocabularies.
+
+beat is a sub-agent's heartbeat, appended to cache/_progress/<label>.log. beats reads every
+one of those back — the last line and how long ago it moved — which is what the stuck-agent
+check needs.`;
+
 export function run(argv, { at = new Date() } = {}) {
   const [verb, ...rest] = argv;
+
+  if (verb === '--help' || verb === '-h' || verb === undefined) {
+    return { usage: USAGE, wrote: 'nothing' };
+  }
+
+  // The clock, for the fields that are not log lines: research_plan.json's `created_at` and each
+  // `run_history` entry's `ts`. Same reason the log lines carry a real stamp — you have no clock,
+  // and a composed one is wrong in a way nothing catches. Writes nothing and needs no topic.
+  if (verb === 'stamp') return { stamp: stamp(at), wrote: 'nothing' };
   const positional = rest.filter((token, index) => !token.startsWith('--') && !rest[index - 1]?.startsWith('--'));
   const { flags } = parseArgs(['_', ...rest]);
   if (!flags.topic) throw new Error('--topic <slug> is required');
@@ -134,8 +207,21 @@ export function run(argv, { at = new Date() } = {}) {
     return { path, wrote: 'header' };
   }
 
+  // Every heartbeat in the run comes through here, which is the point of it being a verb rather
+  // than a shell append. A sub-agent that echoes into the file is a second command shape the user
+  // has to approve, thousands of times over a run — and one nobody can keep to a format.
+  if (verb === 'beats') return { beats: readBeats(flags.topic) };
+
   const text = positional[0];
   if (!text) throw new Error(`${verb ?? '(no verb)'} needs its text as the first argument`);
+
+  if (verb === 'beat') {
+    if (!flags.label) throw new Error('beat needs --label <your-dispatch-label>');
+    // No stamp on the line: the file's modification time is the clock, and the orchestrator
+    // reads elapsed off that. A line only has to say what the step is waiting on.
+    append(progressPath(flags.topic, flags.label), `${text}\n`);
+    return { path: progressPath(flags.topic, flags.label), wrote: 'beat' };
+  }
 
   if (verb === 'note') {
     append(path, `${stamp(at)}  ${text}\n`);
@@ -153,7 +239,10 @@ export function run(argv, { at = new Date() } = {}) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
-    process.stdout.write(`${JSON.stringify(run(process.argv.slice(2)))}\n`);
+    const result = run(process.argv.slice(2));
+    // Usage is for a reader, so it goes out as text. Everything else is a result a caller
+    // parses, and stays JSON.
+    process.stdout.write(result.usage ? `${result.usage}\n` : `${JSON.stringify(result)}\n`);
   } catch (error) {
     process.stderr.write(`${JSON.stringify({ error: error.message })}\n`);
     process.exit(1);

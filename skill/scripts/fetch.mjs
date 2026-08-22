@@ -24,7 +24,7 @@
 
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdirSync, rmSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
@@ -93,14 +93,38 @@ export function isInsideTopicCache(outPath, cwd = process.cwd()) {
 export function assertWorkspaceRoot(cwd = process.cwd()) {
   const parts = resolve(cwd).split(sep);
   const index = parts.lastIndexOf('digmore');
-  // A 'digmore' segment with a slug under it means we are inside a topic directory.
-  // A trailing 'digmore' is just the research root, which is fine to sit in.
-  if (index !== -1 && index < parts.length - 1) {
-    throw new Error(
-      `run from the directory you are working in, not from inside ${parts.slice(index).join(sep)} — ` +
-        'paths are built as digmore/<slug>/... and would nest a second copy under this one',
-    );
-  }
+  // No 'digmore' ancestor, or it is the last segment — the research root itself, fine to sit in.
+  if (index === -1 || index >= parts.length - 1) return;
+
+  // The segment under 'digmore' is the candidate topic directory, whether we are standing in it
+  // or somewhere below it — `digmore/<slug>/cache` has to be refused as much as `digmore/<slug>`.
+  const candidate = parts.slice(0, index + 2).join(sep);
+  if (!isTopicDirectory(candidate)) return;
+
+  throw new Error(
+    `run from the directory you are working in, not from inside ${parts.slice(index).join(sep)} — ` +
+      'paths are built as digmore/<slug>/... and would nest a second copy under this one',
+  );
+}
+
+/**
+ * Whether a directory is one of our topic directories, judged by what is in it rather than by
+ * its name.
+ *
+ * The name is not enough and never was. A user whose projects live under a folder they called
+ * `digmore` — which is most people who work on digmore — has a working directory like
+ * `dev/digmore/digmore-test`, and a check that fires on the ancestor's name refuses every
+ * script in the run for a directory that is a perfectly good workspace. The failure this guard
+ * exists to catch is standing inside a topic we created, so ask that question directly.
+ *
+ * `research_plan.json` is the marker because Plan writes it first and every later phase reads
+ * it; the pair is the fallback for a topic interrupted before the plan was settled. A topic
+ * directory that is genuinely empty is not caught, and nothing is lost when it is not — there
+ * is no earlier work for a second copy to be nested under.
+ */
+function isTopicDirectory(dir) {
+  if (existsSync(join(dir, 'research_plan.json'))) return true;
+  return existsSync(join(dir, 'cache')) && existsSync(join(dir, 'full_source_analysis'));
 }
 
 class FetchError extends Error {

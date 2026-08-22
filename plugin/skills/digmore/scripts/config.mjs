@@ -33,6 +33,19 @@ import { fileURLToPath } from 'node:url';
 export const DEFAULT_API_BASE_URL = 'https://api.digmore.ai';
 
 /**
+ * The recency window, in years — `brain/recency.md`'s "today minus 2 years".
+ *
+ * Here rather than beside either user of it, because both need it in different units:
+ * `preflight.mjs` prints a date for the run to pass as `--after-date`, and `hackernews.mjs`
+ * filters Algolia on an epoch. One number, converted where it is used.
+ *
+ * Not a configuration: it is not in settings.json and the user does not set it. The window is
+ * a research decision — `recency.md` calls it a hard rule and says a source outside it is named
+ * in Issues rather than quietly included.
+ */
+export const RECENCY_WINDOW_YEARS = 2;
+
+/**
  * The run configurations, full mode. Each is read at the start of a run and applied as
  * given; none is advisory. `--fast` overrides a subset of them — see FAST_DEFAULTS below.
  *

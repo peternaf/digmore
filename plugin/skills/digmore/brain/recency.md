@@ -2,7 +2,11 @@
 
 Every search across every source filters to the last 2 years. Older content is excluded.
 
-The cutoff date is `today minus 2 years`. Compute it at run start; never hardcode.
+The cutoff date is `today minus 2 years`. **`preflight.mjs` prints it at the start of every run —
+read it there and pass it on.** Never hardcode it, and never work it out: you have no clock, so a
+date composed here is a different date at every step that needs one, and wrong in a way nothing
+downstream catches. One cutoff per run, decided once, carried into every dispatch that filters on
+it.
 
 ## The window is applied by the scripts, not by the query
 
@@ -14,7 +18,7 @@ changes *which* results you get, not just how old they are.
 So no branch query carries a date operator. Where a source cannot filter, the date is read off the
 page when it is read.
 
-- **Reddit** — `api.mjs reddit search --time-window all --after-date <today-minus-2y>`, passed by the caller on every search. Thread fetches accept older URLs only if the thread itself has activity (comments) within the window.
+- **Reddit** — `api.mjs reddit search --time-window all --after-date <the cutoff preflight printed>`, passed by the caller on every search. Thread fetches accept older URLs only if the thread itself has activity (comments) within the window.
 - **HN Algolia** — `numericFilters=created_at_i>{epoch_2yrs_ago}`. `hackernews.mjs` does this on the recent-comment search. Its two counting calls are deliberately *not* filtered: they exist to read lifetime totals and the true date a person last posted, and filtering them would turn "comments this account has ever posted" into "comments in the last two years" and make anyone dormant longer than the window look as though they had never posted at all.
 - **Twitter** — no filter on the search. The window is applied after the fetch, from each tweet's own `created_at`.
 - **The open web** — no filter on the search. Judge the date when the page is read, from the date on the page; `subagents/page_analyst_agent/websearch.md` records that published dates are unreliable, so a claim that turns on how recent something is gets checked against the page itself.

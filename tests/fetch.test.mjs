@@ -1,6 +1,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { Sandbox } from './helpers.mjs';
 
@@ -285,6 +286,83 @@ test('--output-dir is the only form of the flag, and both arguments are required
   assert.notEqual(legacy.code, 0, '--output is not accepted');
 
   assert.equal(sandbox.requests.length, 0);
+});
+
+// ---------------------------------------------------------------- the workspace guard
+//
+// Every script that builds a path calls assertWorkspaceRoot. It refuses a caller standing inside
+// a topic directory, because paths are built as digmore/<slug>/... and a recursive mkdir would
+// nest a second copy without complaining — the run looks fine while its cache lands in a tree
+// nothing else reads, and resume re-fetches everything.
+//
+// It judges by what is in the directory, never by its name. The name was the whole check once,
+// and it refused every script for anyone whose projects live under a folder called `digmore` —
+// which is most people who work on digmore.
+
+const workspace = () => mkdtempSync(join(tmpdir(), 'digmore-workspace-'));
+const at = (root, ...segments) => {
+  const dir = join(root, ...segments);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+};
+const asTopic = (dir) => {
+  writeFileSync(join(dir, 'research_plan.json'), '{}');
+  return dir;
+};
+
+test('a workspace under a folder named digmore is allowed', async () => {
+  const { assertWorkspaceRoot } = await import('../skill/scripts/fetch.mjs');
+  const root = workspace();
+  try {
+    // C:\dev\digmore\digmore-test — an ancestor called digmore, and a perfectly good workspace.
+    assertWorkspaceRoot(at(root, 'dev', 'digmore', 'digmore-test'));
+
+    // The same workspace once it has topics in it, which is the normal case.
+    const ws = at(root, 'dev', 'digmore', 'digmore-test');
+    asTopic(at(ws, 'digmore', 'elevenlabs'));
+    assertWorkspaceRoot(ws);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('standing inside a topic directory is refused', async () => {
+  const { assertWorkspaceRoot } = await import('../skill/scripts/fetch.mjs');
+  const root = workspace();
+  try {
+    const topic = asTopic(at(root, 'ws', 'digmore', 'my-topic'));
+    assert.throws(() => assertWorkspaceRoot(topic), /not from inside/);
+    // And from anywhere below it — digmore/<slug>/cache nests just as badly.
+    assert.throws(() => assertWorkspaceRoot(at(topic, 'cache', 'reddit')), /not from inside/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// A topic interrupted before Plan settled has no research_plan.json, so the directory pair is
+// the fallback marker.
+test('a topic is recognised by its cache and analysis directories too', async () => {
+  const { assertWorkspaceRoot } = await import('../skill/scripts/fetch.mjs');
+  const root = workspace();
+  try {
+    const topic = at(root, 'ws', 'digmore', 'half-built');
+    at(topic, 'cache');
+    at(topic, 'full_source_analysis');
+    assert.throws(() => assertWorkspaceRoot(topic), /not from inside/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the research root itself, and any ordinary directory, are allowed', async () => {
+  const { assertWorkspaceRoot } = await import('../skill/scripts/fetch.mjs');
+  const root = workspace();
+  try {
+    assertWorkspaceRoot(at(root, 'ws', 'digmore'), 'sitting in the research root is fine');
+    assertWorkspaceRoot(at(root, 'dev', 'some-project'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ---------------------------------------------------------------- anonymity

@@ -125,17 +125,12 @@ For each source that pulled data, dispatch ONE Source Analyst that reads everyth
 
 **Nobody reads the players files here.** Enrichment's script merges the six, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide. The raw reports wait the same way, for `synthesis.mjs join` at the start of Synthesize.
 
-### Tell it to write a heartbeat
-
-This agent returns no schema, so it never receives the dispatch template and nothing gives it the
-heartbeat instruction automatically. Write it into the dispatch yourself, in these words:
-
-> Before each step you take, append one line to
-> `digmore/<slug>/cache/_progress/source-analyst-<source>.log`: the time, and what you are about to do.
-
 It reads every page and every claims file a source produced, so it is one of the longest silences in
-the run and the only one with no script behind it to explain the wait. Without the line there is
-nothing to read when it goes quiet (`index.md` §"When a sub-agent goes quiet").
+the run and the only one with no script behind it to explain the wait. Its heartbeat is not optional
+— but it is not written here either: the instruction is in every dispatch now, whatever comes back
+(`../subagents/dispatch_structured_subagent.md`). This file used to carry its own copy, because an
+agent returning no schema received no template, and the two copies drifted the first time one was
+edited.
 
 ### Check the files it wrote
 

@@ -39,7 +39,7 @@ without the other is how a Reddit branch comes back thin for a reason nobody can
 ### 1. Site-wide
 
 ```
-node "…/api.mjs" reddit search <query> --topic <slug> --time-window all --after-date <today-minus-2y>
+node "…/api.mjs" reddit search <query> --topic <slug> --time-window all --after-date <cutoff from your dispatch>
 ```
 
 No `--subreddit` at all. It searches the whole site, so it cannot miss a community because you did
@@ -94,8 +94,13 @@ guessing at all is what loses the specialist sub nobody would have found.
 `../../recency.md`, pass both:
 
 ```
---time-window all --after-date <today-minus-2y>
+--time-window all --after-date <the cutoff date in your dispatch>
 ```
+
+**The date arrives in your task text — do not work it out.** `preflight.mjs` prints one cutoff at
+the start of the run and the orchestrator passes it to every branch, so all of them filter on the
+same day. Computed here it would be a different date in each of the six Reddit branches, and the
+run would have no single window at all.
 
 `--after-date` filters on post creation on top of the unbounded window. That pair is yours to pass
 on every search — the default is a floor, not the rule.
@@ -107,7 +112,10 @@ The script tells you which of two things happened, and they get different senten
 - **`{"results": []}` on exit 0** — the topic really is thin on Reddit, and you can say so. Only say
   it when the **site-wide** pass came back empty too; an empty scoped pass on its own says you chose
   the wrong subs, not that Reddit is quiet.
-- **Exit 3** — the source was walled. Report it as unavailable.
+- **Exit 3** — the source was walled. Report it as unavailable. **Do not call the script again.**
+  It already made four attempts and waited 5s, 15s then 45s between them; exit 3 is what is left
+  after all of that. A second run of the command buys another 65 seconds of the same answer, and
+  it is the branch's whole time budget spent on a source that is down.
 
 You can trust that split because the API does the work: Reddit answers a blocked request with a
 redirect to its login page, HTTP 200, which parses as zero results. The API spots that, retries on a

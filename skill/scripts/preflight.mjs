@@ -13,7 +13,14 @@
  * stderr says why.
  */
 
-import { loadOrCreateConfig, MALFORMED, configPath, configurationsFor, CONFIGURATION_NOTES } from './config.mjs';
+import {
+  loadOrCreateConfig,
+  MALFORMED,
+  configPath,
+  configurationsFor,
+  CONFIGURATION_NOTES,
+  RECENCY_WINDOW_YEARS,
+} from './config.mjs';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -174,7 +181,26 @@ digmore: RUN CONFIGURATIONS — from ${configPath()}:
 ${lines}
 
 Use these numbers. They are the user's, not defaults to assume. Where two are shown, the
-second applies in --fast; a single number applies in both. A zero means that step is skipped.`;
+second applies in --fast; a single number applies in both. A zero means that step is skipped.
+
+Recency cutoff for this run: ${recencyCutoff()}
+Pass it as --after-date on every Reddit search, and use it wherever brain/recency.md asks for
+today-minus-two-years. It is printed here because you have no clock: computed by hand it is a
+different date on every step that needs one, and silently wrong when it is wrong.`;
+}
+
+/**
+ * Today minus the recency window, as YYYY-MM-DD.
+ *
+ * brain/recency.md says "compute it at run start; never hardcode", which is right and gave no way
+ * to do it. Left to improvise the run shells out to `node -e` with a hand-written Date, once per
+ * step that needs a date — arithmetic an agent drifts off, and the same class of defect the run
+ * log's timestamps exist to rule out.
+ */
+export function recencyCutoff(now = new Date()) {
+  const cutoff = new Date(now);
+  cutoff.setFullYear(cutoff.getFullYear() - RECENCY_WINDOW_YEARS);
+  return cutoff.toISOString().slice(0, 10);
 }
 
 /** The sources that need the API. Everything else runs either way. */
