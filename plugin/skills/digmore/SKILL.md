@@ -7,7 +7,7 @@ argument-hint: "[landscape|competitor|ask|gtm] [topic] [--auto] [--fast]"
 
 # Digmore
 
-Five-phase business research: plan, extract, vet, synthesize, audit. Every substantive claim carries the source it came from, and a run states what it could not reach.
+Six-phase business research: plan, extract, vet, enrichment, synthesize, audit. Every substantive claim carries the source it came from, and a run states what it could not reach.
 
 ## Step 1 — always, before anything else
 
@@ -56,7 +56,7 @@ If the user picks the catch-all when a specific command was offered, that is wor
 
 ## Step 3 — the brain
 
-Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the five phases, vetting, schemas, modes, topic mechanics, recency, and one directory per sub-agent holding that agent's own instructions and its per-source notes.
+Every command's reference file tells you to read `brain/index.md` first. That file is the entry point to everything else: writing style, the six phases, vetting, schemas, modes, topic mechanics, recency, and one directory per sub-agent holding that agent's own instructions and its per-source notes.
 
 **Re-read `brain/output.md` before writing any user-facing text or dispatching any sub-agent.** The writing-style rules are not optional, and they apply to sub-agent output as much as to the final report.
 

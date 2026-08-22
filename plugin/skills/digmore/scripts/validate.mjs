@@ -23,7 +23,7 @@
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadOrCreateConfig, MALFORMED, CEILING_DEFAULTS } from './config.mjs';
+import { loadOrCreateConfig, MALFORMED, CONFIGURATION_DEFAULTS } from './config.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
@@ -32,7 +32,7 @@ export const SUBAGENT_RETURNS_PATH = join(scriptDir, 'subagent_returns.json');
 /**
  * How many repair attempts a failed return gets, from `subagents.repairAttempts`. Still a
  * number read from a file rather than a judgement made mid-run — which is the point — but
- * now the user can see it and change it, like every other ceiling.
+ * now the user can see it and change it, like every other configuration.
  *
  * The reason it is small stays true whatever it is set to: a fix-and-recheck loop that can
  * run twice can run forever, and `Product boundary` names an unbounded repair loop as a
@@ -40,7 +40,7 @@ export const SUBAGENT_RETURNS_PATH = join(scriptDir, 'subagent_returns.json');
  */
 export function maxRepairs() {
   const config = loadOrCreateConfig();
-  if (config === MALFORMED) return CEILING_DEFAULTS.subagents.repairAttempts;
+  if (config === MALFORMED) return CONFIGURATION_DEFAULTS.subagents.repairAttempts;
   return config.subagents.repairAttempts;
 }
 

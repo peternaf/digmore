@@ -1,7 +1,7 @@
 # Handle Vetter — Hacker News
 
-Free, no key. **The slowest source in the run** — read the rate limit section before planning
-anything.
+Free, no key. Two hosts, neither throttled: the Algolia HN API, and the official Firebase HN API at
+`hacker-news.firebaseio.com`.
 
 ## The commands
 
@@ -10,24 +10,39 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/hackernews.mjs" user <name> -
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/hackernews.mjs" vet  <name> --topic <slug>
 ```
 
-`user` is the snapshot, `vet` is the verdict. `--topic <slug>` is mandatory on both.
+**`vet` is the one you run, and it returns the whole record** — the profile, `recent_comments` in
+full, and the verdict with its signals and reason, in one response. You need no second call and no
+data files: everything the judgement rests on comes back on stdout.
 
-## Expect to wait
+`user` returns the snapshot alone, for callers that want it without a verdict. `--topic <slug>` is
+mandatory on both.
 
-Calls to `news.ycombinator.com` are serialised at **one every 15 seconds**, with backoff at 5s, 15s
-and 45s on a 429. Algolia is not rate-limited in practice, but the HN web page is the only source of
-account age, so most vets touch it.
+## Speed
 
-Two or three requests per handle means a minute or more each, and **only one of these agents runs at
-a time on Hacker News** — the throttle is per process, and the first request in a fresh process does
-not wait at all, so running several in parallel would hammer the host rather than sharing the limit.
+A handle costs about a second, and handles can run beside each other. Vet Hacker News the way you
+vet any other source — batch it, fan it out, and put it next to the rest.
 
-Log the wait. A quiet dispatch here is a working one.
+**A quiet heartbeat here is suspicious after one minute, not the two that
+`../../phases/index.md` §"When a sub-agent goes quiet" allows by default.** That default is sized
+for the open web, where a single fetch can honestly stall; nothing on this source can. Everything
+else in that section is unchanged — one minute is when to look, and the line still decides.
+
+Until 2026-08-21 account age was scraped from a `news.ycombinator.com/user` page that allowed one
+request per 15 seconds, which made this the slowest source in a run by a wide margin and forced it
+to be worked one handle at a time by a single agent. Firebase serves the same fields unthrottled.
+If you find a brain file, an old plan or a habit that still budgets minutes for this source, it is
+out of date.
 
 ## What comes back
 
 `name`, `karma`, `created_utc`, `about`, `stories_submitted` and `comments_submitted` (both
-lifetime), `comment_count_sampled`, `recent_comment_excerpts`, `last_activity_utc`.
+lifetime), `comment_count_sampled`, `recent_comments`, `last_activity_utc`,
+`recent_posts_checked` and `recent_posts_dead`.
+
+**`recent_comments` carries each comment in full**, not an excerpt — `text`, plus `id`,
+`story_id`, `story_title` and `created_utc`. Algolia returns the whole thing and keeping it costs
+nothing; Enrichment extracts from these bodies later, and `story_id` is how it reaches the thread a
+comment sits in.
 
 **The lifetime counts are deliberately unfiltered by date**, while the recent-comment sample is
 filtered to two years. That is on purpose: filtering the counts would turn "comments this account
@@ -38,34 +53,64 @@ as though they had never posted at all.
 
 In order:
 
-1. Missing or throwaway profile → `unknown`.
-2. Bio host repeated ≥3 times in recent comments → `promoter`. Platform hosts are excluded —
+1. Missing or empty profile → `unknown`. The account does not exist, or could not be read — which is
+   not a judgement about the person. Do not confuse it with `throwaway` below.
+2. **Enough of the sampled recent posts came back dead → `throwaway`, reason `shadowbanned`.** The
+   threshold is `DEAD_POSTS_FOR_SHADOWBAN` in `hackernews.mjs`, an absolute count rather than a
+   ratio so it cannot fire on an account with one or two submissions to its name. Checked before the
+   host counts below, because nobody reads a shadowbanned account and there is no point weighing its
+   comments for promotion.
+3. Bio host repeated enough times in recent comments → `promoter`. Platform hosts are excluded —
    `news.ycombinator.com`, `ycombinator.com`, `hn.algolia.com` — because regulars link to HN itself
    constantly.
-3. A non-bio, non-platform host repeated ≥5 times → `spammer`.
-4. Age < 90 days with karma < 50 → `unknown`.
-5. Zero comments sampled, submissions only → `unknown`.
-6. **Karma > 1000 → `legit`.** On its own, regardless of age, including when age is unknown.
-7. Age ≥ 2 years with karma > 100 → `legit`.
-8. Anything else → `unknown`.
+4. A non-bio, non-platform host repeated more often still → `spammer`.
+5. Young, low-karma and barely posted → `throwaway`. All three together, never one alone.
+6. Zero comments sampled, submissions only → `unknown`.
+7. **High karma → `legit`.** On its own, regardless of age, including when age is unknown.
+8. Long-lived account with moderate karma → `legit`.
+9. Anything else → `unknown`.
+
+The thresholds are in `vetUser` in `hackernews.mjs`; read them there rather than from memory.
 
 Karma does the work here that subreddit spread does on Reddit. Algolia's recent-comment slice
 clusters in a few topics even for heavy commenters, so breadth is not a usable signal on this source.
 
-## When the web page will not answer
+## The shadowban check
 
-If backoff is exhausted, `user` falls back to Algolia's `/users/<name>` endpoint for karma and bio.
+Hacker News kills posts without telling the poster, and **Algolia 404s a dead item** — so a
+shadowbanned account looks merely quiet there, and looked entirely normal to this plugin until the
+Firebase swap. Firebase is the only place the `dead` flag is visible.
 
-**The fallback loses `created_utc`**, so account age is unknown. That is tolerable — rule 6 above
-reaches `legit` on karma alone, which is why it exists. Say in your `reason` that age was unavailable.
+The check reads `dead` on the newest `hackernews.deadSampleSize` items in the profile's `submitted`
+list — `preflight.mjs` prints what this run uses. It costs nothing to find them (`submitted` arrives
+with the profile) and almost nothing to read them (`/item/<id>/dead.json` answers `true` or `null` in
+four bytes).
+
+**`recent_posts_checked` of `0` means the test did not run** — the user set the configuration to zero, the
+account has no submissions, or the profile came back through the Algolia fallback. It does not mean
+clean. Say the check was not made rather than reporting a clean result.
+
+A handful of dead posts is an account with a comment or two flagged, which is ordinary. It is a
+clear majority of a sample that means the account itself is being killed.
+
+## When Firebase will not answer
+
+`user` falls back to Algolia's `/users/<name>` endpoint for karma and bio.
+
+**The fallback loses `created_utc` and the shadowban check both**, so account age is unknown and
+`recent_posts_checked` is `0`. Age being unknown is tolerable — the karma rule above reaches `legit`
+without it, which is why it exists. Say in your `reason` that age was unavailable and the dead
+sample was not taken.
 
 ## Your part — topical relevance
 
-Read `recent_comment_excerpts` against the research question.
+Read `recent_comments` against the research question.
 
 Harder here than on Reddit: HN has no subreddits, so there is no cheap proxy for what someone works
-on. Read the excerpts properly. Someone whose recent comments circle your subject from several
-angles is `high`; someone who mentioned it once in a thread about something else is `low`.
+on. Read the comments properly — `story_title` says what thread each one sits in, which is the
+closest thing this source has to a subreddit. Someone whose recent comments circle your subject
+from several angles is `high`; someone who mentioned it once in a thread about something else is
+`low`.
 
 ## `last_active`
 
@@ -73,14 +118,16 @@ angles is `high`; someone who mentioned it once in a thread about something else
 
 ## What lands on disk
 
-`digmore/<slug>/cache/hackernews/`:
+**One file per handle**, written by the script:
+`digmore/<slug>/cache/hackernews/hackernews-vet-<name>.json` — the profile, the recent comments in
+full, and the verdict, together. Nothing else, and nothing you write yourself.
 
-- `hackernews-user-page-<name>.html` — the HN web page.
-- `hackernews-user-comments-<name>.json` — the Algolia recent-comments payload.
-- `hackernews-user-algolia-<name>.json` — the fallback payload, when the web page was 429-blocked.
+The verdict in it is computed rather than fetched, so the file is written after the computation
+rather than being the response as it arrived. Same name, same contents, different provenance — worth
+knowing when reading the script, invisible to everything else.
 
-## Known gap
-
-**The `vet` verb caches nothing.** It returns a verdict and leaves no file, so a resumed run re-vets
-every handle from scratch — at 15 seconds a request, on the slowest source there is. Worth knowing
-when a run is interrupted mid-Vet.
+**A handle already vetted is not vetted again.** The script checks for the file before it makes a
+single request, so an interrupted run resumes at the handle it stopped on rather than re-fetching
+the whole source. **You do no checking to make that true** — run the command and let it answer from
+disk or from the network; an agent that inspected the cache would be a second place the resume rule
+could be got wrong.

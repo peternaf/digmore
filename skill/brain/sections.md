@@ -63,8 +63,14 @@ and a section is under-specified without them:
 
 ## Filling the file — during the run
 
-The claims come back from the readers. The **synthesizer writes the rows**, as it does for
-`players.csv` — one writer per file, per `phases/index.md`.
+The claims come back from the readers. **The Raw report writer writes the rows**
+(`subagents/raw_report_writer_agent.md`), building each declared enumerable section before it writes
+the raw report — one writer per file, per `phases/index.md`.
+
+Three of these files have a different owner and keep it: `players.csv` is the orchestrator's, written
+in Enrichment; `experts.csv` is the orchestrator's, written in Vet. Everything else an enumerable
+section renders from — the CSV for a section this run invented, and `promoter_network.csv` — is the
+Raw report writer's.
 
 Rules for a cell:
 
@@ -77,14 +83,36 @@ Rules for a cell:
 
 ## Rendering the section
 
-One row, one entry. The section and the file match: nothing in the section that is not a row, no row
-silently missing. See `phases/synthesize_phase_e.md` §3.6, which owns this rule for every enumerable
-section, predefined or invented.
+**The Final report writer renders it, from the finished file, never from memory**
+(`subagents/final_report_writer_agent.md`). This rule holds for every enumerable section, predefined
+or invented:
 
-A row whose `url` is genuinely unknown renders unlinked and is recorded in `audit.md` as a
-known-gap. It is never quietly dropped.
+- **One row, one entry.** The section and the file match: nothing in the section that is not a row, no
+  row silently missing. An entity worth naming that has no row is a known-gap for `audit.md`, not a
+  line added at drafting time — the row set was settled from a count across every source, and a row
+  invented here would have no evidence behind it and no record of why it qualified.
+- **The name is the link** — `[r/LocalLLaMA](https://old.reddit.com/r/LocalLLaMA)` — taken from the
+  row's `url`. Never a separate URL column, and never a bare name. This is the *destination*, not the
+  citation: cite-or-drop proves the claim, and says nothing about whether the reader can reach the
+  thing. A section can satisfy every other rule in the brain and still name twelve communities nobody
+  can visit.
+- **Keep the sections apart.** Rows carry their kind, so people render into the people section and
+  communities into theirs. Rendering from one file does not merge them.
+- **A row whose `url` is genuinely unknown** renders unlinked and is recorded in `audit.md` as a
+  known-gap. It is never quietly dropped, and the gap is never hidden by omitting the entity.
 
-## What the audit checks
+Citations still attach to the claims made *about* each entity. This adds the destination; it replaces
+nothing.
 
-Every section in `scope.deliverables` exists in the summary, and every enumerable one matches its
-file row for row (`phases/audit_phase_f.md` §0).
+## Who checks it
+
+Two agents, one question each, and they are not the same question:
+
+- **Is every declared section present at all?** The Final report reviewer, against
+  `scope.deliverables` (`subagents/final_report_reviewer_agent.md`). It needs no CSV.
+- **Does each enumerable section match its CSV row for row, and is each name a link?** The Final
+  report writer, on the draft it just produced. It renders those sections *from* those files, so the
+  check costs nothing and it can fix what it finds while it still holds the evidence.
+
+Both are the agents reading their own output. Neither is a scripted gate — `validate.mjs` reads JSON
+against a shape, and a CSV and a summary are neither.

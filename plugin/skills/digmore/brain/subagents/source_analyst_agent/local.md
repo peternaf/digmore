@@ -35,7 +35,7 @@ default, and never resolve it against them either.
 
 ## What `internal` means here
 
-Everything from this source is tagged `internal`, and it sits outside the source-quality ranking on
+Everything from this source is tagged `internal`, and it sits outside the page-quality ranking on
 purpose: first-hand and probably the most accurate account of the user's own business anywhere, and
 at the same time unverifiable by anyone else, possibly an early draft, a stale number, or one
 colleague's opinion written down.
@@ -51,7 +51,26 @@ multi-source test on its own.
 - **A draft reads exactly like a decision.** "We should raise prices to $60" may be a plan or a
   passing thought, and nothing in the file says which. Where the run leaned on one of those, flag it.
 
-## Known gaps to record in `full_source_analysis/local.md`
+## No handles file on this source — but you still write the players file
+
+The user's own documents have nobody behind them to vet — they vouched for the material by handing it
+over. No `local-handles.json`. You write two files here, not three.
+
+## The players — `full_source_analysis/local-players.json`
+
+A handful of documents, but the highest-signal player list in the run: these are the companies the
+user already believes matter, named in their own words.
+
+- **The user's own company is a player.** It will be named more than anything else in these files.
+  Record it — whether it belongs in the report is decided later, by the command's inclusion test.
+- **A competitor named only here has one source and will not clear the floor.** That is the correct
+  outcome and worth a line in your notes: the user believes this company matters and the public
+  material never mentioned it, which is a finding about either the market or the belief.
+- **`relevance` is what they think of it**, in their framing — "named as the main threat in the board
+  update", "listed as a partner". The gap between that and what the public sources say is the most
+  valuable thing this source produces.
+
+## Known gaps — they go in `observations`
 
 - Material the user referred to but did not hand over.
 - Any file too large to have been read in full, if the Page Analyst said so.

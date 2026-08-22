@@ -19,7 +19,7 @@ that the user can go and look:
 A section heading where the file has one, a line range where it does not. "Somewhere in the notes"
 is not a citation, and cite-or-drop applies here exactly as everywhere else.
 
-## Source quality — `internal`, and it sits outside the ranking
+## Page quality — `internal`, and it sits outside the ranking
 
 Everything from this source is tagged `internal`. It is deliberately not comparable to a public
 source: first-hand and usually the most accurate account of the user's own business that exists

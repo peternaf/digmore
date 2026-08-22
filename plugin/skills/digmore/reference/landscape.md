@@ -1,6 +1,6 @@
 # Digmore — Landscape
 
-A five-phase research pass over a market or space. The goal is a fact-checked, expert-vetted map of who exists, what they sell, what users say, and where the surprises are. No verdict, no recommendation — just the map.
+A six-phase research pass over a market or space. The goal is a fact-checked, expert-vetted map of who exists, what they sell, what users say, and where the surprises are. No verdict, no recommendation — just the map.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `landscape`.
 
@@ -20,7 +20,7 @@ Breadth over depth on any one player. Each player gets coverage; none gets exhau
 - A clean comparison matrix (`players.csv`) that holds up across players.
 - Discovery of hubs and experts the user can follow.
 
-Phase weights: Extract and Synthesize carry the most signal. Vet is cheap when `experts.csv` is pre-populated (chained topics), expensive when fresh. Audit is bounded by its claim cap either way.
+Phase weights: Extract and Synthesize carry the most signal. Enrichment is where the player set is actually decided, so a thin Extract shows up there first. Vet is cheap when `experts.csv` is pre-populated (chained topics), expensive when fresh. Audit checks every rendered claim, so it scales with the report rather than with the topic.
 
 ## 1. The summary
 
@@ -32,14 +32,14 @@ Sections in this exact order.
 
    ```
    | **[Ollama](https://ollama.com)** | **11.1M** | Local LLM runtime hosting the VLMs builders run on-device | free |
-   | Recent moves: Substrate beneath visaioss / LLM Vision / Aegis AI | Segment: B2B-prosumer · Deployment: self-hosted | Integrations: LLM Vision, Frigate genai, visaioss, Aegis AI, Home Assistant | Funding: VC-backed (undisclosed) |
+   | Recent moves: Substrate beneath visaioss / LLM Vision / Aegis AI | Segment: B2B-prosumer · Deployment: self-hosted | Integrations: LLM Vision, Frigate genai, visaioss, Aegis AI, Home Assistant | Funding: A · $30M total |
    ```
 
    Row 1 cells (linked, visits bold): name · visits · positioning · price.
    Row 2 cells (plain text): recent moves · segment + deployment · integrations · funding.
 
    - Price values: `$50/mo`, `$0.005/min`, `~$25 one-time`, `bundled hardware`, `free`, or `contact sales`. NOT `tiered + usage` / `usage-based` — fetch the vendor's pricing page.
-   - Funding values: total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. NOT round names (`seed`, `Series B`).
+   - Funding: **one cell holding both columns**, `funding_stage · funding_raised_usd` — `Funding: B · $180M total`. The stage is the round (`bootstrapped`, `seed`, `A`, `B`, `public`, `acquired`); the amount is total $ raised (`$180M total`), or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Where only one is known, render that one alone. They are two columns in `players.csv` because they are two facts, and one cell here because a reader wants them together.
 
    No truncation. Below the table: one line linking to `players.csv`.
 
@@ -77,7 +77,12 @@ Wide-table CSV of every player × every dimension. Renders cleanly in a spreadsh
 
 **Who counts as a player.** A player is anyone whose product, platform, or service the user would have to know about to operate in this market — competitors, the platforms users ship into, the channels they distribute through, the integrators who package their work, and incumbents reaching in from adjacent markets. The test: does what this entity ships, charges, or roadmaps materially affect a builder in this market? If yes, it's a player. Being "the platform users build on" is NOT a reason to exclude — if it also ships first-party products in the same space, it's a player too.
 
-**Inclusion cross-check (run before finalizing).** List every entity mentioned 5+ times across `raw_research_outcomes.md` and the source notes. Each one is either a row in `players.csv` OR excluded on purpose — and an exclusion is written into `audit.md` with the entity and the reason. If it is neither, add it as a player.
+**Inclusion cross-check — it happens in Enrichment, and a script does the counting.** `players.mjs candidates` reads all six `<source>-players.json`, joins each claim's handle to its verdict, drops what the run does not listen to, recounts documents per entity across every source and applies the five-document floor. Its output *is* the list of entities that qualified: same inputs, same candidates, every run.
+
+So the cross-check is not a pass run before finalizing, and it cannot read the raw report — that file does not exist yet when the rows are chosen (`../brain/phases/enrich_phase_d.md`). What is left of it is the rule on either side of the script:
+
+- **Every candidate is a row in `players.csv` or excluded on purpose**, and every exclusion is written into `audit.md` with the entity and the reason.
+- **Rows may be cut from the candidate list, never added below the floor.** An entity you would have named that did not reach five documents did not earn a row, whatever you know about it from elsewhere — it is a known-gap for `audit.md`, not a row invented at drafting time.
 
 Required columns (in this order):
 - `name`
@@ -86,10 +91,11 @@ Required columns (in this order):
 - `offerings` (semicolon-separated)
 - `pricing_model` (e.g. usage-based, seat-based, tiered)
 - `entry_tier_price_usd` — numeric (e.g. `40`, `0.005`), `free`, or `contact sales` (not `POA`).
-- `monthly_visits` — encoded per `../brain/subagents/player_profiler_agent.md`, filled per `../brain/phases/synthesize_phase_d.md` §3.5.
+- `monthly_visits` — encoded per `../brain/subagents/player_profiler_agent.md`, filled in Enrichment per `../brain/phases/enrich_phase_d.md`.
 - `top_user_sentiment` (one-line: positive / mixed / negative + the dominant theme)
 - `recent_moves` (last 90 days; semicolon-separated; each with date)
-- `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired)
+- `funding_stage` (if applicable: bootstrapped / seed / A / B / public / acquired) — the round, and only the round.
+- `funding_raised_usd` — the amount: `$180M total`, or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Never a round name; that is `funding_stage`. Two columns because they are two facts and a CSV is sorted and filtered on them separately — the summary's Players table renders both in one cell (§1.1).
 
 Optional columns the run may add when surfaced (decide per-topic):
 - `target_segment` (B2B / B2C / B2B-prosumer)
@@ -99,4 +105,4 @@ Optional columns the run may add when surfaced (decide per-topic):
 
 ## 3. The rest
 
-`experts.csv`, `raw_research_outcomes.md` and `audit.md` are the brain's, unchanged — see `../brain/vetting.md` and `../brain/phases/`. `raw_research_outcomes.md` carries every datapoint as a structured claim, with no per-source cap.
+`experts.csv`, `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged — see `../brain/vetting.md` and `../brain/phases/`. `<slug>-raw-report.md` carries every datapoint as a structured claim, with no per-source cap.

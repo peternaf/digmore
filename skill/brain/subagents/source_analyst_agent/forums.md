@@ -47,9 +47,13 @@ to fetch — whatever you record is very nearly all it will ever have.
   person; never merge them.
 - **`signals` matter more here than anywhere.** Post count, join date, badges, Discourse trust level,
   accepted-answer status, staff or moderator marking. Any of those plus on-topic activity is enough
-  for `legit`; without them the verdict is `unknown`, which keeps the quote with an "anonymous,
-  unverified" caveat rather than dropping it (`../../phases/synthesize_phase_e.md` §1). What you
+  for `legit`; without them the verdict is `unknown`, which keeps the quote with an **"unvetted"**
+  caveat rather than dropping it (`../../vetting.md` §"Output marking"). What you
   record here decides how much weight a forum voice carries, not whether it appears.
+- **`documents` matters more here than anywhere.** It names the cached files each handle appears in,
+  and on this source it is the Handle Vetter's only route to the evidence — there is no script and no
+  profile to fetch, so the pages you read are all it will ever have. Those files are named per URL and
+  say nothing about who posted in them.
 - **Anonymised posts have no handle.** Where a forum scrubs attribution after an account closes, the
   words remain and the person does not. No row.
 
@@ -66,7 +70,7 @@ is the intended outcome — record them anyway and let the count decide.
 - **Vendor staff post here.** A brand-name mention from an account with a staff badge is the company
   talking about itself — record the entity, and the handle carries the rest.
 
-## Known gaps to record in `full_source_analysis/forums.md`
+## Known gaps — they go in `observations`
 
 - Forums that were found in search and could not be read, by domain and reason.
 - Threads cut short by the fetch budget mid-pagination, where the resolution was probably on a page

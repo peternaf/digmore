@@ -28,10 +28,10 @@ and who was answering whom.** Keep the nesting and the author on every post. Quo
 matter too — a post that quotes an earlier one and disagrees is an argument, and flattened it reads
 as agreement.
 
-## Source quality
+## Page quality
 
 `forum` — this is community discussion. One exception: the forum's own pinned moderator post
-stating a policy is `primary-self` for that forum. Definitions in `../../vetting.md`.
+stating a policy is `primary-self` for that forum. Definitions in `../../page_quality.md`.
 
 Forum handles carry the weakest credibility signal of any source. Where the forum exposes reputation
 — post count, badges, Discourse trust level, accepted-answer status — record it with the claim, so
@@ -53,8 +53,8 @@ The raw pages are deleted once merged.
 Three failures, each reported as itself rather than as an empty result:
 
 - **403 / 429 on every attempt.** Many forums fingerprint the user agent. Try WebFetch once, per
-  `index.md`; if that is walled too, report the forum as blocked and move on. Logged-in scraping is
-  not an option here.
+  `../../fetching.md`; if that is walled too, report the forum as blocked and move on. Logged-in
+  scraping is not an option here.
 - **The page needs JavaScript to render.** `fetch.mjs` is HTTP-only, so the content never arrives.
   Report it as unreadable — the thread exists, digmore cannot see it.
 - **A Discord thread exposed on the web.** Only the visible slice loads. Treat what you get as

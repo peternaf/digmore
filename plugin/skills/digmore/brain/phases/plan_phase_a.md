@@ -1,6 +1,6 @@
 # Plan
 
-Print `[1/5] Plan` when this phase starts (`../reporting.md`).
+Print `[1/6] Plan` when this phase starts (`../reporting.md`).
 
 This phase settles two things and writes them to one file: **which topic this is**, and **what the run will go looking for**. Every later phase inherits both.
 
@@ -38,7 +38,7 @@ Slug rules:
 
 1. **Incremental update of an existing topic.** The user extends `experts.csv`, or experts were auto-added by an earlier run. Re-running re-vets old datapoints against the new expert list and surfaces new datapoints introduced by those experts.
 
-2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_d.md` §1.
+2. **Branched topic.** A new related topic spins off from a parent. The child inherits the parent's `experts.csv` **by copy at the moment of branching** — copy `parent/experts.csv` into the new topic's directory. The child can then diverge without affecting the parent, and `parent_slug` records the link. Cached data may also be copied where you judge it relevant. What carries over from the parent's `players.csv` is Synthesize's business — see `synthesize_phase_e.md` §1.
 
 3. **Chained follow-up.** Same as branched, but driven by the user's own read-through of the parent's summary. The user decides what is worth a follow-up; do not pre-suggest one.
 
@@ -78,7 +78,14 @@ were given.
 
 **Predefined first, in the command's order.** Each one's value is a pointer to the file that defines
 it, and nothing about its shape is repeated: `"Tactics inventory": "reference/gtm-teardown.md §1.4"`.
-The footer section is the only one that comes last no matter what
+
+**The Run footer is not a deliverable and never appears here.** It is the orchestrator's own
+bookkeeping — WebSearch queries run, caps hit, sources the run could not reach, the mode tags — and
+none of it exists in the raw report. It is appended to the finished summary at Audit's Record step,
+after the last agent has touched the file (`../reporting.md` §"The Run footer"). Listed as a
+deliverable it would be a section the Final report writer is told to write and cannot fill, and one
+the Final report reviewer then reports missing on every run. The command reference files still list
+it as their last section, which describes the finished document rather than the writer's brief.
 
 **Then anything this run adds.** A section the command does not have, because this request wants it.
 Its value is `{"type": ..., "description": ...}`, and if it is enumerable — a `list` or a `chart` —
@@ -113,8 +120,11 @@ reading.
 
 ## 4. Angles — check what came back
 
-The angles are the Scoping agent's, but they are yours to accept. Three things make one unusable,
-and all three are visible without re-searching:
+The angles are the Scoping agent's, but they are yours to accept. Nothing downstream can tell whether
+they were right: every branch query in the run is written from them, and a bad angle returns a full
+set of plausible results about the wrong thing.
+
+**Three faults are visible without re-searching:**
 
 - **It is written in generic market language** rather than in the vocabulary the agent just
   returned. That is the failure the whole step exists to prevent.
@@ -123,8 +133,22 @@ and all three are visible without re-searching:
 - **The count is wrong for the mode** — between `plan.minAngles` and `plan.maxAngles`, both printed by `preflight.mjs`; `ask` sets its own
   (`../modes.md`).
 
-Send it back once if any of those hold, per `../subagents/dispatch_structured_subagent.md`. Do not quietly
-rewrite them: an angle you wrote yourself is one the agent's reading no longer stands behind.
+**Then read them and ask whether the set makes sense.** The three checks above are mechanical and a
+set can pass all of them and still be wrong. Read each angle against the request the user actually
+made:
+
+- **Does this angle answer part of the question?** An angle that is interesting about the subject but
+  answers nothing the user asked is a branch spent on the wrong thing.
+- **Do they overlap?** Two angles that would return the same pages are one angle and a wasted set of
+  branches.
+- **Is anything obviously missing?** A `gtm` run with no angle on reception, a `competitor` run with
+  no angle on pricing — the gap is visible from the request, not from the results.
+- **Does the vocabulary actually belong to this subject?** The agent returns the words it found; if
+  they read like the words anyone would have guessed, it did not look hard enough.
+
+Send the set back once if any of the three faults hold or if this read fails, per
+`../subagents/dispatch_structured_subagent.md`, saying which angle and why. Do not quietly rewrite
+them: an angle you wrote yourself is one the agent's reading no longer stands behind.
 
 ## 5. Branches
 
@@ -147,8 +171,8 @@ One file for the topic and the plan. Identity at the top level, history beside i
   "parent_slug": "video-infra-overview",
   "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
   "run_history": [
-    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "ceilings": {"extract": {"fetchesPerBranch": 20, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 50}, "synthesize": {"claimsFactChecked": 50}}, "phases_completed": "plan,extract,vet,synthesize,audit"},
-    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "ceilings": {"extract": {"fetchesPerBranch": 5, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 20}, "synthesize": {"claimsFactChecked": 10}}, "phases_completed": "plan,extract,vet"}
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "configurations": {"extract": {"fetchesPerBranch": 20, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 50}, "enrich": {"expertsFollowed": 10, "urlsPerExpert": 10}}, "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "configurations": {"extract": {"fetchesPerBranch": 5, "maxPagesPerDocument": 5}, "vet": {"handleCapPerSource": 20}, "enrich": {"expertsFollowed": 3, "urlsPerExpert": 3}}, "phases_completed": "plan,extract,vet"}
   ],
   "scope": {
     "vocabulary": ["voice cloning", "streaming latency"],
@@ -172,7 +196,7 @@ Identity fields, set once and then left alone:
 - `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
 
 History, appended to and never rewritten:
-- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, `ceilings`, and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the ceilings is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the ceilings that applied, not the ones configured** — `--fast` lowers several, and the entry records what the run really used, in the same shape `preflight.mjs` printed them. Record the ones that bounded actual work this run; a group the run never reached does not need an entry.
+- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, `configurations`, and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the configurations is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the values that applied, not the ones configured** — `--fast` lowers several, and the entry records what the run really used, in the same shape `preflight.mjs` printed them. Record the ones that bounded actual work this run; a group the run never reached does not need an entry.
 
 The plan, which belongs to the current run:
 - `scope` — `vocabulary`, `recurring_names`, `deliverables`, `sections`, `angles`, `sources`, `sources_unavailable`, `branches`. The first two come back from the Scoping agent (§2), the section fields are settled in §3 and specified in `../sections.md`, the angles are checked in §4, and the branches are built in §5.
@@ -186,7 +210,7 @@ The plan, which belongs to the current run:
 Two reasons the plan is a file rather than a step in your head:
 
 - **Resume needs a checkpoint.** Without it, a run killed during Extract cannot tell "planned but not searched" from "half searched", and re-planning produces different angles than the ones the half-finished cache was built against.
-- **The ceiling is knowable here.** Branches × the run's `extract.fetchesPerBranch` is the upper bound on fetches, decided before a single request goes out. The audit log reports what was actually spent against it.
+- **The bound is knowable here.** Branches × the run's `extract.fetchesPerBranch` is the upper limit on fetches, decided before a single request goes out. The audit log reports what was actually spent against it.
 
 Written by the orchestrator: identity at the start of Plan, `scope` once the plan is settled, and a `run_history` entry appended at the end of each run.
 

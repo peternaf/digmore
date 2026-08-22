@@ -71,6 +71,65 @@ test('other 5xx exits 1', async () => {
   assert.equal((await sandbox.run('api.mjs', 'reddit', 'user', 'x', '--topic', 'demo')).code, 1);
 });
 
+// ---------------------------------------------------------------- 429 and the backoff
+//
+// A 429 used to be a hard failure at the moment it arrived — a Reddit branch that never ran, or
+// a handle that never got vetted, in the middle of the run's widest fan-out. Worth surviving
+// whether or not our own API ever throttles, because the X API and the residential proxy behind
+// it can 429 us upstream and that reaches the user the same way.
+//
+// The schedule is tested here rather than end to end because living through it costs the sum of
+// its own waits. The one test that does pay them is opt-in, below.
+
+test('the schedule is three waits, so four attempts', async () => {
+  const { BACKOFF_MS } = await import('../skill/scripts/api.mjs');
+  assert.deepEqual([...BACKOFF_MS], [5000, 15000, 45000]);
+});
+
+test('backoffMs walks the schedule, and reuses the last wait past its end', async () => {
+  const { backoffMs, BACKOFF_MS } = await import('../skill/scripts/api.mjs');
+  assert.equal(backoffMs(null, 0), 5000);
+  assert.equal(backoffMs(null, 1), 15000);
+  assert.equal(backoffMs(null, 2), 45000);
+  assert.equal(backoffMs(null, 9), BACKOFF_MS[BACKOFF_MS.length - 1], 'never undefined past the end');
+});
+
+// The server is the only party that knows when its window reopens, so a longer Retry-After is
+// honoured. A shorter one is not: the schedule is also protecting the paid dependencies behind
+// our own API, and a server asking us to come back sooner cannot speak for those.
+test('a Retry-After longer than the schedule wins, and a shorter one does not', async () => {
+  const { backoffMs } = await import('../skill/scripts/api.mjs');
+  assert.equal(backoffMs('120', 0), 120_000, 'longer is honoured');
+  assert.equal(backoffMs('1', 2), 45_000, 'shorter loses to the schedule');
+  assert.equal(backoffMs('0', 0), 5000);
+});
+
+// The HTTP-date form is deliberately not read: it needs a trustworthy clock at both ends, and
+// getting it wrong waits either far too long or not at all. Anything unusable is not an error —
+// it falls back to the schedule, which the header refines rather than replaces.
+for (const header of ['Wed, 21 Oct 2026 07:28:00 GMT', 'soon', '', '-5', 'NaN', undefined]) {
+  test(`an unusable Retry-After ${JSON.stringify(header)} falls back to the schedule`, async () => {
+    const { backoffMs } = await import('../skill/scripts/api.mjs');
+    assert.equal(backoffMs(header, 1), 15000);
+  });
+}
+
+// Out of waits is the source being unavailable, not a failed call — exit 3, the same code a 503
+// gets, because the run has to name it as one it could not reach. Exit 1 would have read as a
+// bug in the request. This is the one test that lives through the real schedule: ~65s.
+test(
+  'a 429 that never clears exits 3, not 1',
+  { skip: !process.env.DIGMORE_SLOW_TESTS && 'set DIGMORE_SLOW_TESTS=1 — this one waits out 5s + 15s + 45s' },
+  async () => {
+    const base = await sandbox.apiReturning({ error: 'rate limited' }, 429);
+    sandbox.configured(base);
+    const { code, err } = await sandbox.run('api.mjs', 'reddit', 'user', 'x', '--topic', 'demo');
+    assert.equal(code, 3, 'temporarily unavailable, not failed');
+    assert.match(err, /rate limiting/i);
+    assert.equal(sandbox.requests.length, 4, 'the first attempt plus one per wait');
+  },
+);
+
 test('a network failure exits 1', async () => {
   sandbox.settings({ apiBaseUrl: 'http://127.0.0.1:1', apiKey: 'sk-test', apiDeclined: false });
   assert.equal((await sandbox.run('api.mjs', 'reddit', 'user', 'x', '--topic', 'demo')).code, 1);
@@ -101,10 +160,15 @@ test('a response is cached under digmore/<slug>/cache/<branch>/', async () => {
 test('a cache hit skips the call entirely', async () => {
   const base = await sandbox.apiReturning({ name: 'fresh' });
   sandbox.configured(base);
-  // reddit user splits one response across three files, so a hit needs all three.
-  sandbox.writeCache('my-topic', 'reddit', 'user-about-someone.json', { name: 'from-cache' });
-  sandbox.writeCache('my-topic', 'reddit', 'user-comments-someone.json', []);
-  sandbox.writeCache('my-topic', 'reddit', 'vet-someone.json', { verdict: 'legit', signals: {}, reason: '' });
+  // One request, one file: the vetting record for one handle, profile and comments and verdict
+  // together. It used to be three, and a hit needed all three of them to be present.
+  sandbox.writeCache('my-topic', 'reddit', 'reddit-vet-someone.json', {
+    name: 'from-cache',
+    recent_comments: [],
+    verdict: 'legit',
+    signals: {},
+    reason: '',
+  });
   const { code, json } = await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'my-topic');
   assert.equal(code, 0);
   assert.equal(sandbox.requests.length, 0, 'nothing is fetched when the cache has it');

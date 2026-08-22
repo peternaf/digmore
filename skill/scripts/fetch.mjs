@@ -292,9 +292,15 @@ async function main(argv) {
   let filenameOnly;
   try {
     // The caller says where, this script says what.
+    //
+    // Both resolved against the working directory, so `path` means the same thing whichever
+    // way the call went. A fresh fetch resolved it and a cache hit did not, so the same URL
+    // answered with an absolute path on the run that fetched it and a relative one on the run
+    // that resumed — and the caller records that value.
     filenameOnly = filenameOnlyFromUrl(url);
-    target = join(outputDir, filenameOnly);
-    cached = findCached(outputDir, filenameOnly);
+    target = resolve(process.cwd(), join(outputDir, filenameOnly));
+    const hit = findCached(outputDir, filenameOnly);
+    cached = hit === undefined ? undefined : resolve(process.cwd(), hit);
   } catch (err) {
     process.stderr.write(`${JSON.stringify({ error: 'usage', detail: String(err?.message ?? err) })}\n`);
     process.exit(2);
@@ -322,7 +328,7 @@ async function main(argv) {
   }
 
   try {
-    const result = await fetchToPath(url, resolve(process.cwd(), target));
+    const result = await fetchToPath(url, target);
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (err) {
     // A failure here is usually a bot wall, and a wall is where the run switches to

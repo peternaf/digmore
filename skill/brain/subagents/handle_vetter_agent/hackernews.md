@@ -10,7 +10,12 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/hackernews.mjs" user <name> -
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/hackernews.mjs" vet  <name> --topic <slug>
 ```
 
-`user` is the snapshot, `vet` is the verdict. `--topic <slug>` is mandatory on both.
+**`vet` is the one you run, and it returns the whole record** — the profile, `recent_comments` in
+full, and the verdict with its signals and reason, in one response. You need no second call and no
+data files: everything the judgement rests on comes back on stdout.
+
+`user` returns the snapshot alone, for callers that want it without a verdict. `--topic <slug>` is
+mandatory on both.
 
 ## Speed
 
@@ -81,7 +86,7 @@ list — `preflight.mjs` prints what this run uses. It costs nothing to find the
 with the profile) and almost nothing to read them (`/item/<id>/dead.json` answers `true` or `null` in
 four bytes).
 
-**`recent_posts_checked` of `0` means the test did not run** — the user set the ceiling to zero, the
+**`recent_posts_checked` of `0` means the test did not run** — the user set the configuration to zero, the
 account has no submissions, or the profile came back through the Algolia fallback. It does not mean
 clean. Say the check was not made rather than reporting a clean result.
 
@@ -113,14 +118,16 @@ from several angles is `high`; someone who mentioned it once in a thread about s
 
 ## What lands on disk
 
-`digmore/<slug>/cache/hackernews/`, all written by the script:
+**One file per handle**, written by the script:
+`digmore/<slug>/cache/hackernews/hackernews-vet-<name>.json` — the profile, the recent comments in
+full, and the verdict, together. Nothing else, and nothing you write yourself.
 
-- `hackernews-vet-<name>.json` — the verdict.
-- `hackernews-user-<name>.json` — the assembled snapshot the verdict was computed from.
-- `hackernews-user-firebase-<name>.json` — the raw Firebase profile it was built from.
-- `hackernews-user-comments-<name>.json` — the Algolia recent-comments payload.
-- `hackernews-user-algolia-<name>.json` — the fallback payload, when Firebase did not answer.
+The verdict in it is computed rather than fetched, so the file is written after the computation
+rather than being the response as it arrived. Same name, same contents, different provenance — worth
+knowing when reading the script, invisible to everything else.
 
-**A handle already vetted is not vetted again.** The script checks for the verdict before it makes a
+**A handle already vetted is not vetted again.** The script checks for the file before it makes a
 single request, so an interrupted run resumes at the handle it stopped on rather than re-fetching
-the whole source.
+the whole source. **You do no checking to make that true** — run the command and let it answer from
+disk or from the network; an agent that inspected the cache would be a second place the resume rule
+could be got wrong.

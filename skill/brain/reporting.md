@@ -12,19 +12,49 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 [1/6] Plan
 [2.1/6] Extract · Search
 [2.2/6] Extract · Read
-[2.3/6] Extract · Source notes
+[2.3/6] Extract · Source reports
 [3/6] Vet
-[4/6] Enrichment
-[5/6] Synthesize
-[6/6] Audit
+[4.1/6] Enrichment · Expert search
+[4.2/6] Enrichment · Expert read
+[4.3/6] Enrichment · Source append
+[4.4/6] Enrichment · Candidates
+[4.5/6] Enrichment · Profile
+[5.1/6] Synthesize · Raw report
+[5.2/6] Synthesize · Draft
+[6.1/6] Audit · Review
+[6.2/6] Audit · Repair
+[6.3/6] Audit · Re-review
+[6.4/6] Audit · Copy edit
+[6.5/6] Audit · Markers
+[6.6/6] Audit · Fact check
+[6.7/6] Audit · Redraft
+[6.8/6] Audit · Record
 ```
 
-- **The counter is always out of 6** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. A phase with sub-steps numbers them after the point — `[2.1/6]` through `[2.3/6]` — so progress inside a phase that runs for an hour is visible without it becoming a seventh phase.
-- **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line.
-- **A step working through a queue says how big the queue is, then counts it down.** Only that shape: a number of items, and a pace you do not set. `[3/6] Vet · 50 handles on Hacker News`, then `[3/6] Vet · 18/50`. It goes on the marker, and it is the whole message.
+- **The counter is always out of 6** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. A phase with sub-steps numbers them after the point, so progress inside a phase that runs for an hour is visible without it becoming a seventh phase. The phases that dispatch most of the run's agents all have them; Plan and Vet are each one step and do not.
+- **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line in the terminal.
+- **A conditional step that did not run prints nothing at all.** Four of Audit's eight are conditional — the repair, the re-review and both redrafts run only when something needs them — so `[6.1/6]` followed by `[6.4/6]` is a normal run rather than a missing step. They get a marker when they do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the summary, with nothing printed, reads as a run that has hung.
+- **A step working through a queue says how big the queue is, then counts it down.** Only that shape: a number of items, and a pace you do not set. `[3/6] Vet · 50 handles on Hacker News`, then `[3/6] Vet · 18/50`. It goes on the marker, and it is the whole message. `[4.5/6]` counts the players it is profiling down the same way, a wave at a time.
 
 - **On resume, say what is being skipped**: `[1/6] Plan — already complete, resuming from Vet`. The user needs to know the run did not start over.
 - **A step that could not run says so on its own line** and the run continues: `[3/6] Vet — Reddit and Twitter unavailable, no API key`.
+
+## Every marker also goes to the run log
+
+The terminal shows where the run is now; `run_log.md` records where it has been, and it is the only record of where a run spent its time. So each marker you print is written there too, as a pair:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" start "[2.1/6] Extract · Search" --topic <slug>
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" done  "[2.1/6] Extract · Search" --topic <slug> --note "25 branch searchers, 302 URLs"
+```
+
+- **The `start` goes in before the work**, not held back until the step finishes: a run that dies in Vet has to leave a log showing it reached Vet.
+- **The `done` line's note says what the step did** — agents dispatched, and the one count that explains the duration. An hour is only debuggable beside the number of things it was doing.
+- **A failed or skipped step says so on its `done` line** rather than writing nothing. A missing pair reads as a crash, and a skipped phase is not one. A conditional step that never ran writes no pair, exactly as it prints no marker.
+- **The script stamps the time and works out the elapsed figure.** Never compose either yourself: you have no clock, and a wrong stamp makes every elapsed figure after it wrong, silently.
+- **`runlog.mjs header` opens the run**, once, naming the kind and the mode. The file is appended across runs, never replaced — the second run is when the first run's timings become useful.
+
+Nothing reads this file during the run. The stuck-agent check reads `cache/_progress/*.log`: different question, different time, different file.
 
 ## Questions for the user — never in a file
 

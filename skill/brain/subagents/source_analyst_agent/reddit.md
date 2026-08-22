@@ -9,6 +9,7 @@
 | `reddit-search-<scope>-<query-in-4-words>.json` | one per search — the URLs it found, and the ones the run ranked below the cut. `_request` inside says exactly what was asked for |
 | `reddit-thread-<id>.json` | one per thread the run read: the full `Post`, with `comments` |
 | `reddit-thread-<id>-claims.json` | the Page Analyst's extraction from that thread |
+| `reddit-vet-<name>.json` | one per vetted handle, if Vet has already run: the profile, up to 100 recent comments in full, and the verdict together |
 
 Comments inside a thread arrive flat, with `parent_id` giving the tree — `t3_<id>` is top level,
 `t1_<id>` is a reply.
@@ -27,7 +28,7 @@ Comments inside a thread arrive flat, with `parent_id` giving the tree — `t3_<
 - **The search files show what was passed over.** Each holds more URLs than the run read. A recurring
   title among the ones nobody opened is a gap worth naming.
 
-## Coverage, in numbers — also for `full_source_analysis/reddit.md`
+## Coverage, in numbers — for `observations`
 
 Every thread file carries `num_comments`. Compare it to the length of `comments`:
 
@@ -62,7 +63,7 @@ than on any other source.
 - **`[deleted]` comments still name products.** The claim has no handle, so it will be judged on page
   quality rather than dropped — record the entity.
 
-## Known gaps to record in `full_source_analysis/reddit.md`
+## Known gaps — they go in `observations`
 
 - **Comment trees truncate at the `--limit` on the fetch**, default 500. "Load more comments" is not
   followed.

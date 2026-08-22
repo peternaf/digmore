@@ -54,7 +54,7 @@ multi-source test on its own.
 ## No handles file on this source — but you still write the players file
 
 The user's own documents have nobody behind them to vet — they vouched for the material by handing it
-over. No `local-handles.json`. You write the notes and nothing else.
+over. No `local-handles.json`. You write two files here, not three.
 
 ## The players — `full_source_analysis/local-players.json`
 
@@ -70,7 +70,7 @@ user already believes matter, named in their own words.
   update", "listed as a partner". The gap between that and what the public sources say is the most
   valuable thing this source produces.
 
-## Known gaps to record in `full_source_analysis/local.md`
+## Known gaps — they go in `observations`
 
 - Material the user referred to but did not hand over.
 - Any file too large to have been read in full, if the Page Analyst said so.

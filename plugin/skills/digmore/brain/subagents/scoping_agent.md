@@ -1,6 +1,24 @@
 # Scoping agent
 
-**Phase: Plan, `[1/5]`.** Dispatched once per topic, by `../phases/plan_phase_a.md` §2.
+| Field | |
+|---|---|
+| **Phase** | Plan `[1/6]` |
+| **Purpose** | Find out what the subject actually is before the run commits to searching it — the words its own people use, the names that keep coming up — and turn that into the angles every later search is built on |
+| **Input text** | the topic as the user phrased it · the mode's angle count · the job: find what this subject actually is, then decompose it into angles. **Explicitly not the sections** |
+| **Input rule files** | `subagents/scoping_agent.md` · `output.md` |
+| **Input data files** | none |
+| **Runs** | WebSearch, up to `plan.scopingSearches` calls. No scripts, no files read |
+| **Settings that control it** | `plan.scopingSearches` — **this agent enforces it**, counting its own calls. `plan.minAngles` and `plan.maxAngles` bound what it returns; it is told the count and the orchestrator checks it in `plan_phase_a.md` §4 |
+| **Held in its context** | everything it read on the open web. Reading a great deal to hand back a little is the whole reason this is a sub-agent |
+| **Returns to main context** | the `scope` shape — the vocabulary, the recurring names, and the angles, each with a kebab-case label, a search-ready query and a rationale |
+| **Writes to disk** | **nothing it fetched** — what it read on the open web is not kept. `cache/_returns/scoping-agent.json`, a copy of what it returned, on disk because `validate.mjs` reads a file rather than a message |
+| **Logs** | `cache/_progress/scoping-agent.log` — `searching <query>`, one per WebSearch call |
+| **How it reports failure** | a subject it could not pin down comes back with the angles it can defend and says so in their rationales. It never pads the set to reach the minimum |
+| **One dispatch per** | the topic |
+| **Run instances** | 1 |
+| **`--fast`** | 1 — `plan.minAngles` and `plan.maxAngles` both drop, and there is less looking behind them |
+| **Concurrency** | n/a — single |
+| **Model tier** | placeholder, unused for now |
 
 Where it sits: the orchestrator has settled which topic this is and what the user asked for. What
 you return decides what the whole run goes and reads, and shapes how the answer gets presented.
@@ -21,8 +39,10 @@ Two things, in that order:
 
 ## Search budget
 
-**Up to 10 WebSearch calls.** This is the only search in the run that happens before the plan
-exists, so it runs against the session's ceiling with nothing else bounding it.
+**`plan.scopingSearches` WebSearch calls, 10 by default.** `preflight.mjs` prints the number this run
+applies — read it there, and never substitute one of your own. This is the only search in the run
+that happens before the plan exists, so it runs against the session's ceiling with nothing else
+bounding it.
 
 ## What you return
 

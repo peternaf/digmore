@@ -10,16 +10,17 @@
   everywhere: loop counters, callback parameters, catch bindings, import aliases, destructured
   names, and shell scripts. No exceptions.
 - **One place defines a data piece; everywhere else points at it.** Allowed values, schema fields,
-  ceilings, exit codes, filename patterns — and counts of any of them. Never restate, re-list or
+  configurations, exit codes, filename patterns — and counts of any of them. Never restate, re-list or
   count from outside; the copy that drifts is the one nobody notices. Name the thing rather than
   number it: "the sources that carry handles" survives a seventh source, "the four sources" does not.
   A sub-agent is the exception — it is sent its own files and cannot follow a pointer, so give it the
   value.
-- **Anything new that writes a shared file needs a lock or a single writer.** A step that fans out
-  writers to one file loses rows silently — no error, no trace. Today only `experts.csv` is written
-  by a fan-out, and `experts.mjs` takes a lock for it; every other file has one writer. The current
-  file-to-writer map is in `skill/brain/phases/index.md` §"Where a run writes", and a new agent or
-  step that writes an existing file has to appear in it.
+- **Anything new that writes a shared file needs a single writer.** A step that fans out writers to
+  one file loses rows silently — no error, no trace. **Every file a run writes now has exactly one
+  writer, and no file has a lock**: where agents fan out, they hand back and the orchestrator writes.
+  The current file-to-writer map is in `skill/brain/phases/index.md` §"Where a run writes", and a new
+  agent or step that writes an existing file has to appear in it. A fan-out writer is a design to
+  change, not a design to add a lock to.
 - **New network code must not identify the user.** Any script or API endpoint we add that makes
   an outbound request sets its `User-Agent` from `BROWSER_USER_AGENTS` in
   `skill/scripts/fetch.mjs`, and sends nothing that identifies the user — no company or product
@@ -28,9 +29,10 @@
 
 ## Brain vs command files
 
-- **The brain (`skill/brain/`) owns how a run executes** — the four phases and their order, mode
+- **The brain (`skill/brain/`) owns how a run executes** — the phases and their order, mode
   settings and depth reductions, vetting, schemas, writing style, per-source operating notes, topic
-  and output paths. It is the single source for all of it.
+  and output paths. It is the single source for all of it, and `skill/brain/phases/index.md` is where
+  the phases themselves are listed.
 - **A command file (`skill/reference/*.md`) owns what is specific to that one command** — for
   example its report's sections and their order, who counts as a player, its own angles, how it
   chains from a parent topic, and any extra output file it produces.
@@ -60,7 +62,7 @@ in this order, so two agents can be compared without reading either in full.
 | Input rule files | paths it opens for instructions |
 | Input data files | paths it opens for material |
 | Runs | one line: what it does and what it runs, in the order it does them — each step with the script or network call it makes, `api.mjs reddit thread`, `fetch.mjs`, WebSearch, WebFetch. **Reading and writing files is not a tool**, so an agent that only opens what is already on disk says `no scripts, no network` and names what it reads and writes instead — never a bare `none`, which reads as an agent that does nothing |
-| Settings that control it | every `~/.digmore/settings.json` ceiling that bounds it, each saying whether **this agent** enforces it or the orchestrator counts it from outside |
+| Settings that control it | every `~/.digmore/settings.json` configuration that bounds it, each saying whether **this agent** enforces it or the orchestrator counts it from outside |
 | Held in its context | what it reads that never leaves the dispatch |
 | Returns to main context | what comes back, and the shape name from `subagent_returns.json` — or `none`, which decides whether it gets the dispatch template at all |
 | Writes to disk | every file, by directory and filename pattern |

@@ -310,6 +310,86 @@ test('a keyless run prints the README offer byte for byte', async () => {
   assert.ok(out.includes(OFFER), 'the offer is printed as one contiguous block, in README order');
 });
 
+// ---------------------------------------------------------------- run configurations
+//
+// The whole reason this block is printed: the brain names a default, the settings file is what
+// actually applies, and prose cannot know which. Two real runs on 2026-08-17 applied 20 and 8
+// for the same cap with nothing flagging the difference. A run reads its numbers off this
+// report, so a heading or a row that stops appearing is a run guessing again.
+
+test('the run prints every configuration it will apply, under its own heading', async () => {
+  writeSettings({ apiBaseUrl: 'https://unused.example.test', apiKey: 'sk-x', apiDeclined: false });
+  const { out } = await run();
+
+  assert.ok(out.includes('digmore: RUN CONFIGURATIONS — from '), 'the heading names the file they live in');
+  assert.ok(out.includes(join(home, '.digmore', 'settings.json')), 'and the path, so the user can go and edit it');
+
+  for (const key of [
+    'plan.minAngles', 'plan.maxAngles', 'plan.scopingSearches',
+    'extract.fetchesPerBranch', 'extract.maxPagesPerDocument',
+    'vet.handleCapPerSource',
+    'enrich.expertsFollowed', 'enrich.urlsPerExpert',
+    'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet',
+    'hackernews.commentDepth', 'hackernews.recentCommentsSampled', 'hackernews.deadSampleSize',
+    'subagents.repairAttempts',
+  ]) {
+    assert.ok(out.includes(key), `the report does not name ${key}`);
+  }
+
+  assert.ok(!out.includes('synthesize.'), 'the synthesize group is gone, not renamed in place');
+  assert.ok(!out.includes('claimsFactChecked'), 'every rendered claim is checked, so there is no cap');
+  assert.ok(!out.includes('manualVerifyFlagCap'), 'nothing is flagged for the user to chase');
+});
+
+// Where the two modes differ the row shows both, so a --fast run is not a different number
+// arrived at silently. Where they do not, one number means one number in both modes.
+test('a configuration reduced by --fast prints both values, and an unchanged one prints one', async () => {
+  writeSettings({ apiBaseUrl: 'https://unused.example.test', apiKey: 'sk-x', apiDeclined: false });
+  const { out } = await run();
+
+  const rowFor = (key) => out.split('\n').find((line) => line.trim().startsWith(key));
+
+  assert.match(rowFor('extract.fetchesPerBranch'), /20 → 5/, 'reduced in fast');
+  assert.match(rowFor('enrich.expertsFollowed'), /10 → 3/);
+  assert.match(rowFor('twitter.handlesDeepVetted'), /20 → 0/, 'zero is a skip and is shown as one');
+  assert.match(rowFor('extract.maxPagesPerDocument'), /\s5\s/, 'the same in both modes');
+  assert.ok(!/→/.test(rowFor('subagents.repairAttempts')), 'no arrow where nothing changes');
+
+  // Whitespace-normalised: the sentence wraps in the printed block, so a raw substring match
+  // depends on where the line break happens to fall.
+  assert.match(
+    out.replace(/\s+/g, ' '),
+    /the second applies in --fast/,
+    'and the report says how to read the arrow',
+  );
+});
+
+// A number the user set is the one that gets printed. This is the failure the whole block
+// exists to prevent, so it is worth asserting against a value no default could produce.
+test('the report prints the user’s own numbers, not the defaults', async () => {
+  writeSettings({
+    apiBaseUrl: 'https://unused.example.test',
+    apiKey: 'sk-x',
+    apiDeclined: false,
+    extract: { fetchesPerBranch: 8 },
+    vet: { handleCapPerSource: 200 },
+  });
+  const { out } = await run();
+  const rowFor = (key) => out.split('\n').find((line) => line.trim().startsWith(key));
+
+  assert.match(rowFor('extract.fetchesPerBranch'), /\b8\b/);
+  assert.match(rowFor('vet.handleCapPerSource'), /\b200\b/);
+  assert.ok(!/\b20 → 5\b/.test(rowFor('extract.fetchesPerBranch')), 'the default is not shown beside it');
+});
+
+// A run whose settings file cannot be parsed has no numbers to report, and inventing the
+// defaults there would be the same lie the block exists to prevent.
+test('a malformed settings file prints no configuration report at all', async () => {
+  writeSettings('{ not json');
+  const { out } = await run();
+  assert.ok(!out.includes('RUN CONFIGURATIONS'), 'no numbers rather than numbers nobody set');
+});
+
 // ---------------------------------------------------------------- harness limits
 //
 // Two Claude Code ceilings a deep run hits: 200 web searches per session, and 20

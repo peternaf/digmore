@@ -1,70 +1,76 @@
 # Vet
 
-Print `[3/5] Vet` when this phase starts (`../reporting.md`).
+Print `[3/6] Vet` when this phase starts (`../reporting.md`).
 
-**This is the longest silent stretch of a run, so say how long once and then count.** Hacker News allows one request every 15 seconds, and vetting a handle costs four — but only one of the four hits that throttled host; the rest go to Algolia, which is not rate-limited. So the wall-clock is one handle every 15 seconds, and `vet.handleCapPerSource` handles at the default of 50 is roughly 12 minutes on Hacker News alone — the other sources run beside it and cost nothing extra — and two topics vetting at once queue against the same limit. State the count and the reason on the marker, then reprint it with a running count. A phase that goes quiet for forty minutes reads as a hang, and a run that thinks it has hung starts narrating instead of working.
+**Who is worth quoting, and how much of this topic they actually work on.** One Handle Vetter per handle, on every source that has handles. The judging is theirs — the verdict vocabulary, the topical-relevance read, the per-source signals and the Twitter voice rubric all live in `../subagents/handle_vetter_agent/`, and this file does not restate any of it.
 
-**Vet in batches of about ten handles, one Bash call each.** A command's output reaches you only when it returns, so a single call covering every handle is a stretch of time in which nothing can be printed and nothing can be judged — the count above becomes impossible, and a stall is indistinguishable from work. Between batches you print the count and can stop early if the verdicts are coming back useless.
+What is left here is the orchestrator's own work, and it is the whole phase: **you decide who gets judged and how deeply; the agent decides what the answer is.** Everything below needs a view of every handle at once, or the user, or the disk — which is exactly why none of it is the agent's.
 
-**Hacker News works through its handles one at a time; put other work beside it, never more Hacker News.** Reddit and Twitter go through digmore's API and share no limit with it, so their handles cost nothing extra while HN waits. Synthesize's per-player enrichment (`synthesize_phase_d.md` §3.5) can also start here: it reads the entities Extract found and needs no verdict. The HN loop holds the shell, so the rest goes to sub-agents.
+**This phase is a long queue of small identical jobs, so say how big it is once and then count.** State the count on the marker, then reprint it with a running count. A phase that goes quiet reads as a hang.
 
-For every handle seen in Extract, run `vet_user` (or the source equivalent). Read `../vetting.md` for the verdict schema and how cross-source identity / experts.csv inheritance work. Read `../subagents/handle_vetter_agent/<source>.md` for source-specific signals.
+**Every source is vetted beside every other.** Reddit and Twitter go through digmore's API; Hacker News goes to Algolia and Firebase. They share no limit, so run them together rather than in sequence. **Enrichment cannot be brought forward** — it filters claims by the verdicts this phase is still producing, so it has nothing to work from until Vet is done (`enrich_phase_d.md`).
 
 ## The handle cap — one ranked list per source
 
-Extract surfaces far more handles than a run can vet — thousands on a busy topic. Vetting each one costs two or three requests, and vetting is about half of a run's network traffic.
+Extract surfaces far more handles than a run can vet — thousands on a busy topic.
 
 **The cap is per source, not per run.** Reddit, Hacker News, Twitter and forums each get their own `vet.handleCapPerSource`, and each is ranked on its own. Ranking across sources would mean comparing Hacker News karma against Twitter followers against Reddit upvotes, which is not a comparison — and it would let one busy source spend the whole budget while another went unvetted.
 
-The bound is applied **after ranking, never by taking whatever came first**. Per source:
+The bound is applied **after ranking, never by taking whatever came first** — and the ranking is already done. Extract's Source Analyst wrote `full_source_analysis/<source>-handles.json` for each handle-bearing source, ordered by what each handle actually contributed: highest claim importance first, then how many of that source's documents they appear in.
 
-1. Collect every distinct handle that source produced in Extract.
-2. Rank them by relevance to the research question:
-   - **How often they appeared**, across how many different branches. Someone surfacing in three branches is more central to the question than someone who appeared once.
-   - **How on-topic the material was** where they appeared — an author of a thread that answers the question directly outranks a passing commenter in a tangential one.
-   - **Engagement on what they wrote** — score, karma, upvotes — as the tiebreaker, never the lead. A popular off-topic comment is still off-topic.
-3. Vet down the ranked list until the cap is reached.
-4. Record in `audit.md`, **per source**: how many distinct handles were found, how many were vetted, and that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community, and the summary must not read as though it had.
+That ranking is not yours to redo. It needs every document a source produced, and only the Source Analyst reads the whole pile (`../subagents/source_analyst_agent/index.md`).
 
-**A handle already in `experts.csv` spends a slot like any other.** The cap bounds the size of the vetted set, not the number of requests — so a topic whose inherited `experts.csv` already covers the cap does no further vetting on that source, and that is the intended outcome rather than a shortfall to make up.
+**A source missing this file cannot be vetted.** Extract already re-dispatched its Source Analyst once and it still produced nothing (`extract_phase_b.md` §"When a Source Analyst fails"), so there is nothing left to try here. Do not fall back to ranking by hand off whatever is in context — you no longer hold the claims, so any ranking you built would be by frequency alone, which is the thing the file exists to replace. Record the source as unvetted in `audit.md`, name it in the run's Issues, and carry on.
 
-The cap is `vet.handleCapPerSource`. `preflight.mjs` prints the value that applies to this run, fast-mode reduction already worked out — read it there rather than deriving it (`../modes.md`).
+A source that produced no handles at all is different and is not a failure: no file is the right outcome, and there is nobody to vet.
+
+The file also saves requests: whatever the pages already showed about a handle — forum post counts, badges, trust levels, accepted-answer marks — is in its `signals`, and the Handle Vetter gets it without paying for it. Its `documents` array names the cached files that handle appears in, which is very nearly everything a forums vetter has to work from.
+
+`preflight.mjs` prints the `vet.handleCapPerSource` that applies to this run, fast-mode reduction already worked out — read it there rather than deriving it (`../modes.md`).
 
 ## Flow
 
-1. Take that source's ranked, capped handle list (post authors, comment authors, mentioned handles).
-2. For each handle, check if it matches a row in the topic's `experts.csv`. If yes, auto-promote to `legit` without behavioral vetting. Skip the script call — but the handle still spends its slot, per the cap rule above.
-3. For unmatched handles, dispatch the source's vetting CLI. On Reddit that is `api.mjs reddit user <name> --topic <slug>` — one call returns the verdict and the snapshot together. Twitter is `api.mjs twitter vet <handle> --topic <slug> --posts <n>`, where `n` is how many of the handle's recent posts to read alongside the profile; see the deep pass below. `--topic <slug>` is mandatory on every call, and the scripts refuse to run without it.
-4. Layer the topical-relevance check (see `../vetting.md` §"Topical relevance — caller responsibility") on top of the script's verdict. A handle that the heuristic returns `legit` for is still demoted to `unknown` if they have zero recent on-topic activity. On Reddit the inputs for this arrive in the same response as the verdict — `recent_comments`, each carrying its own body and subreddit — so step 3 has already fetched everything this step needs.
-5. Append newly identified experts (final verdict `legit` AND on-topic) to `experts.csv` via `experts.mjs add`, passing `--last-active` when the source reported one and `--topical-relevance` with the reading step 4 took. Step 4 is the only place that judgement exists; without the flag it is made and thrown away.
-6. Drop charlatans / promoters / spammers — do NOT store them.
+1. **Read `<source>-handles.json`** for each source and take from the top down to `vet.handleCapPerSource`.
 
-There is nothing to vet on the local source: a document the user handed over has no handle behind it. See `../subagents/page_analyst_agent/local.md`.
+2. **Decide who is dispatched at all.** Two kinds of handle spend a slot without one:
+   - **Already a row in `experts.csv`** — inherited from a parent topic or written earlier in this run. Auto-promote to `legit` and move on. The cap bounds the size of the vetted set rather than the number of requests, so a topic whose inherited file already covers the cap does no further vetting on that source, and that is the intended outcome rather than a shortfall to make up.
+   - **Its row already carries a `verdict`** — it was done on an earlier run. Skip it. Do not re-dispatch and rely on the script's cache to make the repeat cheap: that works on Reddit, Hacker News and Twitter, where the script returns the cached verdict without a request, and not on forums, where there is no script and the whole judgement is redone. This is what makes the phase resumable.
 
-## Twitter — the deep pass
+3. **Decide Twitter's depth before dispatching.** The top `twitter.handlesDeepVetted` **by their rank in the file** get `--posts <twitter.postsPerDeepVet>`; everyone else gets `--posts 0`. **One dispatch either way** — there is no second wave.
 
-Twitter vets at two depths, and the second one runs over a subset of the first. Two waves, in order:
+   It used to run twice: the cheap pass over everyone, then a deep pass over whichever came back `unknown`. What made that necessary was not knowing who was `unknown` until the cheap verdict came back, and that reason is gone — the ranking exists before Vet starts, so the deep set is picked from what each handle contributed rather than from a verdict you have to buy first. On Twitter the heuristic floor never returns `legit` anyway, so the profile pass was mostly confirming what was already assumed. The cost is a few deep reads spent on handles that turn out to be `spammer` or `promoter`; that is a handful of calls against a whole extra pass over every handle.
 
-1. **The profile pass.** Every Twitter handle within the cap gets `--posts 0` — the profile alone.
-2. **The deep pass.** Take the handles that came back `unknown`, keep them in the rank order from above, and dispatch the top `twitter.handlesDeepVetted` again with `--posts <twitter.postsPerDeepVet>`. The rest keep `unknown`, and `audit.md` records how many fell below the deep cut.
+4. **Dispatch one Handle Vetter per handle**, batched to the concurrent sub-agent limit `preflight.mjs` reported, and on every source alike. **Nothing here is serialised any more** — Hacker News moved to Firebase and Algolia, neither of which is throttled, so it fans out like the rest.
 
-**Only `unknown` handles are worth the second call.** A `spammer` or `promoter` verdict is already settled, and reading fifty of their posts changes nothing. Ranking decides the rest, because the heuristic floor never returns `legit` (below) — so almost everything that is not a confident negative arrives here ambiguous, and there is no signal in the verdict itself to separate them.
+5. **Write the verdicts back, in batches as they arrive.** Two files from one read, so a handle recorded as `legit` in one is never missing from the other:
+   - **`<source>-handles.json`** — `verdict`, `topicalRelevance`, `verdictReason`, `inExperts`, and `statedIdentifiers`, onto the row that handle already has.
+   - **`experts.csv`**, through `experts.mjs add` — one row when the verdict is `legit` **and** the handle is on-topic, and nothing else consulted. Pass `--last-active` when the source reported one, `--topical-relevance` with the agent's reading, and whatever `statedIdentifiers` printed into the handle columns it names.
 
-A handle that gets the deep pass is therefore dispatched twice, and the second dispatch is the one that does the work. Each depth caches under its own filename, so the deep call fetches the deeper answer rather than re-reading the profile already on disk.
+   **In batches, not once when the source finishes.** A run that stops at handle 30 would otherwise reach no write at all, and thirty dispatches would be gone.
 
-Both numbers are the user's, and `preflight.mjs` prints what this run applies. In `--fast`, `handlesDeepVetted` is `0` and there is no second wave at all.
+   **You write these, not the Handle Vetters.** They fan out one per handle, and a file written by a fan-out loses rows silently; they hand you a short object each and you write.
 
-## LLM judgment for Twitter `unknown`
+6. **Check the file after each batch** — `validate.mjs source-handles` against it, one repair attempt, then drop the offending row and name the handle it came from so its dispatch can be re-run. The gate is on the file rather than on the returns: nothing is built on a return directly, and the two fields anyone acts on are the ones that land here.
 
-The heuristic floor never returns `legit` — only confident negatives (`spammer` / `promoter`) or `unknown`.
+7. **Record per source in `audit.md`**: how many distinct handles the file held, how many were vetted, and that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community, and the summary must not read as though it had.
 
-**The vet response says when judgment is needed: `needs_llm_judgment: true`.** Read the flag; do not re-derive it from the verdict and the post count. It is true exactly when the verdict is `unknown` and posts were sampled, and the rule belongs to whatever produced the verdict rather than to you.
+8. **Keep the user informed** — the marker, the handle count, and the reason it is slow.
 
-It can only be set on the deep pass, since the profile pass samples nothing. The Handle Vetter already holds the posts it fetched, so the judgment is made inside that same dispatch against the rubric in `../subagents/handle_vetter_agent/twitter.md` — real expert / marketer / content-seller / agenda-pusher — and mapped to the shared verdict schema. The judgment is always the plugin's to make; nothing upstream makes it.
+There is nothing to vet on the local source or the open web: a page has an author rather than an account. See `../subagents/page_analyst_agent/local.md`.
 
-## Incremental persistence
+## What a verdict costs downstream
 
-Vetting verdicts persist per-handle to `digmore/<topic-slug>/cache/<source>/` as computed, NOT at end of phase. If Vet is interrupted mid-vet, re-running only re-vets un-vetted handles.
+`legit` is quoted freely · `unknown` is kept and marked "unvetted" · `promoter` is kept only as a promotional signal, labelled · `spammer` and `throwaway` are dropped. **A verdict other than `legit` changes how a quote is used, not whether it survives.**
+
+Every handle that reached vetting got there by ranking high on what it contributed to the question, so dropping it loses evidence the run paid for and already judged relevant. It matters most on Twitter, where the floor never returns `legit`: under a drop-everything-but-`legit` rule a `--fast` run would produce zero usable Twitter quotes.
+
+The full definitions are in `../vetting.md`, which the Handle Vetter is sent.
+
+## Why the verdict does not live in the cache
+
+`cache/` holds what was *fetched* and is disposable; `<source>-handles.json` holds what was *concluded* and is the output. Two things follow. Resume reads the cache — a handle with a cached verdict costs no request — so clearing it costs requests and nothing else. And `<source>-handles.json` is the run's only record of a **rejection**: `experts.csv` keeps `legit` people only, so without it a `promoter` verdict is computed, used to drop a quote, and thrown away, and the next run on the topic pays to compute it again.
+
+The finished file is therefore one source's whole record of its people — who appeared and what they contributed, from Extract; what the run decided about them, from here — sitting beside that source's own report.
 
 ## When a source is unavailable
 
@@ -72,4 +78,4 @@ If Reddit or Twitter has no API key, there are no handles from those sources to 
 
 ## End of Vet
 
-Vet is complete when every handle **within each source's cap** has either: a verdict on disk, or an entry in `experts.csv` (auto-promoted), or was dropped (recorded only in the verdict as `troll`/`spammer`/`promoter` — no entry in experts.csv); and on Twitter, when the deep pass has run over its share of them. Handles below a cut are not pending work — they are recorded in `audit.md` and the run moves on. No marker file.
+Vet is complete when every handle **within each source's cap** has either a verdict in `<source>-handles.json`, or a row in `experts.csv` it was auto-promoted from. Handles below a cut are not pending work — they are recorded in `audit.md` and the run moves on. No marker file.

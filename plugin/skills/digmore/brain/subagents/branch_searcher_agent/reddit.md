@@ -17,8 +17,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit search <query
 `--topic <slug>` is mandatory; the script refuses to run without it. JSON on stdout, errors on
 stderr.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## NEVER use WebSearch for Reddit
 
@@ -32,15 +31,60 @@ happened.
 
 If you catch yourself reaching for WebSearch here, the answer is the script above.
 
-## Scope to subreddits
+## Two searches, in this order
 
-Pass one or more `--subreddit <name>`. Multi-sub is the default; site-wide returns too much
-off-topic noise on a narrow topic.
+**Search site-wide first, then search the subreddits you judge relevant.** Both, every time. One
+without the other is how a Reddit branch comes back thin for a reason nobody can see.
+
+### 1. Site-wide
+
+```
+node "…/api.mjs" reddit search <query> --topic <slug> --time-window all --after-date <today-minus-2y>
+```
+
+No `--subreddit` at all. It searches the whole site, so it cannot miss a community because you did
+not think of it.
+
+**These hits are candidates. Keep every one of them** — they are threads about your angle, ranked by
+Reddit across the whole site, and they go into what you return exactly like the scoped pass's hits.
+Nothing here is thrown away.
+
+They do a second job as well: they show you where this topic actually gets discussed.
+**Take the subreddit out of each result's `url`** — a result carries `url`, `title` and `relevance`,
+with no subreddit field, so it comes from the `r/<name>` segment of the permalink:
+
+```
+https://old.reddit.com/r/LocalLLaMA/comments/1a2b3c/vram_for_70b/  →  LocalLLaMA
+```
+
+Count how often each sub appears across the hits. That count is what tells you where the topic lives,
+and it feeds the pass below.
+
+### 2. Scoped
+
+Then run the same query again with `--subreddit`, choosing the subs yourself:
+
+- **The subs the site-wide hits came from**, where they clustered.
+- **Subs you know are relevant whether or not they surfaced** — the obvious home for this subject,
+  the vendor's own sub, the adjacent community where the practitioners actually are. A quiet sub that
+  site-wide ranking buried can still be the one place the question is answered properly.
+
+The second list matters as much as the first. Site-wide ranks by Reddit's relevance across everything,
+which favours large general subs — so a small specialist sub can be exactly right and never appear.
+Your judgement is the point of this step, not a fallback for it.
+
+**Name the subs you think are right, including ones you are not sure exist.** A wrong or non-existent
+`--subreddit` costs nothing — it comes back empty, and because you ran site-wide first that emptiness
+is readable rather than misleading: site-wide found plenty and your subs found little means the picks
+were off, both thin means the topic really is thin on Reddit. Guessing wrong is cheap here; not
+guessing at all is what loses the specialist sub nobody would have found.
+
+### How multi-sub behaves
 
 **Multi-sub is one request, merged on the API's side.** Three consequences:
 
 - **Order carries meaning** — the first `--subreddit`'s hits rank above the second's. Reversing them
-  is a different query, not the same one.
+  is a different query, not the same one, so put the sub most likely to answer the angle first.
 - `--limit` applies to the merged list, not per subreddit.
 - `relevance` is rank *within* that merged list.
 
@@ -60,7 +104,9 @@ on every search — the default is a floor, not the rule.
 
 The script tells you which of two things happened, and they get different sentences:
 
-- **`{"results": []}` on exit 0** — the topic really is thin on Reddit, and you can say so.
+- **`{"results": []}` on exit 0** — the topic really is thin on Reddit, and you can say so. Only say
+  it when the **site-wide** pass came back empty too; an empty scoped pass on its own says you chose
+  the wrong subs, not that Reddit is quiet.
 - **Exit 3** — the source was walled. Report it as unavailable.
 
 You can trust that split because the API does the work: Reddit answers a blocked request with a
@@ -69,16 +115,35 @@ fresh connection, and reserves exit 3 for the case where every attempt was walle
 
 ## What you return
 
-The search output already matches the `branch-searcher` shape —
-`{"results":[{"url","title","relevance"}]}`, with `relevance` rank-based.
+The `branch-searcher` shape — `{"results":[{"url","title","relevance"}]}`, `relevance` rank-based.
+Each search's output already matches it; what you hand back is **both searches merged and deduped on
+URL**, per §"Two searches" above. A thread found by both is one candidate, keeping the higher
+`relevance`. Say in your log which subs you chose.
 
 ## What lands on disk
 
-`digmore/<slug>/cache/reddit/reddit-search-<subs|sitewide>-<sort>-<window>-<qhash>.json` — one file
-per request, written by the script, naming every subreddit in the order given. A long list collapses
-to `<n>subs-<hash>` so the filename stays inside the path limit.
+**Two files per branch**, one per search: the site-wide pass names itself `sitewide`, the scoped pass
+names itself after the first sub you chose, so they never collide.
 
-That one file is what this dispatch leaves behind. The threads behind those URLs belong to the Page
+`digmore/<slug>/cache/reddit/reddit-search-<scope>-<query-in-4-words>.json` — one file per request,
+written by the script, named so the directory reads without opening anything. `<scope>` is the first
+`--subreddit` in the order given, or `sitewide`; the four words are the query with its stopwords and
+punctuation removed.
+
+```
+--subreddit LocalLLaMA --subreddit selfhosted, query "what are the vram requirements for local llm"
+  → reddit-search-localllama-vram-requirements-local-llm.json
+```
+
+**The name is readable, so it is not unique.** Four words cannot carry the other subreddits, the
+sort, the window or the rest of the query, so two different searches can land on one name. The script
+handles it: the whole request is stored inside the file and compared on read — same request is a hit,
+a different one probes `-2`, `-3` and so on until it finds its own file or a free slot. The match is
+on the stored request and never on the number, so a repeated search finds its own file whichever
+number it landed on first.
+
+None of that is yours to manage. Run the command; the script decides where the answer goes and hands
+you back what it fetched or what it already had.
+
+Those two files are what this dispatch leaves behind. The threads behind the URLs belong to the Page
 Analyst.
-
-If the cache file already exists, the script returns it without re-fetching.

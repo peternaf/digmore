@@ -1,7 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Sandbox, repoRoot, script } from './helpers.mjs';
 
@@ -15,7 +14,7 @@ test('user caches as user-<handle>.json', async () => {
   const { json } = await sandbox.run('api.mjs', 'twitter', 'user', 'someone', '--topic', 'demo');
   assert.equal(sandbox.requests[0].path, '/v1/twitter/user/someone');
   assert.equal(json.followers_count, 1200);
-  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'user-someone.json')));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'twitter-user-someone.json')));
 });
 
 test('tweets caches as tweets-<handle>-<N>.json and defaults to 25', async () => {
@@ -24,7 +23,7 @@ test('tweets caches as tweets-<handle>-<N>.json and defaults to 25', async () =>
   await sandbox.run('api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo');
   assert.equal(sandbox.requests[0].path, '/v1/twitter/tweets/someone');
   assert.equal(sandbox.requests[0].query.limit, '25', 'the documented default');
-  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'tweets-someone-25.json')));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'twitter-tweets-someone-25.json')));
 });
 
 test('tweets honours --limit, and each limit is its own cache file', async () => {
@@ -32,7 +31,7 @@ test('tweets honours --limit, and each limit is its own cache file', async () =>
   sandbox.configured(base);
   await sandbox.run('api.mjs', 'twitter', 'tweets', 'someone', '--topic', 'demo', '--limit', '100');
   assert.equal(sandbox.requests[0].query.limit, '100');
-  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'tweets-someone-100.json')));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'twitter-tweets-someone-100.json')));
 });
 
 // 5-100 is the X API's own range for one timeline page, so anything outside it is a
@@ -78,8 +77,8 @@ test('tweet fetches bodies by id, batched, one cache file per id', async () => {
   assert.equal(sandbox.requests[0].path, '/v1/twitter/tweet');
   assert.equal(sandbox.requests[0].query.tweet_ids, '111,222');
   assert.deepEqual(json.tweets.map((tweet) => tweet.id), ['111', '222']);
-  assert.equal(sandbox.cached('demo', 'twitter', 'tweet-111.json').text, 'body of 111');
-  assert.equal(sandbox.cached('demo', 'twitter', 'tweet-222.json').text, 'body of 222');
+  assert.equal(sandbox.cached('demo', 'twitter', 'twitter-tweet-111.json').text, 'body of 111');
+  assert.equal(sandbox.cached('demo', 'twitter', 'twitter-tweet-222.json').text, 'body of 222');
 });
 
 test('re-quoting a tweet across runs does not re-fetch it', async () => {
@@ -140,12 +139,57 @@ test('a post count that is not a whole number is refused', async () => {
   assert.equal(sandbox.requests.length, 0);
 });
 
-test('each depth caches separately — the deep pass re-fetches', async () => {
+// One handle, one file — the depth used to be in the name, because a handle could be vetted
+// twice. It cannot any more: the depth is decided from the ranking before anything runs. What
+// the comparison still protects is resume and re-runs.
+test('vet caches under one name per handle, whatever the depth', async () => {
   const base = await sandbox.apiReturning({ verdict: 'unknown' });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '0');
   await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '50');
-  assert.equal(sandbox.requests.length, 2, 'the deep pass is deeper data, not the same call');
+  assert.ok(existsSync(sandbox.cachePath('demo', 'twitter', 'twitter-vet-someone.json')));
+  assert.deepEqual(
+    readdirSync(sandbox.cachePath('demo', 'twitter', '.')).filter((name) => name.includes('someone')),
+    ['twitter-vet-someone.json'],
+    'no -<n>posts suffix, so no file per depth',
+  );
+  assert.equal(sandbox.cached('demo', 'twitter', 'twitter-vet-someone.json').posts_sampled, 50);
+});
+
+// Deeper supersedes shallower, never the other way round. Without the comparison, dropping the
+// suffix would let a profile-only file answer a deep call — returning cached having never read
+// the posts it was dispatched for.
+test('a shallower cached file is a miss for a deeper call, and a deeper one is a hit', async () => {
+  const base = await sandbox.apiReturning({ verdict: 'unknown' });
+  sandbox.configured(base);
+
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '0');
+  assert.equal(sandbox.requests.length, 1);
+
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '50');
+  assert.equal(sandbox.requests.length, 2, 'the profile-only file cannot answer a deep call');
+  assert.equal(sandbox.cached('demo', 'twitter', 'twitter-vet-someone.json').posts_sampled, 50);
+
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '10');
+  assert.equal(sandbox.requests.length, 2, 'a deeper file answers a shallower call');
+
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '50');
+  assert.equal(sandbox.requests.length, 2, 'and the same depth is a plain hit');
+});
+
+// A file written before posts_sampled existed reads as depth 0: it answers a profile-only call
+// and is re-fetched for anything deeper. That is the right way round — the alternative is
+// trusting an unknown depth to be sufficient.
+test('a cached file with no posts_sampled is treated as the profile pass', async () => {
+  const base = await sandbox.apiReturning({ verdict: 'unknown', fresh: true });
+  sandbox.configured(base);
+  sandbox.writeCache('demo', 'twitter', 'twitter-vet-someone.json', { verdict: 'unknown' });
+
+  const shallow = await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '0');
+  assert.equal(sandbox.requests.length, 0, 'it answers --posts 0');
+  assert.equal(shallow.json.fresh, undefined);
+
+  await sandbox.run('api.mjs', 'twitter', 'vet', 'someone', '--topic', 'demo', '--posts', '25');
+  assert.equal(sandbox.requests.length, 1, 'and is re-fetched for anything deeper');
 });
 
 // There is no user-side spend, so there is no verb for estimating one.

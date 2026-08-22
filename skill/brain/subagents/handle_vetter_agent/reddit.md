@@ -61,14 +61,14 @@ The `created_utc` of the most recent entry in `recent_comments`, as `YYYY-MM-DD`
 
 ## What lands on disk
 
-Three files in `digmore/<slug>/cache/reddit/`, all written by that one call:
+**One file per handle**, written by that one call:
+`digmore/<slug>/cache/reddit/reddit-vet-<name>.json` — the profile, the recent comments and the
+verdict, together. It used to be three, because the brain it came from made two requests and cached
+the verdict in a third; one response means one file, and three files meant three reads that all had
+to hit before the cache counted as warm.
 
-- `reddit-user-about-<name>.json` — the profile fields.
-- `reddit-user-comments-<name>.json` — the `recent_comments` array.
-- `reddit-vet-<name>.json` — verdict, signals and reason.
-
-Nothing else writes any of the three. If they already exist the script returns them without
-re-fetching.
+If it already exists the script returns it without re-fetching. **You do no checking to make that
+true** — run the command and let it answer from disk or from the network.
 
 ## Known gap
 

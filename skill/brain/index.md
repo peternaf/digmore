@@ -9,7 +9,7 @@ The same for every command. A command's reference file names its deliverable —
 1. **Plan** — parse the intent, slug the topic, detect whether this is a fresh topic, a re-run, or one branched from a parent, then scope it and write `research_plan.json`. `phases/plan_phase_a.md`.
 2. **The six phases, in order** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. `phases/index.md`. None of them is optional.
 3. **Mode** — `--auto` and `--fast`, token-matched anywhere in the args. `modes.md` owns every interaction and depth setting, per-command exceptions included.
-4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output` must resolve under `digmore/<slug>/cache/<source>/`.
+4. **Source scripts** — `--topic <slug>` is mandatory on every call and the scripts refuse to run without it. `fetch.mjs --output-dir` must resolve under `digmore/<slug>/cache/`, and the script names the file itself.
 5. **Every sub-agent return is checked** before anything is built on it, with one repair attempt and then a recorded drop. `scripts/subagent_returns.json`.
 6. **End of run** — append the run to `research_plan.json.run_history`, then print the four terminal sections in `reporting.md`. Nothing else reaches the terminal.
 
@@ -30,22 +30,26 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `page_quality.md`, `subagents/handle_vetter_agent/` |
 | Enrichment — who the research is about: the player candidates, the selection, the profiling | `phases/enrich_phase_d.md`, `subagents/player_profiler_agent.md` |
-| Synthesize — filter, expand, synthesise, critic pass | `phases/synthesize_phase_e.md`, `scripts/subagent_returns.json` (Synthesizer schema), `output.md` (writing style is non-negotiable) |
-| Audit — verify the top claims against their sources | `phases/audit_phase_f.md`, `scripts/subagent_returns.json` (Verifier schema) |
+| Synthesize — the evidence becomes documents: the enumerable sections and the raw report, then the summary drafted from them | `phases/synthesize_phase_e.md`, `subagents/raw_report_writer_agent.md`, `subagents/final_report_writer_agent.md`, `sections.md`, `output.md` (writing style is non-negotiable) |
+| Audit — the report is checked and fixed: reviewed, repaired, copy edited, every rendered claim checked against the text the run stored | `phases/audit_phase_f.md`, `subagents/final_report_reviewer_agent.md`, `subagents/final_report_copy_editor_agent.md`, `subagents/claim_fact_checker_agent.md` |
 | Salvage paths, where a run writes, one writer per file, why claims and source notes stay on disk, how the six phases connect | `phases/index.md` |
 | Dispatching a sub-agent that returns a schema — the prompt, its three slots, the check on what comes back | `subagents/dispatch_structured_subagent.md` |
 | Deciding the summary's sections, or filling and rendering one | `sections.md` |
 | Writing ANY user-facing or sub-agent output (always) | `output.md` |
 | Printing progress, the Run footer, the end-of-run sections; where a question for the user goes | `reporting.md` |
 
-| Mode dispatch (manual vs auto), the run ceilings and what each bounds, failure halts | `modes.md` |
+| Mode dispatch (manual vs auto), the run configurations and what each bounds, failure halts | `modes.md` |
 
 ## Sub-agents
 
-One directory per agent, under `subagents/`. Each holds that agent's own instructions in
-`index.md`, and one file per source it works with. **An agent is sent its `index.md` and the file
-for the source it was given, and nothing else** — the files are self-contained on purpose, so no
-agent reads a rule written for a different one.
+One entry per agent, under `subagents/`. An agent whose work differs by source has a directory —
+its own instructions in `index.md`, and one file per source. An agent whose work does not is a single
+file. **An agent is sent its own file and, where it has one, the file for the source it was given,
+and nothing else** — the files are self-contained on purpose, so no agent reads a rule written for a
+different one.
+
+**Every one of them opens with a summary table**, defined in `AGENTS.md` §"Writing a sub-agent file":
+one field per row, in a fixed order, so two agents can be compared without reading either in full.
 
 | Agent | Phase | Directory |
 |---|---|---|
@@ -55,10 +59,21 @@ agent reads a rule written for a different one.
 | Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source |
 | Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums |
 | Player Profiler | Enrichment | `subagents/player_profiler_agent.md` |
+| Raw report writer | Synthesize · Audit | `subagents/raw_report_writer_agent.md` |
+| Final report writer | Synthesize · Audit | `subagents/final_report_writer_agent.md` |
+| Final report reviewer | Audit | `subagents/final_report_reviewer_agent.md` |
+| Final report copy editor | Audit | `subagents/final_report_copy_editor_agent.md` |
+| Claim Fact Checker | Audit | `subagents/claim_fact_checker_agent.md` |
 
-**Every agent that fetches a page is also sent `fetching.md`** — the Page Analyst, the Expert
-Document Analyst, the Player Profiler and the Claim Fact Checker. It owns the `fetch.mjs` command
-and the bot-wall fallback, so no agent carries its own copy of either.
+**The first six have a directory and one file per source; the last five are a single file each**,
+because nothing about what they do differs by source — they work from what the run has already
+gathered rather than from any one place it came from.
+
+**Both agents that fetch a page are also sent `fetching.md`** — the Page Analyst and the Player
+Profiler, and those two are all of them. It owns the `fetch.mjs` command and the bot-wall fallback,
+so no agent carries its own copy of either. The Claim Fact Checker is deliberately sent neither: it
+checks claims against pages already on disk, and a file explaining how to get a page would invite it
+to go and get one.
 
 The six sources are Reddit, Hacker News, Twitter, the open web, specialty forums, and the user's
 own documents. **The Handle Vetter does not cover all of them**, because a web page and a handed-over document have

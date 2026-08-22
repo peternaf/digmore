@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  digmore V0.1.1 — run anatomy diagram.
+
+  Standalone. No build step, no server, no dependencies: open it in a browser.
+  The only network request is the Google Fonts stylesheet; without it the page
+  falls back to system faces and still reads correctly.
+
+  ── What is in here ────────────────────────────────────────────────────────
+  1. The flow diagram   — one hand-authored <svg>, five columns, top to bottom.
+  2. The persistence chart — a second <svg>: what the main session carries,
+                             across the six phases.
+  3. The sub-agent table — plain HTML, twelve columns, one row per agent.
+
+  ── Editing the flow diagram ───────────────────────────────────────────────
+  Every element is absolutely positioned inside `viewBox="0 0 1400 2790"`.
+  There is no layout engine: if you add a row you must move everything below it.
+
+  Column x-origins, fixed for every row:
+
+      YOU lane        boxes at x=16,  width 176   (tinted band x=10,  w=192)
+      the spine       x=202
+      DIGMORE         boxes at x=214, width 420 · text at x=228
+      MAIN CONTEXT    text at x=652              (tinted band x=646, w=440)
+      SUB-AGENT CTX   text at x=872              (divider line at x=866)
+      FILES           text at x=1098
+      full-width rule x1=10 → x2=1390
+
+  A DIGMORE row is: <rect class="box"> · an optional <line class="edge"> down
+  its left side marking a sub-agent · a <text class="t"> title · one or more
+  <text class="s"> detail lines · and <path class="flow"> joining it to the
+  spine. Box heights used: 44 (2 lines), 58 (3), 72 (4). Vertical gap 14.
+
+  Text does not wrap in SVG. Each visual line is its own <text>, and the line
+  breaks below were chosen for these widths — re-wrap by hand if you change a
+  column width. Budgets at the current sizes: DIGMORE ~66 characters per line,
+  MAIN and SUB-AGENT ~34, FILES ~46 (monospace).
+
+  ── Editing the persistence chart ──────────────────────────────────────────
+  Six phase columns, 112 wide, starting at x=310. A bar spans the phases in
+  which an item is still being read. Bar x = 314 + 112*(firstPhase-1), width =
+  112*phaseCount - 8. Row pitch is 38px.
+
+  A bar's END IS NOT A DELETION. Nothing leaves a session transcript. The bar
+  marks the last step that reads the item — which is what a resumed run must
+  rebuild from disk, and what a compaction could safely drop.
+
+  ── Themes ─────────────────────────────────────────────────────────────────
+  Light palette on bare :root; dark redefines the same tokens twice, once for
+  prefers-color-scheme and once for [data-theme="dark"]. Never set a colour
+  outside a token or one theme will render the other theme's text.
+
+  ── Provenance ─────────────────────────────────────────────────────────────
+  Drawn from plans/V0.1.1-subagents.md and skill/brain/ as of 2026-08-22.
+  Where the two disagreed, V0.1.1-subagents.md won — it says so itself.
+  Marked as undecided in the diagram, because they are undecided in the doc:
+  the raw report writer's return shape, and the log files for the Brief
+  Reviewer and the Copy Editor.
+-->
+<title>Anatomy of a Digmore Run</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root {
+    --ground: #F5F5F4; --surface: #FFFFFF; --lane: #EFEEEC; --bar: #DEDBD5;
+    --barstrong: #1B1B1A; --ink: #1B1B1A; --muted: #6E6E6B; --line: #C9C8C4;
+    --body: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #171716; --surface: #1F1F1E; --lane: #272624; --bar: #B9B5AD;
+      --barstrong: #EAEAE7; --ink: #EAEAE7; --muted: #9A9A96; --line: #46453F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #171716; --surface: #1F1F1E; --lane: #272624; --bar: #B9B5AD;
+    --barstrong: #EAEAE7; --ink: #EAEAE7; --muted: #9A9A96; --line: #46453F;
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 84rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.5rem 1.5rem; border-bottom: 1px solid var(--ink); padding-bottom: 0.7rem; }
+  h1 { font-weight: 600; font-size: 1.35rem; letter-spacing: -0.01em; margin: 0; }
+  .meta { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+  h2 { font-weight: 600; font-size: 1.1rem; margin: 1.5rem 0 0; padding-top: 1.5rem; border-top: 1px solid var(--ink); }
+
+  p { font-size: 0.95rem; color: var(--muted); max-width: 44rem; margin: 0; }
+  p b { color: var(--ink); font-weight: 600; }
+  code { font-family: var(--mono); font-size: 0.85em; }
+
+  .key { display: flex; flex-wrap: wrap; gap: 0.35rem 1.5rem; font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 0.7rem; }
+  .key b { color: var(--ink); font-weight: 600; }
+
+  .figbox { background: var(--surface); border: 1px solid var(--line); padding: 1.25rem 0.75rem; overflow-x: auto; margin: 0; min-width: 0; max-width: 100%; }
+  .figbox svg { display: block; width: 100%; min-width: 820px; height: auto; color: var(--ink); }
+
+  .tablebox { background: var(--surface); border: 1px solid var(--line); overflow-x: auto; min-width: 0; max-width: 100%; }
+  table { border-collapse: collapse; width: 100%; min-width: 108rem; font-size: 0.78rem; line-height: 1.45; }
+  th, td { text-align: left; padding: 0.6rem 0.7rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--ink); vertical-align: bottom; }
+  tbody tr:nth-child(even) { background: var(--lane); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+  td.a { font-weight: 600; }
+  td.p { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+  td.fp { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); word-break: break-word; }
+  td code { font-size: 0.95em; }
+  .none { color: var(--muted); font-style: italic; }
+
+  .lanefill { fill: var(--lane); stroke: none; }
+  .box { fill: var(--surface); stroke: var(--line); stroke-width: 1; }
+  .edge { stroke: var(--ink); stroke-width: 2.5; }
+  .dash { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; stroke-dasharray: 5 3; }
+  .flow { stroke: var(--muted); stroke-width: 1; fill: none; }
+  .spine { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+  .rule { stroke: var(--ink); stroke-width: 1; }
+  .div { stroke: var(--line); stroke-width: 1; }
+  .t { font-family: var(--body); font-size: 12.5px; font-weight: 500; fill: var(--ink); }
+  .tu { font-family: var(--body); font-size: 11.5px; font-weight: 600; fill: var(--ink); }
+  .s { font-family: var(--body); font-size: 11px; fill: var(--muted); }
+  .su { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+  .ck { font-family: var(--body); font-size: 10.5px; fill: var(--ink); }
+  .ci { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+  .nil { font-family: var(--body); font-size: 10.5px; fill: var(--line); }
+  .f { font-family: var(--mono); font-size: 9.5px; fill: var(--muted); }
+  .fl { font-family: var(--mono); font-size: 9.5px; font-weight: 500; fill: var(--ink); }
+  .ph { font-family: var(--body); font-size: 11px; font-weight: 600; fill: var(--ink); letter-spacing: 0.14em; }
+  .pn { font-family: var(--body); font-size: 10.5px; fill: var(--muted); }
+  .lh { font-family: var(--body); font-size: 10px; font-weight: 600; fill: var(--muted); letter-spacing: 0.14em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Anatomy of a Digmore Run</h1>
+    <div class="meta">V0.1.1 — six phases, eleven agents</div>
+  </header>
+
+  <p>Digmore is a research tool that runs inside Claude Code. You give it a topic; it searches the
+    web, reads what it finds, checks who wrote it, and hands back a report where every claim names
+    its source. Five columns: <b>what you do</b>, <b>what it does alone</b>, <b>what the main
+    session ends up holding</b>, <b>what the sub-agent held and threw away</b>, and <b>which files
+    each step touches</b>.</p>
+
+  <div class="key">
+    <span><b>dashed</b> — it stops and waits for you</span>
+    <span><b>thick left edge</b> — a sub-agent</span>
+    <span><b>main context</b> — survives to the end of the run</span>
+    <span><b>sub-agent context</b> — dies the moment it returns</span>
+    <span><b>IN / OUT / NET</b> — files read, written, fetched</span>
+  </div>
+
+  <figure class="figbox">
+    <svg viewBox="0 0 1400 2790" role="img" aria-label="A digmore run top to bottom in five columns: what the user must do, what digmore does on its own across six phases, what the main session keeps, what the sub-agent held and discarded, and the files each step reads, writes or fetches.">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+
+      <rect class="lanefill" x="10" y="40" width="192" height="2690"/>
+      <rect class="lanefill" x="646" y="40" width="440" height="2690"/>
+      <line class="div" x1="866" y1="40" x2="866" y2="2730"/>
+
+      <text class="lh" x="16" y="24">YOU</text>
+      <text class="lh" x="214" y="24">DIGMORE — ON ITS OWN</text>
+      <text class="lh" x="652" y="24">MAIN CONTEXT</text>
+      <text class="lh" x="872" y="24">SUB-AGENT CONTEXT</text>
+      <text class="lh" x="1098" y="24">FILES</text>
+      <line class="rule" x1="10" y1="32" x2="1390" y2="32"/>
+      <line class="spine" x1="202" y1="60" x2="202" y2="2729"/>
+
+      <!-- GETTING STARTED -->
+      <text class="ph" x="10" y="54">GETTING STARTED</text>
+      <line class="rule" x1="10" y1="60" x2="1390" y2="60"/>
+
+      <rect class="box" x="16" y="72" width="176" height="72"/>
+      <text class="tu" x="28" y="91">Ask for research</text>
+      <text class="su" x="28" y="107">Type the topic you want</text>
+      <text class="su" x="28" y="121">looked into. Add your own</text>
+      <text class="su" x="28" y="135">files if you have any.</text>
+      <path class="flow" d="M 200 108 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="158" width="420" height="58"/>
+      <text class="t" x="228" y="178">Check the setup</text>
+      <text class="s" x="228" y="194">Reads the API key, this run's ceilings, and the limits</text>
+      <text class="s" x="228" y="209">Claude Code imposes — before anything is searched.</text>
+      <path class="flow" d="M 204 187 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="178">The key's state, and every</text>
+      <text class="ck" x="652" y="191">ceiling this run must obey.</text>
+      <text class="nil" x="872" y="178">— no sub-agent</text>
+      <text class="f" x="1098" y="178"><tspan class="fl">IN</tspan>   ~/.digmore/settings.json</text>
+      <text class="f" x="1098" y="191"><tspan class="fl">NET</tspan>  GET /v1/ping</text>
+
+      <rect class="dash" x="16" y="230" width="176" height="72"/>
+      <text class="tu" x="28" y="249">Answer two questions</text>
+      <text class="su" x="28" y="265">First run only. Add a key</text>
+      <text class="su" x="28" y="279">or decline it; raise the</text>
+      <text class="su" x="28" y="293">limits or go as you are.</text>
+      <path class="flow" d="M 200 266 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="316" width="420" height="44"/>
+      <text class="t" x="228" y="336">Pick the kind of research</text>
+      <text class="s" x="228" y="352">Map a market · one company · a question · a marketing push</text>
+      <path class="flow" d="M 204 338 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="336">One word, and the report</text>
+      <text class="ck" x="652" y="349">layout it brings.</text>
+      <text class="nil" x="872" y="336">— no sub-agent</text>
+      <text class="f" x="1098" y="336"><tspan class="fl">IN</tspan>   reference/&lt;command&gt;.md</text>
+
+      <rect class="dash" x="16" y="374" width="176" height="58"/>
+      <text class="tu" x="28" y="393">Confirm the pick</text>
+      <text class="su" x="28" y="409">Only if you didn't name</text>
+      <text class="su" x="28" y="423">one. One word to switch.</text>
+      <path class="flow" d="M 200 403 H 190" marker-end="url(#a)"/>
+
+      <!-- PLAN -->
+      <text class="ph" x="10" y="464">PLAN</text>
+      <text class="pn" x="634" y="464" text-anchor="end">phase 1 of 6 — decide what to look for</text>
+      <line class="rule" x1="10" y1="470" x2="1390" y2="470"/>
+
+      <rect class="box" x="214" y="482" width="420" height="44"/>
+      <text class="t" x="228" y="502">Name the topic</text>
+      <text class="s" x="228" y="518">One folder, named after it. New, a repeat, or a spin-off?</text>
+      <path class="flow" d="M 204 504 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="502">The folder name, and how</text>
+      <text class="ck" x="652" y="515">this run relates to earlier ones.</text>
+      <text class="nil" x="872" y="502">— no sub-agent</text>
+      <text class="f" x="1098" y="502"><tspan class="fl">OUT</tspan>  research_plan.json</text>
+
+      <rect class="dash" x="16" y="540" width="176" height="72"/>
+      <text class="tu" x="28" y="559">Sharpen a vague topic</text>
+      <text class="su" x="28" y="575">Only if the request is</text>
+      <text class="su" x="28" y="589">too broad to name — two</text>
+      <text class="su" x="28" y="603">or three quick questions.</text>
+      <path class="flow" d="M 200 576 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="628" width="420" height="58"/>
+      <line class="edge" x1="214" y1="628" x2="214" y2="686"/>
+      <text class="t" x="228" y="648">Scout the subject</text>
+      <text class="s" x="228" y="664">1 sub-agent, up to 10 searches. Learns the words insiders</text>
+      <text class="s" x="228" y="679">use, then proposes 3–6 angles worth researching.</text>
+      <path class="flow" d="M 204 657 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="648">The vocabulary, the names</text>
+      <text class="ck" x="652" y="661">and the angles.</text>
+      <text class="ci" x="872" y="648">Ten searches of open web,</text>
+      <text class="ci" x="872" y="661">none of it kept.</text>
+      <text class="f" x="1098" y="648"><tspan class="fl">NET</tspan>  WebSearch × ≤10</text>
+      <text class="f" x="1098" y="661"><tspan class="fl">OUT</tspan>  cache/_returns/scoping-agent.json</text>
+
+      <rect class="box" x="214" y="700" width="420" height="44"/>
+      <text class="t" x="228" y="720">Decide what the report will contain</text>
+      <text class="s" x="228" y="736">The sections, in order, fixed before any research runs.</text>
+      <path class="flow" d="M 204 722 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="720">The section titles, in order.</text>
+      <text class="nil" x="872" y="720">— no sub-agent</text>
+      <text class="f" x="1098" y="720"><tspan class="fl">OUT</tspan>  research_plan.json</text>
+
+      <rect class="dash" x="16" y="758" width="176" height="58"/>
+      <text class="tu" x="28" y="777">Approve the plan</text>
+      <text class="su" x="28" y="793">Change an angle or a</text>
+      <text class="su" x="28" y="807">section, or say go ahead.</text>
+      <path class="flow" d="M 200 787 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="830" width="420" height="44"/>
+      <text class="t" x="228" y="850">Pair every angle with every place to look</text>
+      <text class="s" x="228" y="866">3–6 angles × up to 6 places = 18–36. Sets the run's size.</text>
+      <path class="flow" d="M 204 852 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="850">18–36 short strings.</text>
+      <text class="nil" x="872" y="850">— no sub-agent</text>
+      <text class="f" x="1098" y="850"><tspan class="fl">OUT</tspan>  research_plan.json</text>
+
+      <!-- EXTRACT -->
+      <text class="ph" x="10" y="890">EXTRACT</text>
+      <text class="pn" x="634" y="890" text-anchor="end">phase 2 of 6 — go and get it · nothing to do</text>
+      <line class="rule" x1="10" y1="896" x2="1390" y2="896"/>
+
+      <rect class="box" x="214" y="908" width="420" height="58"/>
+      <line class="edge" x1="214" y1="908" x2="214" y2="966"/>
+      <text class="t" x="228" y="928">Search</text>
+      <text class="s" x="228" y="944">One sub-agent per angle-and-place, all at once. Collects</text>
+      <text class="s" x="228" y="959">links only — it never opens them.</text>
+      <path class="flow" d="M 204 937 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="928">Every candidate link, with</text>
+      <text class="ck" x="652" y="941">a title and a score.</text>
+      <text class="ci" x="872" y="928">The raw search responses.</text>
+      <text class="f" x="1098" y="928"><tspan class="fl">NET</tspan>  digmore API · WebSearch</text>
+      <text class="f" x="1098" y="941"><tspan class="fl">OUT</tspan>  cache/&lt;src&gt;/&lt;src&gt;-search-*.json</text>
+      <text class="f" x="1098" y="954"><tspan class="fl">OUT</tspan>  cache/local/&lt;your own files&gt;</text>
+
+      <rect class="box" x="214" y="980" width="420" height="72"/>
+      <line class="edge" x1="214" y1="980" x2="214" y2="1052"/>
+      <text class="t" x="228" y="1000">Read</text>
+      <text class="s" x="228" y="1016">One sub-agent per link, up to 720. Opens the page, strips</text>
+      <text class="s" x="228" y="1031">ads and menus, follows it to its last page, pulls out claims</text>
+      <text class="s" x="228" y="1046">— each with the exact sentence and the handle behind it.</text>
+      <path class="flow" d="M 204 1016 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1000">Four numbers per page: did</text>
+      <text class="ck" x="652" y="1013">it load, claims, pages, tool.</text>
+      <text class="ci" x="872" y="1000">The whole page, and every</text>
+      <text class="ci" x="872" y="1013">page of it if it paginates.</text>
+      <text class="f" x="1098" y="1000"><tspan class="fl">IN</tspan>   the cached page, if already there</text>
+      <text class="f" x="1098" y="1013"><tspan class="fl">NET</tspan>  fetch.mjs · digmore API · scripts</text>
+      <text class="f" x="1098" y="1026"><tspan class="fl">OUT</tspan>  cache/&lt;source&gt;/&lt;name&gt;.md</text>
+      <text class="f" x="1098" y="1039"><tspan class="fl">OUT</tspan>  cache/&lt;source&gt;/&lt;name&gt;-claims.json</text>
+
+      <rect class="box" x="214" y="1066" width="420" height="72"/>
+      <line class="edge" x1="214" y1="1066" x2="214" y2="1138"/>
+      <text class="t" x="228" y="1086">Write each site's own report</text>
+      <text class="s" x="228" y="1102">One sub-agent per site, reading everything that site gave —</text>
+      <text class="s" x="228" y="1117">the largest read in the run. It writes that site's raw report,</text>
+      <text class="s" x="228" y="1132">ranks its people, and lists the companies it named.</text>
+      <path class="flow" d="M 204 1102 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1086">Nothing at all.</text>
+      <text class="ci" x="872" y="1086">Every page and every claims</text>
+      <text class="ci" x="872" y="1099">file that site produced — the</text>
+      <text class="ci" x="872" y="1112">largest read in the run.</text>
+      <text class="f" x="1098" y="1086"><tspan class="fl">IN</tspan>   cache/&lt;source&gt;/*</text>
+      <text class="f" x="1098" y="1099"><tspan class="fl">OUT</tspan>  …/&lt;source&gt;-raw-report.md</text>
+      <text class="f" x="1098" y="1112"><tspan class="fl">OUT</tspan>  …/&lt;source&gt;-handles.json</text>
+      <text class="f" x="1098" y="1125"><tspan class="fl">OUT</tspan>  …/&lt;source&gt;-players.json</text>
+
+      <!-- VET -->
+      <text class="ph" x="10" y="1156">VET</text>
+      <text class="pn" x="634" y="1156" text-anchor="end">phase 3 of 6 — who said it</text>
+      <line class="rule" x1="10" y1="1162" x2="1390" y2="1162"/>
+
+      <rect class="box" x="214" y="1174" width="420" height="44"/>
+      <text class="t" x="228" y="1194">Take the ranked list of people</text>
+      <text class="s" x="228" y="1210">Ranked in phase 2. Each site's top 50 come off the top.</text>
+      <path class="flow" d="M 204 1196 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1194">The handles about to be</text>
+      <text class="ck" x="652" y="1207">checked, in order.</text>
+      <text class="nil" x="872" y="1194">— no sub-agent</text>
+      <text class="f" x="1098" y="1194"><tspan class="fl">IN</tspan>   …/*-handles.json</text>
+
+      <rect class="dash" x="16" y="1232" width="176" height="72"/>
+      <text class="tu" x="28" y="1251">Approve a deeper look</text>
+      <text class="su" x="28" y="1267">Only when reading a</text>
+      <text class="su" x="28" y="1281">batch of accounts costs</text>
+      <text class="su" x="28" y="1295">more than usual.</text>
+      <path class="flow" d="M 200 1268 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="1318" width="420" height="72"/>
+      <line class="edge" x1="214" y1="1318" x2="214" y2="1390"/>
+      <text class="t" x="228" y="1338">Check each person</text>
+      <text class="s" x="228" y="1354">One sub-agent each. Real expert, marketer, spammer or</text>
+      <text class="s" x="228" y="1369">throwaway — and do they post about this topic at all?</text>
+      <text class="s" x="228" y="1384">Anyone who fails is quoted with a caveat, or dropped.</text>
+      <path class="flow" d="M 204 1354 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1338">Verdict, reason, topical</text>
+      <text class="ck" x="652" y="1351">relevance, last active.</text>
+      <text class="ci" x="872" y="1338">That person's recent posts</text>
+      <text class="ci" x="872" y="1351">and comments.</text>
+      <text class="f" x="1098" y="1338"><tspan class="fl">NET</tspan>  digmore API · Firebase · Algolia</text>
+      <text class="f" x="1098" y="1351"><tspan class="fl">OUT</tspan>  cache/&lt;src&gt;/&lt;src&gt;-vet-&lt;name&gt;.json</text>
+      <text class="f" x="1098" y="1364"><tspan class="fl">OUT</tspan>  experts.csv</text>
+      <text class="f" x="1098" y="1377"><tspan class="fl">OUT</tspan>  …-handles.json  (verdicts added)</text>
+
+      <!-- ENRICHMENT -->
+      <text class="ph" x="10" y="1408">ENRICHMENT</text>
+      <text class="pn" x="634" y="1408" text-anchor="end">phase 4 of 6 — who the research is about</text>
+      <line class="rule" x1="10" y1="1414" x2="1390" y2="1414"/>
+
+      <rect class="box" x="214" y="1426" width="420" height="58"/>
+      <text class="t" x="228" y="1446">Pick each expert's pages</text>
+      <text class="s" x="228" y="1462">From what vetting already cached, not a new search. Reddit</text>
+      <text class="s" x="228" y="1477">and HN come back whole; Twitter only for the deep pass.</text>
+      <path class="flow" d="M 204 1455 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1446">Which cached pages are</text>
+      <text class="ck" x="652" y="1459">worth reading, per expert.</text>
+      <text class="nil" x="872" y="1446">— no sub-agent</text>
+      <text class="f" x="1098" y="1446"><tspan class="fl">IN</tspan>   cache/&lt;src&gt;/&lt;src&gt;-vet-*.json</text>
+
+      <rect class="box" x="214" y="1498" width="420" height="58"/>
+      <line class="edge" x1="214" y1="1498" x2="214" y2="1556"/>
+      <text class="t" x="228" y="1518">Read the expert pages</text>
+      <text class="s" x="228" y="1534">The same Page Analyst in its second mode: carrying the</text>
+      <text class="s" x="228" y="1549">research question, keeping only claims that bear on it.</text>
+      <path class="flow" d="M 204 1527 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1518">The same four-field receipt.</text>
+      <text class="ci" x="872" y="1518">The cached comments and</text>
+      <text class="ci" x="872" y="1531">threads.</text>
+      <text class="f" x="1098" y="1518"><tspan class="fl">IN</tspan>   cache/&lt;source&gt;/*</text>
+      <text class="f" x="1098" y="1531"><tspan class="fl">OUT</tspan>  cache/&lt;source&gt;/&lt;name&gt;-claims.json</text>
+
+      <rect class="box" x="214" y="1570" width="420" height="58"/>
+      <line class="edge" x1="214" y1="1570" x2="214" y2="1628"/>
+      <text class="t" x="228" y="1590">Append to each site's report</text>
+      <text class="s" x="228" y="1606">The same Source Analyst in its second mode: add the new</text>
+      <text class="s" x="228" y="1621">claims, entities and handles, leaving Vet's verdicts alone.</text>
+      <path class="flow" d="M 204 1599 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1590">Nothing at all.</text>
+      <text class="ci" x="872" y="1590">The new material only.</text>
+      <text class="f" x="1098" y="1590"><tspan class="fl">IN</tspan>   cache/&lt;source&gt;/*</text>
+      <text class="f" x="1098" y="1603"><tspan class="fl">OUT</tspan>  …/&lt;source&gt;-raw-report.md  +2</text>
+
+      <rect class="box" x="214" y="1642" width="420" height="72"/>
+      <text class="t" x="228" y="1662">Count who the run is about</text>
+      <text class="s" x="228" y="1678">A script, not the model. It reads all six per-site company</text>
+      <text class="s" x="228" y="1693">lists, joins each claim to its author's verdict, drops what the</text>
+      <text class="s" x="228" y="1708">run does not listen to, and applies the five-document floor.</text>
+      <path class="flow" d="M 204 1678 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1662">The candidate list, ordered,</text>
+      <text class="ck" x="652" y="1675">and pairs to merge by hand.</text>
+      <text class="nil" x="872" y="1662">— a script, not an agent</text>
+      <text class="f" x="1098" y="1662"><tspan class="fl">IN</tspan>   …/*-players.json</text>
+      <text class="f" x="1098" y="1675"><tspan class="fl">IN</tspan>   …/*-handles.json</text>
+      <text class="f" x="1098" y="1688"><tspan class="fl">OUT</tspan>  player_candidates.json</text>
+
+      <rect class="box" x="214" y="1728" width="420" height="58"/>
+      <text class="t" x="228" y="1748">Choose the rows</text>
+      <text class="s" x="228" y="1764">Decided once, here. You may cut from the candidate list;</text>
+      <text class="s" x="228" y="1779">you may never add below the floor. Exclusions are logged.</text>
+      <path class="flow" d="M 204 1757 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1748">The chosen rows.</text>
+      <text class="nil" x="872" y="1748">— no sub-agent</text>
+      <text class="f" x="1098" y="1748"><tspan class="fl">IN</tspan>   player_candidates.json</text>
+      <text class="f" x="1098" y="1761"><tspan class="fl">OUT</tspan>  players.csv  (rows, cells empty)</text>
+
+      <rect class="box" x="214" y="1800" width="420" height="72"/>
+      <line class="edge" x1="214" y1="1800" x2="214" y2="1872"/>
+      <text class="t" x="228" y="1820">Profile each one</text>
+      <text class="s" x="228" y="1836">One sub-agent per row, 5 at a time — wider gets the run</text>
+      <text class="s" x="228" y="1851">captcha'd. It reads a company's whole site and hands back</text>
+      <text class="s" x="228" y="1866">a dozen cells. What it finds never becomes a claim.</text>
+      <path class="flow" d="M 204 1836 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1820">Every column of the row,</text>
+      <text class="ck" x="652" y="1833">plus a failure flag.</text>
+      <text class="ci" x="872" y="1820">The company's whole site,</text>
+      <text class="ci" x="872" y="1833">and its traffic pages.</text>
+      <text class="f" x="1098" y="1820"><tspan class="fl">IN</tspan>   player_candidates.json  (by path)</text>
+      <text class="f" x="1098" y="1833"><tspan class="fl">NET</tspan>  SimilarWeb · the company's site</text>
+      <text class="f" x="1098" y="1846"><tspan class="fl">OUT</tspan>  cache/players/…</text>
+      <text class="f" x="1098" y="1859"><tspan class="fl">OUT</tspan>  players.csv  (cells)</text>
+
+      <rect class="dash" x="16" y="1886" width="176" height="72"/>
+      <text class="tu" x="28" y="1905">Decide on a blocked page</text>
+      <text class="su" x="28" y="1921">Only if a site refuses to</text>
+      <text class="su" x="28" y="1935">load: try again, skip it,</text>
+      <text class="su" x="28" y="1949">or stop here.</text>
+      <path class="flow" d="M 200 1922 H 190" marker-end="url(#a)"/>
+
+      <rect class="box" x="214" y="1972" width="420" height="72"/>
+      <line class="edge" x1="214" y1="1972" x2="214" y2="2044"/>
+      <text class="t" x="228" y="1992">Build the tables, merge the reports</text>
+      <text class="s" x="228" y="2008">Builds every declared table, then merges the six per-site</text>
+      <text class="s" x="228" y="2023">reports into one. It opens ten compact files, not the seven</text>
+      <text class="s" x="228" y="2038">hundred claims files behind them.</text>
+      <path class="flow" d="M 204 2008 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="1992">A short receipt — not the claims.</text>
+      <text class="ck" x="652" y="2005">Its exact fields are undecided.</text>
+      <text class="ci" x="872" y="1992">Six site reports and four</text>
+      <text class="ci" x="872" y="2005">handles files.</text>
+      <text class="f" x="1098" y="1992"><tspan class="fl">IN</tspan>   …/*-raw-report.md</text>
+      <text class="f" x="1098" y="2005"><tspan class="fl">IN</tspan>   …/*-handles.json</text>
+      <text class="f" x="1098" y="2018"><tspan class="fl">OUT</tspan>  &lt;section&gt;.csv  per declared table</text>
+      <text class="f" x="1098" y="2031"><tspan class="fl">OUT</tspan>  the aggregate raw report</text>
+
+      <!-- SYNTHESIZE -->
+      <text class="ph" x="10" y="2062">SYNTHESIZE</text>
+      <text class="pn" x="634" y="2062" text-anchor="end">phase 5 of 6 — write it, then try to break it</text>
+      <line class="rule" x1="10" y1="2068" x2="1390" y2="2068"/>
+
+      <rect class="box" x="214" y="2080" width="420" height="58"/>
+      <line class="edge" x1="214" y1="2080" x2="214" y2="2138"/>
+      <text class="t" x="228" y="2100">Write the summary</text>
+      <text class="s" x="228" y="2116">1 sub-agent. Reads the aggregate raw report and the</text>
+      <text class="s" x="228" y="2131">finished tables — not the claims — and drafts the report.</text>
+      <path class="flow" d="M 204 2109 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2100">The findings, with sources</text>
+      <text class="ck" x="652" y="2113">and a quote each.</text>
+      <text class="ci" x="872" y="2100">The aggregate raw report</text>
+      <text class="ci" x="872" y="2113">and the finished tables.</text>
+      <text class="f" x="1098" y="2100"><tspan class="fl">IN</tspan>   the raw report</text>
+      <text class="f" x="1098" y="2113"><tspan class="fl">IN</tspan>   players.csv · experts.csv</text>
+      <text class="f" x="1098" y="2126"><tspan class="fl">OUT</tspan>  &lt;slug&gt;-executive-summary.md</text>
+
+      <rect class="box" x="214" y="2152" width="420" height="58"/>
+      <line class="edge" x1="214" y1="2152" x2="214" y2="2210"/>
+      <text class="t" x="228" y="2172">Check it against what you asked</text>
+      <text class="s" x="228" y="2188">1 sub-agent that was not in the run, given your original</text>
+      <text class="s" x="228" y="2203">request. Run here, early, so something can still be done.</text>
+      <path class="flow" d="M 204 2181 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2172">One answer per thing you</text>
+      <text class="ck" x="652" y="2185">asked for.</text>
+      <text class="ci" x="872" y="2172">Your request and the draft,</text>
+      <text class="ci" x="872" y="2185">and nothing else.</text>
+      <text class="f" x="1098" y="2172"><tspan class="fl">IN</tspan>   research_plan.json</text>
+      <text class="f" x="1098" y="2185"><tspan class="fl">IN</tspan>   the summary</text>
+
+      <rect class="box" x="214" y="2224" width="420" height="58"/>
+      <line class="edge" x1="214" y1="2224" x2="214" y2="2282"/>
+      <text class="t" x="228" y="2244">Make it readable, say each thing once</text>
+      <text class="s" x="228" y="2260">Jargon out, obscure sentences rewritten, padding cut, and</text>
+      <text class="s" x="228" y="2275">an idea in three sections kept only in its earliest one.</text>
+      <path class="flow" d="M 204 2253 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2244">What it changed — every idea</text>
+      <text class="ck" x="652" y="2257">removed, and where it stayed.</text>
+      <text class="ci" x="872" y="2244">The draft.</text>
+      <text class="f" x="1098" y="2244"><tspan class="fl">IN</tspan>   the summary</text>
+      <text class="f" x="1098" y="2257"><tspan class="fl">OUT</tspan>  the summary, rewritten in place</text>
+
+      <rect class="box" x="214" y="2296" width="420" height="72"/>
+      <line class="edge" x1="214" y1="2296" x2="214" y2="2368"/>
+      <text class="t" x="228" y="2316">Re-check the top claims</text>
+      <text class="s" x="228" y="2332">One sub-agent per claim, ranked on the raw report's scores</text>
+      <text class="s" x="228" y="2347">minus what the editor just removed. Fetched live, so a dead</text>
+      <text class="s" x="228" y="2362">link or an edited page is caught rather than assumed.</text>
+      <path class="flow" d="M 204 2332 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2316">One verdict per claim.</text>
+      <text class="ci" x="872" y="2316">The page, fetched again.</text>
+      <text class="f" x="1098" y="2316"><tspan class="fl">IN</tspan>   the claim's record in the raw report</text>
+      <text class="f" x="1098" y="2329"><tspan class="fl">NET</tspan>  fetch.mjs, live</text>
+      <text class="f" x="1098" y="2342"><tspan class="fl">OUT</tspan>  cache/_verify/&lt;name&gt;</text>
+
+      <rect class="box" x="214" y="2382" width="420" height="58"/>
+      <line class="edge" x1="214" y1="2382" x2="214" y2="2440"/>
+      <text class="t" x="228" y="2402">Repair what was refuted</text>
+      <text class="s" x="228" y="2418">The writer again, over the refuted sections only. Runs only</text>
+      <text class="s" x="228" y="2433">if something failed, and one pass — never a loop.</text>
+      <path class="flow" d="M 204 2411 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2402">The rewritten sections.</text>
+      <text class="ci" x="872" y="2402">The refuted sections and</text>
+      <text class="ci" x="872" y="2415">the claims behind them.</text>
+      <text class="f" x="1098" y="2402"><tspan class="fl">OUT</tspan>  &lt;slug&gt;-executive-summary.md</text>
+
+      <!-- AUDIT -->
+      <text class="ph" x="10" y="2458">AUDIT</text>
+      <text class="pn" x="634" y="2458" text-anchor="end">phase 6 of 6 — no sub-agents; the main session alone</text>
+      <line class="rule" x1="10" y1="2464" x2="1390" y2="2464"/>
+
+      <rect class="box" x="214" y="2476" width="420" height="58"/>
+      <text class="t" x="228" y="2496">Annotate and cap the flags</text>
+      <text class="s" x="228" y="2512">Refuted claims move to their own section. At most 15</text>
+      <text class="s" x="228" y="2527">"check this yourself" flags survive; the rest are logged.</text>
+      <path class="flow" d="M 204 2505 H 210" marker-end="url(#a)"/>
+      <text class="ck" x="652" y="2496">Nothing new — it spends the</text>
+      <text class="ck" x="652" y="2509">verdicts it already holds.</text>
+      <text class="nil" x="872" y="2496">— no sub-agent</text>
+      <text class="f" x="1098" y="2496"><tspan class="fl">OUT</tspan>  the summary  (annotations)</text>
+
+      <rect class="box" x="214" y="2548" width="420" height="44"/>
+      <text class="t" x="228" y="2568">Write the logs</text>
+      <text class="s" x="228" y="2584">Everything the run could not do, and where its time went.</text>
+      <path class="flow" d="M 204 2570 H 210" marker-end="url(#a)"/>
+      <text class="nil" x="872" y="2568">— no sub-agent</text>
+      <text class="f" x="1098" y="2568"><tspan class="fl">OUT</tspan>  audit.md</text>
+      <text class="f" x="1098" y="2581"><tspan class="fl">OUT</tspan>  run_log.md</text>
+
+      <!-- DONE -->
+      <text class="ph" x="10" y="2610">DONE</text>
+      <line class="rule" x1="10" y1="2616" x2="1390" y2="2616"/>
+
+      <rect class="box" x="214" y="2628" width="420" height="58"/>
+      <text class="t" x="228" y="2648">Print four things to the screen</text>
+      <text class="s" x="228" y="2664">The answer in one to three sentences · what went wrong ·</text>
+      <text class="s" x="228" y="2679">where the files are · what to research next</text>
+      <path class="flow" d="M 204 2657 H 210" marker-end="url(#a)"/>
+      <text class="f" x="1098" y="2648"><tspan class="fl">OUT</tspan>  research_plan.json  (run history)</text>
+
+      <rect class="box" x="16" y="2700" width="176" height="58"/>
+      <text class="tu" x="28" y="2719">Read the report</text>
+      <text class="su" x="28" y="2735">Everything sits in one</text>
+      <text class="su" x="28" y="2749">folder in your project.</text>
+      <path class="flow" d="M 200 2729 H 190" marker-end="url(#a)"/>
+    </svg>
+  </figure>
+
+  <p>Every path is under <code>digmore/&lt;topic&gt;/</code>. Not listed per row, because every
+    dispatched sub-agent writes them: a heartbeat line to <code>cache/_progress/&lt;label&gt;.log</code>
+    before each step, and a copy of its answer to <code>cache/_returns/&lt;label&gt;.json</code>.</p>
+
+  <h2>What the main session is carrying, phase by phase</h2>
+
+  <p>The third column above is one step at a time. This is the same thing across the whole run: a bar
+    covers the phases in which that item is <b>still being used</b>. Nothing is ever deleted from a
+    session — the transcript only grows — so a bar ending means the last step that reads that item
+    has passed, not that the room is handed back. Where the bars end is therefore where a compaction
+    could safely drop something, and what a resumed run has to rebuild from the files instead.</p>
+
+  <figure class="figbox">
+    <svg viewBox="0 0 1000 726" role="img" aria-label="A persistence chart of the main session's context across the six phases. Four items are used for the whole run; the rest arrive at one phase and are last read at another. A bar ends where the last step needing it has passed, not where it is freed.">
+      <rect x="310" y="56" width="112" height="640" fill="var(--lane)"/>
+      <rect x="534" y="56" width="112" height="640" fill="var(--lane)"/>
+      <rect x="758" y="56" width="112" height="640" fill="var(--lane)"/>
+
+      <text x="366" y="30" text-anchor="middle" class="tu">PLAN</text>
+      <text x="478" y="30" text-anchor="middle" class="tu">EXTRACT</text>
+      <text x="590" y="30" text-anchor="middle" class="tu">VET</text>
+      <text x="702" y="30" text-anchor="middle" class="tu">ENRICHMENT</text>
+      <text x="814" y="30" text-anchor="middle" class="tu">SYNTHESIZE</text>
+      <text x="926" y="30" text-anchor="middle" class="tu">AUDIT</text>
+      <text x="366" y="46" text-anchor="middle" class="f">1</text>
+      <text x="478" y="46" text-anchor="middle" class="f">2</text>
+      <text x="590" y="46" text-anchor="middle" class="f">3</text>
+      <text x="702" y="46" text-anchor="middle" class="f">4</text>
+      <text x="814" y="46" text-anchor="middle" class="f">5</text>
+      <text x="926" y="46" text-anchor="middle" class="f">6</text>
+      <line x1="16" y1="54" x2="982" y2="54" stroke="var(--ink)" stroke-width="1"/>
+
+      <text x="16" y="80" class="s" fill="var(--ink)">The API's state, and every run ceiling</text>
+      <text x="16" y="93" class="f">read once by preflight, obeyed to the end</text>
+      <rect x="314" y="70" width="664" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="118" class="s" fill="var(--ink)">Topic identity and folder name</text>
+      <text x="16" y="131" class="f">fresh / re-run / branched</text>
+      <rect x="314" y="108" width="664" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="156" class="s" fill="var(--ink)">The declared section list</text>
+      <text x="16" y="169" class="f">set in Plan, checked again at the end</text>
+      <rect x="314" y="146" width="664" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="194" class="s" fill="var(--ink)">Running tallies, caps hit, drops</text>
+      <text x="16" y="207" class="f">everything audit.md and run_log.md are built from</text>
+      <rect x="314" y="184" width="664" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="232" class="s" fill="var(--ink)">Vocabulary, recurring names, angles</text>
+      <text x="16" y="245" class="f">a page of text · also on disk in the plan file</text>
+      <rect x="314" y="222" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="270" class="s" fill="var(--ink)">The branch list</text>
+      <text x="16" y="283" class="f">18–36 short strings</text>
+      <rect x="314" y="260" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="308" class="s" fill="var(--ink)">Candidate links, per branch</text>
+      <text x="16" y="321" class="f">url, title, score — grows with the topic</text>
+      <rect x="426" y="298" width="104" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="346" class="s" fill="var(--ink)">A receipt per page read</text>
+      <text x="16" y="359" class="f">4 fields × up to 720 — the biggest thing carried</text>
+      <rect x="426" y="336" width="552" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="384" class="s" fill="var(--ink)">A verdict and a reason per person</text>
+      <text x="16" y="397" class="f">up to 50 per source · also written to disk</text>
+      <rect x="538" y="374" width="328" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="422" class="s" fill="var(--ink)">The player candidates, ordered</text>
+      <text x="16" y="435" class="f">names and counts, never claim text</text>
+      <rect x="650" y="412" width="104" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="460" class="s" fill="var(--ink)">The filled cells, per player</text>
+      <text x="16" y="473" class="f">written straight into players.csv</text>
+      <rect x="650" y="450" width="104" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="498" class="s" fill="var(--ink)">The raw report writer's receipt</text>
+      <text x="16" y="511" class="f">a short receipt — never the claim set</text>
+      <rect x="650" y="488" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="536" class="s" fill="var(--ink)">The findings</text>
+      <text x="16" y="549" class="f">claim, confidence, sources, quote — the largest single payload</text>
+      <rect x="762" y="526" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="574" class="s" fill="var(--ink)">What the brief reviewer found missing</text>
+      <text x="16" y="587" class="f">one answer per thing the request asked for</text>
+      <rect x="762" y="564" width="104" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="612" class="s" fill="var(--ink)">What the copy editor changed</text>
+      <text x="16" y="625" class="f">every idea removed, and where it was kept</text>
+      <rect x="762" y="602" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <text x="16" y="650" class="s" fill="var(--ink)">A verdict per fact-checked claim</text>
+      <text x="16" y="663" class="f">50 of them, short each</text>
+      <rect x="762" y="640" width="216" height="16" rx="2" fill="var(--bar)"/>
+
+      <line x1="16" y1="678" x2="982" y2="678" stroke="var(--line)" stroke-width="1"/>
+      <text x="16" y="698" class="s">A bar ends where the last step that reads it has passed — not where it is freed. The session only ever grows; the bar is an item's useful life, not its footprint.</text>
+      <text x="16" y="714" class="s">Never held at any point: the pages, the claims, the per-site reports. All of it stays on disk, opened by the agent that needs it.</text>
+    </svg>
+  </figure>
+
+  <h2>The eleven sub-agents, and what each is holding</h2>
+
+  <p>The fourth column above, per agent rather than per step. Anything in the middle column is read
+    inside the agent and dies when it returns.</p>
+
+  <div class="tablebox">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Agent</th><th>Phase</th><th>Purpose</th><th>Instances<br>per run</th><th>Input text<br>from the main session</th><th>Input files<br>the main session passes</th><th>What it does</th><th>What sits in its context</th><th>What it writes back<br>to the main session</th><th>Files it writes</th><th>What it logs</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="n">1</td><td class="a">Scoping agent</td><td class="p">Plan<br>[1/6]</td><td>Find what the subject actually is, and turn it into the angles the run will search</td><td class="p">1</td><td>The topic as you phrased it, the mode&rsquo;s angle count, and the job.</td><td>Its own agent file. No data files.</td><td>Up to 10 web searches over the open web.</td><td>Everything it read across those searches.</td><td>Vocabulary, recurring names, 3&ndash;6 angles.</td><td class="fp"><code>cache/_returns/scoping-agent.json</code></td><td class="fp"><code>cache/_progress/scoping-agent.log</code><br>one <code>searching &lt;query&gt;</code> per call</td></tr>
+        <tr><td class="n">2</td><td class="a">Branch Searcher</td><td class="p">Extract<br>[2.1/6]</td><td>Find and rank what is worth reading for one angle on one source</td><td class="p">18&ndash;36<br>one per branch</td><td>One angle &mdash; label, query, rationale &mdash; one source name, the topic slug.</td><td>Its agent file and that source&rsquo;s file. No data files.</td><td>One search on that source. On local it copies the files you named instead.</td><td>The raw search response.</td><td><code>results[]</code> of url, title, relevance.</td><td class="fp"><code>cache/&lt;src&gt;/&lt;src&gt;-search-*.json</code><br><code>cache/local/&lt;your files&gt;</code><br><code>cache/_returns/branch-searcher-&lt;angle&gt;-&lt;src&gt;.json</code></td><td class="fp"><code>cache/_progress/branch-searcher-&lt;angle&gt;-&lt;src&gt;.log</code><br>searching &middot; copying</td></tr>
+        <tr><td class="n">3</td><td class="a">Page Analyst</td><td class="p">Extract [2.2/6]<br>Enrichment [4/6]</td><td>Turn one document into evidence &mdash; fetch it, strip it, pull out the claims</td><td class="p">up to ~700<br>36 branches &times; 20</td><td>One URL and which of the six sources it belongs to. In Enrichment mode, also the research question.</td><td>Its agent file, that source&rsquo;s file, the fetching rules. No data files.</td><td>Fetches, paginates to the end, merges, strips to markdown, pulls claims each with a verbatim quote and the handle who said it.</td><td>The whole document, every page of it.</td><td>Four fields: <code>outcome</code>, <code>claimCount</code>, <code>pagesRead</code>, <code>fetchedWith</code>.</td><td class="fp"><code>cache/&lt;src&gt;/&lt;name&gt;.md</code><br><code>cache/&lt;src&gt;/&lt;name&gt;-claims.json</code><br><code>cache/_returns/page-analyst-&lt;src&gt;-&lt;n&gt;.json</code></td><td class="fp"><code>cache/_progress/page-analyst-&lt;src&gt;-&lt;n&gt;.log</code><br>fetching &middot; reading cached &middot; page n &middot; 429 backoff</td></tr>
+        <tr><td class="n">4</td><td class="a">Source Analyst</td><td class="p">Extract [2.3/6]<br>Enrichment [4/6]</td><td>Read everything one source produced and write that source&rsquo;s report, its people and its entities</td><td class="p">&le; 6<br>one per source, in parallel</td><td>The source name, the output paths, and the four things to look for.</td><td>Its agent file and that source&rsquo;s file. <b>Every file under <code>cache/&lt;source&gt;/</code>.</b></td><td>Reads the whole pile, dedupes claims within the source, ranks the handles, lists the entities named.</td><td>Every stripped page and every claims file that source produced &mdash; <b>the largest read in the run</b>.</td><td><span class="none">Nothing.</span> Its product is the three files.</td><td class="fp"><code>full_source_analysis/&lt;src&gt;-raw-report.md</code><br><code>&hellip;/&lt;src&gt;-handles.json</code><br><code>&hellip;/&lt;src&gt;-players.json</code></td><td class="fp"><span class="none">None today &mdash; flagged as wanted:</span> a long job over many files with no sign of life.</td></tr>
+        <tr><td class="n">5</td><td class="a">Poster Vetter</td><td class="p">Vet<br>[3/6]</td><td>Decide whether the person behind a quote is worth quoting, and how much of this topic they work on</td><td class="p">&le; 50 per source<br>up to 200 in a run</td><td>The handle, its source, the post count on Twitter, and the research question.</td><td>Its agent file, that source&rsquo;s file, the vetting rules. No data files on Reddit, HN or Twitter.</td><td>Runs that source&rsquo;s vetting call, layers the topical-relevance check on top, and judges the voice on Twitter when the API asks for it.</td><td>That person&rsquo;s recent posts and comments.</td><td>Handle, source, verdict, signals, reason, topical relevance, last active.</td><td class="fp"><code>cache/&lt;src&gt;/&lt;src&gt;-vet-&lt;name&gt;.json</code><br>plus that source&rsquo;s profile and comment files<br><code>cache/_returns/&hellip;</code></td><td class="fp"><code>cache/_progress/handle-vetter-&lt;src&gt;-&lt;handle&gt;.log</code><br>vetting &middot; dead-flag sample &middot; backoff</td></tr>
+        <tr><td class="n">6</td><td class="a">Player Profiler</td><td class="p">Enrichment<br>[4/6]</td><td>Fill one player&rsquo;s row &mdash; every cell of it</td><td class="p">one per selected row<br>5 at a time</td><td>The player&rsquo;s name and url, the topic, and the columns this run&rsquo;s table holds.</td><td>Its agent file and the fetching rules. <b>The path to <code>player_candidates.json</code></b> &mdash; it finds its own entry and follows the claim references.</td><td>Follows its claim references, finds the marketing domain, fetches the pricing page and SimilarWeb, searches for sentiment.</td><td>The company&rsquo;s whole site and its traffic pages.</td><td>Every column of <code>players.csv</code>, plus <code>fetch_failed</code> and a reason.</td><td class="fp"><code>cache/players/&hellip;</code><br><code>cache/_returns/player-profiler-&lt;player&gt;.json</code></td><td class="fp"><code>cache/_progress/player-profiler-&lt;player&gt;.log</code><br>reading claims &middot; finding domain &middot; pricing &middot; similarweb</td></tr>
+        <tr><td class="n">7</td><td class="a">Raw report writer</td><td class="p">Enrichment<br>[4/6]</td><td>Build the declared tables, then merge the six per-source reports into one aggregate raw report</td><td class="p">1</td><td>The topic, the research question, and the spec for every table this run declared.</td><td>The writing and section rules. The six <code>&lt;src&gt;-raw-report.md</code> and the four <code>&lt;src&gt;-handles.json</code>.</td><td>Builds the tables, joins each claim to its author&rsquo;s verdict, merges duplicates across sources, scores what survives.</td><td>Ten compact files &mdash; not the ~700 claims files behind them.</td><td>A short receipt. <span class="none">Its exact fields are undecided.</span> Never the claim set.</td><td class="fp"><code>&lt;section&gt;.csv</code> per declared table<br>the aggregate raw report<br><code>cache/_returns/raw-report-writer.json</code></td><td class="fp"><code>cache/_progress/raw-report-writer.log</code><br>reading &middot; joining &middot; merging &middot; writing</td></tr>
+        <tr><td class="n">8</td><td class="a">Final report writer</td><td class="p">Synthesize<br>[5/6]</td><td>Read the raw report and the finished tables, and write the executive summary</td><td class="p">1<br>+1 repair pass if anything is refuted</td><td>The format spec inlined verbatim &mdash; from the command&rsquo;s file, or from the run&rsquo;s own section spec.</td><td>The writing, section and vetting rules. The aggregate raw report, <code>players.csv</code>, <code>experts.csv</code>, any invented table.</td><td>Drafts every declared section in order and assigns each finding a confidence tag.</td><td>The raw report and the finished tables.</td><td><code>findings[]</code> &mdash; claim, confidence, sources, a verbatim quote, a surprise flag, plus stats.</td><td class="fp"><code>&lt;slug&gt;-executive-summary.md</code><br><code>cache/_returns/final-report-writer.json</code></td><td class="fp"><code>cache/_progress/final-report-writer.log</code><br>reading the raw report &middot; drafting &lt;section&gt;</td></tr>
+        <tr><td class="n">9</td><td class="a">Brief Reviewer</td><td class="p">Synthesize<br>[5/6]</td><td>Read the draft against what you asked for and name what is missing, early enough to still go and get it</td><td class="p">1</td><td>Your original request verbatim, and every section the summary was meant to have.</td><td><b>None, deliberately.</b> The draft summary, and nothing else from the run.</td><td>Reads the report cold and answers, per item, whether it is there and usable as asked.</td><td>Your request and the draft.</td><td>One answer per thing the request asked for.</td><td class="fp"><span class="none">None.</span></td><td class="fp"><span class="none">None &mdash; open.</span> No schema means no dispatch template and no heartbeat instruction.</td></tr>
+        <tr><td class="n">10</td><td class="a">Copy Editor</td><td class="p">Synthesize<br>[5/6]</td><td>Make the summary readable and say each thing once, reporting what it changed</td><td class="p">1</td><td>The three prose rules, the dedup instruction, and the section order that decides which copy survives.</td><td>The writing rules. The draft summary.</td><td>Rewrites jargon and obscurity, cuts padding, and removes an idea from every section after its earliest.</td><td>The draft.</td><td>What it changed &mdash; every idea removed, where it was cut from, where it was kept, every sentence rewritten.</td><td class="fp"><code>&lt;slug&gt;-executive-summary.md</code>, rewritten in place</td><td class="fp"><span class="none">None &mdash; open.</span> Same gap as #9.</td></tr>
+        <tr><td class="n">11</td><td class="a">Claim Fact Checker</td><td class="p">Synthesize<br>[5/6]</td><td>Go back to the source of one important claim and confirm it still says what the report says</td><td class="p">50<br>10 in --fast</td><td>One claim, its verbatim quote, its source URL, its score, and the posture: default to manual-verify if uncertain.</td><td>The fetching and writing rules. That claim&rsquo;s record from the raw report.</td><td>Fetches the page live into its own folder, compares it to the quote, and searches for a contradicting source when the claim looks refutable.</td><td>The page it fetched.</td><td>Verdict, what it found, whether it was refuted, a counter-source, a reason.</td><td class="fp"><code>cache/_verify/&lt;name&gt;</code><br><code>cache/_returns/claim-fact-checker-&lt;n&gt;.json</code></td><td class="fp"><code>cache/_progress/claim-fact-checker-&lt;n&gt;.log</code><br>fetching &middot; searching for a contradiction &middot; backoff</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>Two agents account for nearly all the reading. <b>The Source Analyst</b> opens everything one
+    site produced and returns nothing at all — it writes three files instead. <b>The Raw report
+    writer</b> then opens only those six reports, not the seven hundred claims files behind them.
+    That pair is what replaced a single agent opening every claims file in the topic.</p>
+
+  <p>The one place the arrangement still bends: <b>the findings</b> are written to the summary file
+    and also returned in full, uncapped, so the main session carries a second copy of the report's
+    substance from Synthesize to the end of the run.</p>
+
+</div>
+</body>
+</html>

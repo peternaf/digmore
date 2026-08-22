@@ -36,10 +36,10 @@ the run leaned on.
 ## No handles file on this source — but you still write the players file
 
 A web page has an author, not an account, so there is nobody for Vet to check and no
-`websearch-handles.json`. You write the notes and nothing else.
+`websearch-handles.json`. You write two files here, not three.
 
 Where a page's author turns up elsewhere as a Reddit, Hacker News or Twitter handle, that belongs in
-the notes as a finding — it is how a byline becomes a person the Handle Vetter can reach through
+`observations` as a finding — it is how a byline becomes a person the Handle Vetter can reach through
 another source's handles file.
 
 ## The players — `full_source_analysis/websearch-players.json`
@@ -57,7 +57,7 @@ record is the whole of what this source contributes to who the research is about
 - **Vendor marketing names its competitors too**, usually unfavourably. Record them; the page's own
   bias is already captured by its `primary-self` tag.
 
-## Known gaps to record in `full_source_analysis/websearch.md`
+## Known gaps — they go in `observations`
 
 - Any claim that traces back to a single primary source despite appearing in several pages.
 - Domains that dominate the cache, so the reader knows whose framing shaped the picture.

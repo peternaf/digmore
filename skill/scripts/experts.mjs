@@ -14,17 +14,7 @@
  * at once cannot half-write the file.
  */
 
-import {
-  readFileSync,
-  writeFileSync,
-  renameSync,
-  mkdirSync,
-  existsSync,
-  rmSync,
-  openSync,
-  closeSync,
-  statSync,
-} from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertWorkspaceRoot } from './fetch.mjs';
@@ -271,58 +261,25 @@ export function merge(existing, incoming) {
   return [next, 'merged-handles'];
 }
 
-const LOCK_STALE_MS = 10000;
-const LOCK_RETRY_MS = 20;
-const LOCK_TIMEOUT_MS = 5000;
-
-/** A blocking sleep, so the lock can be held across a synchronous read-modify-write. */
-function sleepSync(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-
 /**
- * A cross-process lock around load -> merge -> save.
+ * Load, merge, save. No lock, because there is only ever one writer.
  *
- * An atomic write stops a half-written file but not a lost update: two source
- * sub-agents both read N rows, both write N+1, and one expert disappears without a
- * trace. Phase B fans out per source, so that race is the normal case rather than an
- * unlucky one.
+ * There used to be a cross-process lock here, against two Handle Vetters both reading N rows
+ * and both writing N+1 while one expert vanished without a trace. That race is gone: the
+ * agents fan out one per handle and hand back a short object each, and the orchestrator does
+ * every write to this file — in the same pass that fills <source>-handles.json, from the same
+ * two fields, so a handle recorded as legit in one is never missing from the other.
+ *
+ * The atomic write in save() stays. It guards a different failure — a crash mid-write leaving
+ * half a file — which one writer does not prevent.
+ *
+ * If a fan-out writer is ever added back, the fix is to remove the fan-out rather than to
+ * restore the lock.
  */
-function withLock(path, fn) {
-  const lock = `${path}.lock`;
-  mkdirSync(join(path, '..'), { recursive: true });
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-
-  for (;;) {
-    try {
-      closeSync(openSync(lock, 'wx'));
-      break;
-    } catch (err) {
-      if (err.code !== 'EEXIST') throw err;
-      // A process killed mid-write would otherwise block every later run.
-      try {
-        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) rmSync(lock, { force: true });
-      } catch {
-        // The holder released it between the check and the stat; just retry.
-      }
-      if (Date.now() > deadline) throw new Error(`timed out waiting for ${lock}`);
-      sleepSync(LOCK_RETRY_MS);
-    }
-  }
-
-  try {
-    return fn();
-  } finally {
-    rmSync(lock, { force: true });
-  }
-}
-
 export function appendOrMerge(path, incoming) {
-  return withLock(path, () => {
-    const [rows, action] = merge(load(path), incoming);
-    if (action !== 'no-op') save(path, rows);
-    return action;
-  });
+  const [rows, action] = merge(load(path), incoming);
+  if (action !== 'no-op') save(path, rows);
+  return action;
 }
 
 // ---------------------------------------------------------------- cli

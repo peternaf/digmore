@@ -12,8 +12,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit thread <id-or
 
 `--topic <slug>` is mandatory. Accepts a bare post id, a `/comments/<id>/…` path, or the full URL.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## What comes back
 
@@ -47,7 +46,7 @@ Two files in `digmore/<slug>/cache/reddit/`:
 
 If the thread file already exists the script returns it without a re-fetch.
 
-## Source quality
+## Page quality
 
 `forum`, almost always — this is community discussion. The exception is a subreddit's own pinned
 moderator post stating a policy, which is `primary-self` for that subreddit. Definitions in

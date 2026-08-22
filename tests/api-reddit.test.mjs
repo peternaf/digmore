@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { Sandbox } from './helpers.mjs';
 
 let sandbox;
@@ -191,7 +191,7 @@ test('thread caches as thread-<id>.json and accepts a permalink', async () => {
   const { json } = await sandbox.run('api.mjs', 'reddit', 'thread', '/r/webdev/comments/1a2b3c/', '--topic', 'demo');
   assert.equal(sandbox.requests[0].path, '/v1/reddit/thread/1a2b3c');
   assert.equal(sandbox.requests[0].query.limit, '500', 'the documented default');
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'thread-1a2b3c.json')));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-thread-1a2b3c.json')));
   assert.deepEqual(json, thread, 'the Post passes through whole, comments and all');
   assert.equal(json.comments[1].parent_id, 't1_c1', 'flat comments; parent_id rebuilds the tree');
 });
@@ -219,7 +219,7 @@ test('the post id is read from a real permalink, not its title slug', async () =
       caseSandbox.configured(caseBase);
       await caseSandbox.run('api.mjs', 'reddit', 'thread', form, '--topic', 'demo');
       assert.equal(caseSandbox.requests[0].path, '/v1/reddit/thread/1tvs5jj', form);
-      assert.ok(existsSync(caseSandbox.cachePath('demo', 'reddit', 'thread-1tvs5jj.json')), form);
+      assert.ok(existsSync(caseSandbox.cachePath('demo', 'reddit', 'reddit-thread-1tvs5jj.json')), form);
     } finally {
       await caseSandbox.cleanup();
     }
@@ -258,32 +258,37 @@ const userWithVerdict = {
   reason: 'multi-year history',
 };
 
-// The profile, the comments and the verdict have their own cache files, and all three
-// come from one call — the response is split back into the filenames that phase resume
-// and the sub-agents read.
-test('user writes all three cache files from one call', async () => {
+// One request, one file: the vetting record for one handle. It used to be three — profile,
+// comments and verdict apart — because the brain this came from made two requests and cached
+// the verdict in a third. Nothing ever read the pieces separately, and three files meant three
+// reads that all had to hit before the cache counted as warm.
+test('user writes one cache file, holding the whole response', async () => {
   const base = await sandbox.apiReturning(userWithVerdict);
   sandbox.configured(base);
   const { json } = await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'demo');
   assert.equal(sandbox.requests.length, 1, 'the verdict costs no extra request');
   assert.equal(sandbox.requests[0].path, '/v1/reddit/user/someone');
 
-  const about = sandbox.cached('demo', 'reddit', 'user-about-someone.json');
-  const comments = sandbox.cached('demo', 'reddit', 'user-comments-someone.json');
-  const vetted = sandbox.cached('demo', 'reddit', 'vet-someone.json');
+  const vetted = sandbox.cached('demo', 'reddit', 'reddit-vet-someone.json');
+  assert.equal(vetted.comment_karma, 900, 'the profile');
+  assert.equal(vetted.verdict, 'legit', 'the verdict');
+  assert.deepEqual(vetted.recent_comments, userWithVerdict.recent_comments, 'and the comments, whole');
+  assert.equal(
+    vetted.recent_comments[1].subreddit,
+    'saas',
+    'each comment keeps its own subreddit beside its own body',
+  );
 
-  assert.equal(about.comment_karma, 900);
-  assert.ok(!('recent_comments' in about), 'the comments live in their own file');
-  assert.ok(!('verdict' in about), 'the verdict lives in its own file');
+  assert.deepEqual(
+    readdirSync(sandbox.cachePath('demo', 'reddit', '.')).filter((name) => name.includes('someone')),
+    ['reddit-vet-someone.json'],
+    'no user-about- or user-comments- beside it',
+  );
 
-  assert.deepEqual(comments, userWithVerdict.recent_comments, 'whole comment objects, not stripped to bodies');
-  assert.equal(comments[1].subreddit, 'saas', 'each comment keeps its own subreddit beside its own body');
-  assert.deepEqual(vetted, { verdict: 'legit', signals: { account_age_days: '900' }, reason: 'multi-year history' });
-
-  assert.deepEqual(json, userWithVerdict, 'stdout carries the whole body, unsplit');
+  assert.deepEqual(json, userWithVerdict, 'stdout carries the whole body');
 });
 
-test('a second user call is served from the three cache files', async () => {
+test('a second user call is served from that one cache file', async () => {
   const base = await sandbox.apiReturning(userWithVerdict);
   sandbox.configured(base);
   await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'demo');

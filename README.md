@@ -11,17 +11,25 @@ Ask any LLM to research a market and you get a confident page of prose. Ask wher
 and it falls apart: fields invented to fill a column, links that 404, one page of search results
 called "deep research".
 
-Digmore is built the other way round. It runs a five-phase pipeline — scope, extract, vet,
+Digmore is built the other way round. It runs a six-phase pipeline — plan, extract, vet, enrichment,
 synthesize, audit — and the phases are the point:
 
 - **It reads places a generic LLM cannot.** Reddit threads, Hacker News, Twitter — not just whatever
-- **Tailored for executive research.** Digmore doesn't only rely on the non-deterministic nature of LLMs, baked into the skill there are hand made deterministic sections that make sure you will receive exactly the results you are looking for. So that the research will provide decision ready information for you to act on each time.
-- **Sources get vetted before they get quoted.** Every handle carries a quality tag; anonymous or
-  brand-new accounts are quoted with a caveat or not at all.
-- **Claims get audited after they are written.** Claims in the summary are
-  re-checked against their source URL. Anything that no longer resolves, or no longer says what was
-  claimed, is flagged in the report rather than left to look solid.
   a search engine surfaces.
+- **Tailored for executive research.** Digmore doesn't only rely on the non-deterministic nature of LLMs, baked into the skill there are hand made deterministic sections that make sure you will receive exactly the results you are looking for. So that the research will provide decision ready information for you to act on each time.
+- **Sources get vetted before they get quoted.** Every handle carries a quality tag; accounts the run
+  could not identify are quoted with a caveat, and accounts it identified as spam or as throwaways are
+  not quoted at all.
+- **Every claim gets checked after it is written.** Not a sample — every claim the report renders is
+  read back against the text Digmore stored when it first read the page, and anything that text does
+  not carry is **deleted from the report** rather than flagged for you to chase. `audit.md` names what
+  went and why.
+
+  **So "verified" here means one thing: the claim is supported by what we read.** The check is against
+  the stored copy, not the live page, so it catches a fabricated quote or a misread source — the
+  failures that matter — and it does not tell you whether a link has since died or a page has been
+  edited. Digmore fetched every citation while the run was going, which is when the URL was known
+  good.
 
 ## Commands
 
@@ -89,8 +97,8 @@ the project it belongs to:
 | `<topic>-executive-summary.md` | The report. Fixed sections, every substantive claim carrying an in-text citation |
 | `players.csv` | The companies or people found, one row each, with the fields that matter for the question |
 | `experts.csv` | The voices worth listening to, with why each one qualifies |
-| `raw_research_outcomes.md` | The unsummarized findings, kept whole |
-| `audit.md` | Per-claim verdicts from the audit phase, and what was dropped |
+| `<topic>-raw-report.md` | The unsummarized findings, kept whole |
+| `audit.md` | What the audit deleted, refuted or dropped, and which step did it |
 | `cache/` | Everything fetched, kept as it arrived, so a re-run doesn't re-fetch it |
 
 Research the same topic again and Digmore picks up where it left off rather than starting over.
@@ -141,9 +149,32 @@ dependencies to install.
 
 ## Configuration
 
-One file, `~/.digmore/settings.json`, created on first run. It holds the API base URL, your key, and
-whether you have said you do not want one. Nothing else goes in it, and Digmore never edits your own
-Claude Code settings — including the two below, which are yours to set.
+**One file, `~/.digmore/settings.json`, created on first run. Open it — everything Digmore lets you
+change is in there, with its current value.**
+
+It holds the API base URL, your key, whether you have said you do not want one, and **every number
+that bounds how much work a run does**: how many angles it plans, how many pages it reads per angle
+and source, how many people it vets per source, how many experts it follows afterwards, how deep it
+reads a comment thread, and the rest. Each one appears twice — once at the top level for a full run,
+and once under `fast` for `--fast`.
+
+Four things worth knowing before you edit it:
+
+- **Nothing is hidden.** The file is written out complete, every knob and its default, so you can see
+  what exists without having to know what to look for. When an update adds a new one, it is filled
+  into your file the next time Digmore runs and your own values are left alone.
+- **`--fast` never loosens what you tightened.** It takes the lower of the two, so if you set a
+  full-mode number below the fast one you get yours in both modes.
+- **A `0` under `fast` means that step is skipped**, deliberately, and it wins over the full-mode
+  value.
+- **A value Digmore cannot use falls back to its default** rather than being carried into a run — a
+  string, a negative, a fraction. It does not fail; it just ignores that edit, so check the run's
+  opening report if a change appears not to have taken.
+
+Every run prints the numbers it is actually applying before it starts, fast-mode reductions already
+worked out. That printed report is the truth about a given run; the file is where you change it.
+
+Digmore never edits your own Claude Code settings — including the two below, which are yours to set.
 
 ### Raising the web search limit
 

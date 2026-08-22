@@ -1,16 +1,31 @@
 # Branch Searcher — the agent
 
-**Phase: Extract, sub-step `[2.1/5] Extract · Search`.** Dispatched by `../../phases/extract_phase_b.md`.
-
-One dispatch per **branch**: one angle paired with one source. A run with 5 angles and 5 available
-sources dispatches 25 of these, all at once.
+| Field | |
+|---|---|
+| **Phase** | Extract `[2.1/6]`, and again in Enrichment `[4/6]` at its search sub-step — see §"Enrichment mode" |
+| **Purpose** | Find what is worth reading for one branch, rank it, and hand back the list with a relevance score per URL — that ranking is what decides which pages the run spends its budget on |
+| **Input text** | **in Extract**, one angle `{label, query, rationale}`, one source name, the topic slug. **In Enrichment**, one handle, the research question to rank against, and the path to that handle's vetting cache — no angle and no query |
+| **Input rule files** | `subagents/branch_searcher_agent/index.md` · that agent's `<source>.md` · `output.md` |
+| **Input data files** | **none in Extract** — this agent is the one creating material. **In Enrichment**, that expert's vetting cache, which is the whole of what it picks from |
+| **Runs** | `api.mjs reddit search` **twice** on Reddit — site-wide, then scoped to subs it picks itself · WebSearch with a `site:` filter on Hacker News, Twitter and forums · plain WebSearch on the web source · on local, copies the user's named files into `cache/local/`. **In Enrichment it runs nothing**: it reads the vetting cache it was handed |
+| **Settings that control it** | none it enforces, and **no fetch budget is passed** — this agent fetches nothing, so a fetch cap is a number it cannot spend. `extract.fetchesPerBranch`, or `enrich.urlsPerExpert` on an expert branch, bounds what the Page Analyst reads off the list it returns, and the orchestrator counts it |
+| **Held in its context** | the search responses themselves — Reddit's two result sets, the WebSearch result lists, and in Enrichment the expert's cached comments. Titles and snippets are read to rank and are not carried |
+| **Returns to main context** | the `branch-searcher` shape — `results[]` of `{url, title, relevance}` |
+| **Writes to disk** | **search responses only — never a page, a thread or a post.** On Reddit, two files per branch, written by the script. On Hacker News, Twitter, websearch and forums, nothing: WebSearch results live in the return. On local, the user's named files copied into `cache/local/`. **In Enrichment, nothing at all** — there is no search response to save. Plus `cache/_returns/branch-searcher-<branch>.json` |
+| **Logs** | `cache/_progress/branch-searcher-<branch>.log` — `searching <source> for <query>` (Extract) · `reading the vetting cache for <handle>` (Enrichment) · `copying <filename>` (local only, one per file) |
+| **How it reports failure** | an empty `results` array plus what the source said. A source that was never queried, one that was unavailable and one that came back empty are three different sentences — see the rules below |
+| **One dispatch per** | one branch. In Extract that is one angle paired with one source; in Enrichment it is one expert, whose source is implied — `u/foo` is Reddit's by construction |
+| **Run instances** | angles × available sources in Extract, plus one per followed expert in Enrichment — `enrich.expertsFollowed` |
+| **`--fast`** | `plan.maxAngles` × sources in Extract, plus one per `enrich.expertsFollowed`, both at their reduced values |
+| **Concurrency** | all at once, capped only by the harness limit `preflight.mjs` reported |
+| **Model tier** | placeholder, unused for now |
 
 Where it sits: **Plan** produced the angle you were given, along with the vocabulary its own people
 use. What you return is the list the **Page Analyst** works through, one dispatch per URL.
 
 ## What this agent does
 
-Find what is worth reading for its one angle on its one source, rank it, and hand back the list.
+Find what is worth reading for its one branch, rank it, and hand back the list.
 
 - **Search, and stop at the results.** The URLs and titles a search returns are the whole job. The
   Page Analyst opens them, one dispatch per URL.
@@ -26,7 +41,44 @@ The `branch-searcher` shape from `../../../scripts/subagent_returns.json`:
 {"results": [{"url": "…", "title": "…", "relevance": 0.0}]}
 ```
 
-`relevance` is 0..1, this agent's own estimate of how on-topic the URL is for its angle.
+`relevance` is 0..1, this agent's own estimate of how on-topic the URL is for its angle — or, in
+Enrichment, for the research question.
+
+## Enrichment mode — an expert is a branch
+
+After Vet, the run follows the experts it cleared into what else they wrote. **One dispatch per vetted
+expert**, and the source is implied by the handle rather than paired with it: `u/foo` is a Reddit
+branch by construction.
+
+**Nothing about the contract changes.** Find candidates, rank them, return the same shape, open
+nothing. What differs is where the candidates come from.
+
+- **There is no query.** Vetting already fetched this person's material to judge them, and your
+  dispatch names the file. This is the shape `local.md` describes: the material is already in front of
+  you. Read it, and return what is relevant.
+- **Rank against the research question, not an angle.** An expert branch has no angle, and giving it
+  one would multiply ten experts by five angles into fifty dispatches covering the same ten people.
+- **You write nothing.** There is no search response to save.
+
+What each source cached during vetting, and so what there is to pick from:
+
+| Source | What is there |
+|---|---|
+| **Reddit** | up to 100 recent comments, full bodies, with subreddits and permalinks |
+| **Hacker News** | recent comments in full, each carrying the story it sits under |
+| **Twitter** | the sampled posts — only where `posts_sampled` is above zero, and in `--fast` that is nowhere |
+| **Forums** | **nothing.** No script vets forums, so the Handle Vetter's return is the whole record |
+| **Websearch, local** | no handles, so no experts |
+
+**A forums expert returns empty, and that is the honest answer.** Its only material is what Extract
+already read and already extracted, so there is nothing new to find. Say the source produced nothing
+rather than handing back pages the run already has claims from.
+
+**Blogs and anything off-platform are out of scope.** Never search the open web for an expert's other
+writing. Cache only.
+
+**`enrich.urlsPerExpert` is this branch's fetch budget**, and like every other budget it bounds the
+Page Analyst downstream rather than you.
 
 ## Per-source files
 

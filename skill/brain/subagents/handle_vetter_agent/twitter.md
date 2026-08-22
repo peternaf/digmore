@@ -18,25 +18,26 @@ mandatory.
 
 On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
-## Two depths
+## Two depths, one dispatch
 
 | Depth | The call | What it reads |
 |---|---|---|
 | **profile** | `--posts 0` | the profile alone |
 | **deep** | `--posts <n>` | the profile, plus the handle's `n` most recent posts |
 
-**You do not choose which.** The orchestrator hands you the number, because choosing needs a
-view of every handle at once and you can see one. It runs the profile pass over all of them
-first, then dispatches the deep pass over the few worth it — so a handle that gets the deep
-read reaches you twice, and the second dispatch is the one that does the real work
-(`../../phases/vet_phase_c.md`).
+**You do not choose which, and you are dispatched once either way.** The orchestrator decides the
+depth before anything runs, from each handle's rank in `<source>-handles.json`: the top
+`twitter.handlesDeepVetted` get `--posts <twitter.postsPerDeepVet>`, everyone else `--posts 0`
+(`../../phases/vet_phase_c.md`). Choosing needs a view of every handle at once, and you can see one.
 
-The number itself is `twitter.postsPerDeepVet`, and how many handles get that far is
-`twitter.handlesDeepVetted`. Both belong to the user; `preflight.mjs` prints the values this
-run applies. Pass what you were given and never a default of your own.
+There used to be two waves — a profile pass over everyone, then a deep pass over whichever came back
+`unknown` — because nothing knew who was `unknown` until the cheap verdict arrived. That reason is
+gone: the ranking exists before Vet starts, so the deep set is picked on what each handle actually
+contributed rather than on a verdict that has to be bought first. If you find a file, a plan or a
+habit that expects a second dispatch, it is out of date.
 
-Each depth caches under its own name, so the deep call fetches the deeper answer rather than
-re-reading the profile already on disk.
+Both numbers belong to the user; `preflight.mjs` prints the values this run applies. Pass what you
+were given and never a default of your own.
 
 ## The heuristic floor never says `legit`
 
@@ -58,7 +59,7 @@ stopped, because follower counts and posting volume cannot tell an expert from a
 
 Read the flag. Do not re-derive it from the verdict and the post count — the API owns that rule,
 and reasoning your way back to it is a step that can go wrong. It is set when the verdict is
-`unknown` and posts were actually sampled, which means you are on the deep pass.
+`unknown` and posts were actually sampled, which means you were dispatched at a deep `--posts`.
 
 When it is set, read the cached tweets and classify the voice:
 
@@ -84,11 +85,19 @@ The `created_at` of the most recent tweet fetched, as `YYYY-MM-DD`.
 
 ## What lands on disk
 
-`digmore/<slug>/cache/twitter/`:
+**One file per handle**, written by the script:
+`digmore/<slug>/cache/twitter/twitter-vet-<handle>.json` — the profile, the sampled posts and the
+verdict, together, however many times the handle is vetted. It used to carry the depth in its name,
+because a handle could be vetted twice; it cannot any more.
 
-- `twitter-vet-<handle>-<n>posts.json` — the verdict, one file per depth.
-- `twitter-user-<handle>.json` — the profile.
-- `twitter-tweets-<handle>-<N>.json` — the timeline, per limit.
+**The file records the depth it was fetched at, as `posts_sampled`, and the cache check compares it.**
+A call is a hit only when `posts_sampled` is **at least** what this call asked for — deeper supersedes
+shallower, never the other way round. That is what stops a re-run that raised
+`twitter.postsPerDeepVet`, or a handle that moved up into the deep set, opening a profile-only file and
+returning it having never read the posts it was dispatched for.
+
+The other two verbs — `twitter user` and `twitter tweets` — write their own files, and this agent runs
+neither.
 
 ## When the source is walled
 
@@ -97,7 +106,11 @@ the API's, not the user's, and not the user's to fix. Already-cached handles sta
 
 ## In `--fast`
 
-`twitter.handlesDeepVetted` is `0`, so there is no deep pass at all — every handle is
-`--posts 0`. The voice judgement above goes with it, since it needs posts a profile call never
-fetches. A fast run's Twitter verdicts are therefore confident negatives and `unknown`, nothing
-else.
+`twitter.handlesDeepVetted` is `0`, so every handle arrives at `--posts 0`. The voice judgement above
+goes with it, since it needs posts a profile call never fetches. A fast run's Twitter verdicts are
+therefore confident negatives and `unknown`, nothing else.
+
+Two things follow, and both are accepted rather than worked around. Every Twitter quote in a fast run
+is marked "unvetted", and a summary section resting entirely on them opens by saying nobody behind it
+could be vetted. And Enrichment finds no Twitter posts cached to expand from, because nothing sampled
+any.

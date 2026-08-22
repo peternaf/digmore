@@ -13,8 +13,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/fetch.mjs" <url> \
 The script names the file from the URL and returns the path it wrote. If the page is already there
 it comes back with `cached: true` and no request is spent.
 
-Walled? `fetch.mjs` first, then WebFetch, saving under the `filename_only` the error carried. See
-`index.md` §"when the page is walled".
+Walled? `../../fetching.md` §"When the site blocks you".
 
 ## Is a fetch needed at all
 
@@ -31,7 +30,7 @@ Per `index.md`: one markdown file, wrapping out, shape kept, title as the first 
 carry their structure in headings and lists; keep them, because a claim's place in an argument is
 part of what it means.
 
-## Source quality — decided from the domain and the shape
+## Page quality — decided from the domain and the shape
 
 | What the page is | Tag |
 |---|---|
@@ -41,7 +40,7 @@ part of what it means.
 | Individual blog, Medium, Substack, personal site | `blog` |
 | Content farm, obviously AI-generated, marketing collateral, dead or paywalled-no-cache | `unreliable` |
 
-Full definitions in `../../vetting.md`. `primary-self` is accurate about the vendor's own product and
+Full definitions in `../../page_quality.md`. `primary-self` is accurate about the vendor's own product and
 biased about everything else — never take a marketing claim at face value because the tag is high.
 
 **If the page's author turns up elsewhere as a Reddit, HN or Twitter handle, say so in the claim.**

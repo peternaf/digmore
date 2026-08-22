@@ -1,10 +1,11 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as hackernews from '../skill/scripts/hackernews.mjs';
+import { CONFIGURATION_DEFAULTS } from '../skill/scripts/config.mjs';
 
 const DAY = 86400;
 const NOW = 1_800_000_000; // a fixed "now" so age assertions never drift
@@ -97,21 +98,35 @@ test('story fetches the Algolia item tree and caches it as item-<N>.json', async
   assert.ok(existsSync(join(dir, 'hackernews-item-42.json')));
 });
 
-// The comment tree flattens at hackernews.commentDepth. Five, because the argument on a long
-// HN chain usually resolves below three.
-test('the comment tree flattens to the configured depth and no deeper', async () => {
+// The comment tree flattens at hackernews.commentDepth, and who is replying to whom is most of
+// the evidence on this source — a depth that cuts a long chain loses the reply that corrected
+// the claim. The depth is the user's, so the test drives off it rather than pinning a number.
+test('the comment tree flattens to the depth it was given and no deeper', async () => {
   const nest = (depth) =>
-    depth > 6
+    depth > 12
+      ? []
+      : [{ type: 'comment', id: depth, text: `level ${depth}`, children: nest(depth + 1) }];
+  const opts = await stub((req, res) => json(res, { id: 1, title: 't', children: nest(1) }));
+
+  const shallow = await hackernews.fetchStory(1, { ...opts, commentDepth: 3 });
+  assert.deepEqual(
+    shallow.top_comments.map((comment) => comment.text),
+    ['level 1', 'level 2', 'level 3'],
+    'deeper sub-threads are dropped',
+  );
+});
+
+// Unset, it falls back to the configured default rather than to a constant of its own — which
+// is the whole reason the number lives in settings.json where a user can see it.
+test('an unset depth falls back to the configured default', async () => {
+  const nest = (depth) =>
+    depth > 12
       ? []
       : [{ type: 'comment', id: depth, text: `level ${depth}`, children: nest(depth + 1) }];
   const opts = await stub((req, res) => json(res, { id: 1, title: 't', children: nest(1) }));
 
   const story = await hackernews.fetchStory(1, opts);
-  assert.deepEqual(
-    story.top_comments.map((comment) => comment.text),
-    ['level 1', 'level 2', 'level 3'],
-    'deeper sub-threads are dropped',
-  );
+  assert.equal(story.top_comments.length, CONFIGURATION_DEFAULTS.hackernews.commentDepth);
 });
 
 test('comments without text are skipped', async () => {
@@ -177,7 +192,7 @@ function userStub({
   };
 }
 
-test('user merges the Firebase profile with Algolia and caches both payloads', async () => {
+test('user merges the Firebase profile with Algolia into one cached record', async () => {
   const opts = await stub(
     userStub({
       profile: firebaseProfile({ karma: 4321, created: NOW - 3 * 365 * DAY, about: 'I work on https://mine.test' }),
@@ -204,17 +219,68 @@ test('user merges the Firebase profile with Algolia and caches both payloads', a
   assert.equal(user.comments_submitted, 812, 'the lifetime count, not the sampled count');
   assert.equal(user.last_activity_utc, NOW - 10 * DAY, 'the newest comment timestamp');
 
-  assert.ok(existsSync(join(dir, 'hackernews-user-firebase-someone.json')));
-  assert.ok(existsSync(join(dir, 'hackernews-user-comments-someone.json')));
+  // One file per handle, not five. The raw payloads it was assembled from — the Firebase
+  // profile, the Algolia comment search, the Algolia fallback — are not kept: nothing ever
+  // read them separately, and five files meant five reads that all had to hit before the
+  // cache counted as warm.
+  assert.ok(existsSync(join(dir, hackernews.VET_CACHE_NAME('someone'))));
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => name.includes('someone')),
+    [hackernews.VET_CACHE_NAME('someone')],
+    'no hackernews-user-firebase-, -algolia- or -comments- beside it',
+  );
+});
+
+// `user` and `vet` write the same file, so whichever ran first warms the cache for the other.
+// The difference is only whether the verdict is in it.
+test('user writes the vet cache file without a verdict, and vet fills it in', async () => {
+  const opts = await stub(userStub());
+
+  await hackernews.fetchUser('someone', opts);
+  const afterUser = JSON.parse(readFileSync(join(dir, hackernews.VET_CACHE_NAME('someone')), 'utf8'));
+  assert.equal(afterUser.name, 'someone');
+  assert.ok(Array.isArray(afterUser.recent_comments), 'the comments are in it either way');
+  assert.equal(afterUser.verdict, undefined, 'user does not judge');
+
+  await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
+  const afterVet = JSON.parse(readFileSync(join(dir, hackernews.VET_CACHE_NAME('someone')), 'utf8'));
+  assert.ok(afterVet.verdict, 'vet adds its verdict to the same file');
+  assert.ok(Array.isArray(afterVet.recent_comments), 'and keeps the record it judged from');
+});
+
+// #5 says the Handle Vetter is sent no data files because the script returns everything it
+// needs on stdout. A bare verdict made that false — the topical-relevance read has nothing to
+// work from, and the agent would have to open the cache itself to get it.
+test('vet returns the whole record, not just the verdict', async () => {
+  const opts = await stub(userStub({ profile: firebaseProfile({ karma: 4321 }) }));
+  const vetted = await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
+
+  assert.ok(vetted.verdict, 'the verdict');
+  assert.ok('signals' in vetted && 'reason' in vetted, 'and what it rested on');
+  assert.equal(vetted.name, 'someone', 'the profile');
+  assert.equal(vetted.karma, 4321);
+  assert.deepEqual(
+    vetted.recent_comments.map((comment) => comment.text),
+    ['hello'],
+    'and the comments in full, which is what topical relevance is judged from',
+  );
 });
 
 // The account age used to come from an HTML page throttled to one request per 15 seconds,
 // which made Hacker News the slowest source in a run. Nothing may reach that host again.
 test('nothing is fetched from news.ycombinator.com', async () => {
   assert.equal(hackernews.HN_FIREBASE_BASE, 'https://hacker-news.firebaseio.com/v0');
-  const source = readFileSync(new URL('../skill/scripts/hackernews.mjs', import.meta.url), 'utf8');
-  assert.ok(!source.includes('news.ycombinator.com/user'), 'the user page is not fetched');
+
+  // Comments are stripped first. The header records that the profile USED to be scraped from
+  // that host, and PLATFORM_HOSTS names it to exclude it from promoter detection — neither is
+  // a request, and a bare substring grep cannot tell prose from a fetch.
+  const source = readFileSync(new URL('../skill/scripts/hackernews.mjs', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  assert.ok(!/getJson\([^)]*news\.ycombinator/.test(source), 'the user page is not fetched');
   assert.ok(!/getText/.test(source), 'no HTML is fetched at all');
+  assert.ok(!/https?:\/\/news\.ycombinator\.com/.test(source), 'that host is never a request target');
 });
 
 test('a profile Firebase does not have is an empty user, not a crash', async () => {
@@ -299,7 +365,7 @@ test('the dead sample reads the newest submissions and counts the dead ones', as
     userStub({ profile: firebaseProfile({ submitted: [10, 11, 12, 13, 14, 15, 16] }), dead: new Set([10, 12]) }),
   );
   const user = await hackernews.fetchUser('someone', { ...opts, deadSampleSize: 5 });
-  assert.equal(user.recent_posts_checked, 5, 'the sample is the ceiling, not every submission');
+  assert.equal(user.recent_posts_checked, 5, 'the sample is the configured size, not every submission');
   assert.equal(user.recent_posts_dead, 2);
   const read = hits.filter((hit) => hit.path.endsWith('/dead.json')).map((hit) => hit.path);
   assert.deepEqual(read, [10, 11, 12, 13, 14].map((id) => `/item/${id}/dead.json`));
@@ -341,8 +407,12 @@ test('a failed Firebase profile falls back to Algolia and loses the age and the 
   assert.equal(user.about, 'fallback bio');
   assert.equal(user.created_utc, null, 'account age is unavailable on this path');
   assert.equal(user.recent_posts_checked, 0, 'no submitted list, so nothing to sample');
-  assert.ok(existsSync(join(dir, 'hackernews-user-algolia-someone.json')));
-  assert.ok(!existsSync(join(dir, 'hackernews-user-firebase-someone.json')));
+  // Still one file, whichever path assembled it. The fallback replaced one raw payload with
+  // another rather than adding a file of its own.
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => name.includes('someone')),
+    [hackernews.VET_CACHE_NAME('someone')],
+  );
 });
 
 test('a 429 is retried on the backoff schedule before falling back', async () => {
@@ -570,10 +640,12 @@ test('the three verbs are story, user and vet — there is no search', async () 
   assert.deepEqual(hackernews.VERBS, ['story', 'user', 'vet']);
 });
 
-test('vet returns the name, verdict, signals and reason', async () => {
+test('vet carries the verdict fields alongside the record it judged from', async () => {
   const opts = await stub(userStub({ profile: firebaseProfile({ karma: 4321 }) }));
   const payload = await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
-  assert.deepEqual(Object.keys(payload).sort(), ['name', 'reason', 'signals', 'verdict']);
+  for (const field of ['name', 'verdict', 'signals', 'reason']) {
+    assert.ok(field in payload, `${field} is on the return`);
+  }
   assert.equal(payload.name, 'someone');
   assert.equal(payload.verdict, 'legit');
 });

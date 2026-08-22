@@ -2,13 +2,17 @@
  * digmore configuration — the one file the plugin owns on the user's machine.
  *
  * Three kinds of field: how to reach the API (apiBaseUrl, apiKey), whether the user
- * declined a key (apiDeclined), and the run ceilings — every number that bounds how much
- * work a run does. The plugin never touches the user's own Claude Code settings.
+ * declined a key (apiDeclined), and the run configurations — every number that bounds how
+ * much work a run does. The plugin never touches the user's own Claude Code settings.
  *
- * Every ceiling lives here rather than in brain prose for one reason: prose is read and
- * obeyed on trust, and two real runs on 2026-08-17 applied 20 and 8 for the same cap with
- * nothing flagging the difference. A number in a file can be printed back by preflight and
- * recorded in run_history; a number in a sentence cannot.
+ * Every configuration lives here rather than in brain prose for one reason: prose is read
+ * and obeyed on trust, and two real runs on 2026-08-17 applied 20 and 8 for the same cap
+ * with nothing flagging the difference. A number in a file can be printed back by preflight
+ * and recorded in run_history; a number in a sentence cannot.
+ *
+ * A group is named for the phase that spends it. Nothing is called a "ceiling" any more:
+ * several of these are depths and sample sizes rather than caps, and one word for all of
+ * them stops the file implying a bound where there is only a setting.
  *
  * Used two ways:
  *   - imported by preflight.mjs, which reads the config to decide the run's state
@@ -29,8 +33,8 @@ import { fileURLToPath } from 'node:url';
 export const DEFAULT_API_BASE_URL = 'https://api.digmore.ai';
 
 /**
- * The run ceilings, full mode. Each is read at the start of a run and applied as given;
- * none is advisory. `--fast` overrides a subset of them — see FAST_DEFAULTS below.
+ * The run configurations, full mode. Each is read at the start of a run and applied as
+ * given; none is advisory. `--fast` overrides a subset of them — see FAST_DEFAULTS below.
  *
  * `fetchesPerBranch` is per angle-source pair, not per source: a run with 6 angles and 5
  * sources has 30 branches, so this number multiplies by 30 rather than by 5. It counts
@@ -40,17 +44,27 @@ export const DEFAULT_API_BASE_URL = 'https://api.digmore.ai';
  * forums each get their own. Ranking happens inside a source, because the engagement
  * numbers that break ties — karma, followers, upvotes — do not compare across sources.
  *
- * Twitter vets at two depths, and the two `twitter` ceilings are one each. Every handle
- * within the cap gets its profile read; the `handlesDeepVetted` best of the ones that came
- * back `unknown` also get their most recent `postsPerDeepVet` posts read. The post count
- * goes to the API as `--posts`, so depth is a number the user sets rather than a tier the
- * API names. What counts X will actually serve is the API's business, not ours.
+ * `enrich.*` bound the expert step: how many vetted experts are followed, and how many of
+ * each one's pages are read. The second is also the `fetchesPerBranch` of an expert branch,
+ * an expert being a branch whose source is implied by the handle.
+ *
+ * The two `twitter` numbers are depth, not a second pass. Every handle within the cap is
+ * dispatched once; the `handlesDeepVetted` best BY RANK are dispatched with
+ * `postsPerDeepVet` posts and everyone else with none. Depth is decided before anything
+ * runs, off the ranking in <source>-handles.json, rather than bought with a first verdict.
+ * The post count goes to the API as `--posts`. What X will actually serve is the API's
+ * business, not ours.
+ *
+ * There is no `synthesize` group and no Audit group. Every rendered claim is fact-checked,
+ * so there is no checked subset to size and nothing is flagged for the user to chase; the
+ * fact check's unit is one paragraph of the summary, which is a property of the document
+ * rather than a number anyone sets.
  */
-export const CEILING_DEFAULTS = Object.freeze({
+export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
   extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5 },
   vet: { handleCapPerSource: 50 },
-  synthesize: { expertsFollowed: 10, urlsPerExpert: 10, claimsFactChecked: 50, manualVerifyFlagCap: 15 },
+  enrich: { expertsFollowed: 10, urlsPerExpert: 10 },
   twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
   subagents: { repairAttempts: 1 },
@@ -68,41 +82,39 @@ const FAST_REDUCTIONS = Object.freeze({
   plan: { minAngles: 2, maxAngles: 2 },
   extract: { fetchesPerBranch: 5 },
   vet: { handleCapPerSource: 20 },
-  synthesize: { expertsFollowed: 3, urlsPerExpert: 3, claimsFactChecked: 10, manualVerifyFlagCap: 5 },
+  enrich: { expertsFollowed: 3, urlsPerExpert: 3 },
   twitter: { handlesDeepVetted: 0 },
 });
 
 /**
- * The full tree again, with the reductions applied — every ceiling appears here, including
- * the ones fast mode leaves alone. Written out in full so the settings file shows every
- * knob that exists in both modes; a block listing only the reductions would hide the rest,
- * and a user cannot change a setting they cannot see.
+ * The full tree again, with the reductions applied — every configuration appears here,
+ * including the ones fast mode leaves alone. Written out in full so the settings file shows
+ * every knob that exists in both modes; a block listing only the reductions would hide the
+ * rest, and a user cannot change a setting they cannot see.
  */
 export const FAST_DEFAULTS = Object.freeze(
   Object.fromEntries(
-    Object.entries(CEILING_DEFAULTS).map(([group, ceilings]) => [
+    Object.entries(CONFIGURATION_DEFAULTS).map(([group, configurations]) => [
       group,
-      Object.freeze({ ...ceilings, ...(FAST_REDUCTIONS[group] ?? {}) }),
+      Object.freeze({ ...configurations, ...(FAST_REDUCTIONS[group] ?? {}) }),
     ]),
   ),
 );
 
 /**
- * One line per ceiling, saying what it bounds. Kept beside the defaults so that adding a
- * ceiling and describing it are the same edit, and printed by preflight so the model reads
- * the number together with what it means.
+ * One line per configuration, saying what it bounds. Kept beside the defaults so that
+ * adding one and describing it are the same edit, and printed by preflight so the model
+ * reads the number together with what it means.
  */
-export const CEILING_NOTES = Object.freeze({
+export const CONFIGURATION_NOTES = Object.freeze({
   'plan.minAngles': 'fewest research angles a run plans',
   'plan.maxAngles': 'most research angles a run plans',
   'plan.scopingSearches': 'web searches the scoping agent may spend',
   'extract.fetchesPerBranch': 'URLs per angle-source pair, pages included',
   'extract.maxPagesPerDocument': 'pages followed when one document paginates',
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
-  'synthesize.expertsFollowed': 'vetted experts whose other writing is read',
-  'synthesize.urlsPerExpert': 'URLs read per followed expert',
-  'synthesize.claimsFactChecked': 'top-ranked claims checked against their source',
-  'synthesize.manualVerifyFlagCap': 'inline manual-verify flags allowed in the summary',
+  'enrich.expertsFollowed': 'vetted experts whose other writing is read',
+  'enrich.urlsPerExpert': 'URLs read per followed expert, and that branch\'s whole fetch budget',
   'twitter.handlesDeepVetted': 'handles whose recent posts are read, on top of their profile',
   'twitter.postsPerDeepVet': 'posts read for one of those handles',
   'hackernews.commentDepth': 'reply depth kept when a thread is flattened — below this the argument is lost',
@@ -112,16 +124,15 @@ export const CEILING_NOTES = Object.freeze({
 });
 
 /**
- * Ceilings where zero is a real instruction — "do not do this step" — rather than a
+ * Configurations where zero is a real instruction — "do not do this step" — rather than a
  * mistake. Everything else falls back to its default when set to zero, because a run that
  * fetches nothing or vets nobody looks complete having done no work.
  */
 const ZERO_IS_MEANINGFUL = new Set([
   'twitter.handlesDeepVetted',
   'hackernews.deadSampleSize',
-  'synthesize.expertsFollowed',
-  'synthesize.urlsPerExpert',
-  'synthesize.manualVerifyFlagCap',
+  'enrich.expertsFollowed',
+  'enrich.urlsPerExpert',
   'subagents.repairAttempts',
 ]);
 
@@ -129,7 +140,7 @@ export const DEFAULTS = Object.freeze({
   apiBaseUrl: DEFAULT_API_BASE_URL,
   apiKey: null,
   apiDeclined: false,
-  ...CEILING_DEFAULTS,
+  ...CONFIGURATION_DEFAULTS,
   fast: { ...FAST_DEFAULTS },
 });
 
@@ -149,23 +160,23 @@ export function configPath() {
 }
 
 /**
- * A ceiling has to be a whole number, and above zero unless zero means something for that
- * key. Anything else — a string, a negative, a fraction — falls back to the default rather
- * than being carried into a run that then does the wrong amount of work.
+ * A configuration has to be a whole number, and above zero unless zero means something for
+ * that key. Anything else — a string, a negative, a fraction — falls back to the default
+ * rather than being carried into a run that then does the wrong amount of work.
  */
-function ceiling(path, value, fallback) {
+function configuration(path, value, fallback) {
   if (!Number.isInteger(value)) return fallback;
   if (value > 0) return value;
   return value === 0 && ZERO_IS_MEANINGFUL.has(path) ? 0 : fallback;
 }
 
-/** Two levels: a group of related ceilings, then the ceilings themselves. */
-function normaliseCeilings(raw, defaults) {
+/** Two levels: a group named for the phase that spends it, then the numbers themselves. */
+function normaliseConfigurations(raw, defaults) {
   const result = {};
-  for (const [group, ceilings] of Object.entries(defaults)) {
+  for (const [group, configurations] of Object.entries(defaults)) {
     result[group] = {};
-    for (const [name, fallback] of Object.entries(ceilings)) {
-      result[group][name] = ceiling(`${group}.${name}`, raw?.[group]?.[name], fallback);
+    for (const [name, fallback] of Object.entries(configurations)) {
+      result[group][name] = configuration(`${group}.${name}`, raw?.[group]?.[name], fallback);
     }
   }
   return result;
@@ -177,22 +188,22 @@ function normalise(raw) {
     apiBaseUrl: typeof raw?.apiBaseUrl === 'string' && raw.apiBaseUrl ? raw.apiBaseUrl : DEFAULT_API_BASE_URL,
     apiKey: typeof raw?.apiKey === 'string' && raw.apiKey ? raw.apiKey : null,
     apiDeclined: raw?.apiDeclined === true,
-    ...normaliseCeilings(raw, CEILING_DEFAULTS),
-    fast: normaliseCeilings(raw?.fast, FAST_DEFAULTS),
+    ...normaliseConfigurations(raw, CONFIGURATION_DEFAULTS),
+    fast: normaliseConfigurations(raw?.fast, FAST_DEFAULTS),
   };
 }
 
 /**
- * The ceilings a run actually applies, given its mode. Fast mode takes the lower of the
- * two, so a user who tightened a full-mode ceiling is never loosened by asking for a
+ * The configurations a run actually applies, given its mode. Fast mode takes the lower of
+ * the two, so a user who tightened a full-mode number is never loosened by asking for a
  * shallower run — except where fast deliberately sets zero, which is a skip and wins.
  */
-export function ceilingsFor(config, { fast = false } = {}) {
-  const applied = normaliseCeilings(config, CEILING_DEFAULTS);
+export function configurationsFor(config, { fast = false } = {}) {
+  const applied = normaliseConfigurations(config, CONFIGURATION_DEFAULTS);
   if (!fast) return applied;
-  const reductions = normaliseCeilings(config.fast, FAST_DEFAULTS);
-  for (const [group, ceilings] of Object.entries(reductions)) {
-    for (const [name, fastValue] of Object.entries(ceilings)) {
+  const reductions = normaliseConfigurations(config.fast, FAST_DEFAULTS);
+  for (const [group, configurations] of Object.entries(reductions)) {
+    for (const [name, fastValue] of Object.entries(configurations)) {
       if (!Object.hasOwn(applied[group] ?? {}, name)) continue;
       applied[group][name] = fastValue === 0 ? 0 : Math.min(applied[group][name], fastValue);
     }
@@ -224,7 +235,7 @@ function serialise(config) {
  * Created on first run, mode 0600; if unparseable, reported and never overwritten.
  * Returns MALFORMED rather than throwing, because preflight has a state for it.
  *
- * A readable file is also completed in place: if a later version adds a ceiling, the
+ * A readable file is also completed in place: if a later version adds a configuration, the
  * normalised shape carries it and the file on disk does not, so it is written back. Every
  * setting is then visible and editable without the user having to know it exists —
  * otherwise a knob added after install stays invisible forever. Existing values are kept,
@@ -285,8 +296,8 @@ export function report(config) {
     apiBaseUrl: config.apiBaseUrl,
     apiKeyConfigured: config.apiKey !== null,
     apiDeclined: config.apiDeclined,
-    ...normaliseCeilings(config, CEILING_DEFAULTS),
-    fast: normaliseCeilings(config.fast, FAST_DEFAULTS),
+    ...normaliseConfigurations(config, CONFIGURATION_DEFAULTS),
+    fast: normaliseConfigurations(config.fast, FAST_DEFAULTS),
     path: configPath(),
   };
 }

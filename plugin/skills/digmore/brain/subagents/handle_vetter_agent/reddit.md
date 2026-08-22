@@ -8,8 +8,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit user <name> -
 
 `--topic <slug>` is mandatory.
 
-Exit codes: `0` success · `3` source temporarily unavailable · `4` no API key · `5` key rejected ·
-`1` anything else.
+On a failure the script says what happened on stderr — read that rather than decoding the exit code. Two change what you do: `4` means no API key, so this source is disabled rather than failed, and `3` means the source is temporarily unavailable. Anything else is a failure to report as one.
 
 ## One call gives you everything
 
@@ -33,7 +32,7 @@ error.
 
 In the order the script applies them:
 
-1. Account age < 30 days with low karma → `unknown`.
+1. New account with low karma → `throwaway`. Both together, never one alone.
 2. Same URL host 5+ times across recent comments → `promoter`. 10+ → `spammer`.
 3. Same brand-shaped token (`acme.com`-style) 5+ times → `promoter`.
 4. 80%+ of recent comments in one subreddit, with at least 10 comments → `unknown`, the fanboy case.
@@ -62,14 +61,14 @@ The `created_utc` of the most recent entry in `recent_comments`, as `YYYY-MM-DD`
 
 ## What lands on disk
 
-Three files in `digmore/<slug>/cache/reddit/`, all written by that one call:
+**One file per handle**, written by that one call:
+`digmore/<slug>/cache/reddit/reddit-vet-<name>.json` — the profile, the recent comments and the
+verdict, together. It used to be three, because the brain it came from made two requests and cached
+the verdict in a third; one response means one file, and three files meant three reads that all had
+to hit before the cache counted as warm.
 
-- `reddit-user-about-<name>.json` — the profile fields.
-- `reddit-user-comments-<name>.json` — the `recent_comments` array.
-- `reddit-vet-<name>.json` — verdict, signals and reason.
-
-Nothing else writes any of the three. If they already exist the script returns them without
-re-fetching.
+If it already exists the script returns it without re-fetching. **You do no checking to make that
+true** — run the command and let it answer from disk or from the network.
 
 ## Known gap
 

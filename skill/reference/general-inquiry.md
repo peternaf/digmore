@@ -64,7 +64,7 @@ Output: one row per platform with URL + status (active / dormant / absent). Land
 Sections in this exact order.
 
 1. **Direct answer** — 1–3 sentences answering the question. At the top. No preamble.
-2. **Evidence** — the body. The synthesizer picks the shape per question: comparison table (often driven by `players.csv` rows), categorized list, prose-with-timeline, per-sub-question grouping, or a mix. Add subsections (`What people pay for`, `Hubs touching this question`, `Buying signals`, etc.) when they help the answer. Inline URL refs for every non-obvious claim, with the commenter handle and Vet verdict.
+2. **Evidence** — the body. The Final report writer picks the shape per question: comparison table (often driven by `players.csv` rows), categorized list, prose-with-timeline, per-sub-question grouping, or a mix. Add subsections (`What people pay for`, `Hubs touching this question`, `Buying signals`, etc.) when they help the answer. Inline URL refs for every non-obvious claim, with the commenter handle and Vet verdict.
 3. **Caveats / what's missing** — where evidence is thin, single-sourced, or conflicting. Be specific about what you didn't find, and name any source the run could not reach.
 4. **Refuted / unsubstantiated** — claims that didn't survive Audit. Each entry: kill reason + original source URL.
 5. **Run footer** — per `../brain/reporting.md`.
@@ -72,4 +72,4 @@ Sections in this exact order.
 ## 2. The rest
 
 - `players.csv` — built from every entity mentioned ≥5 times. Its role here is a credibility filter for the evidence and a reference for any comparison table in §2. If the question genuinely has no players ("what do people ask about computer vision benchmarks"), write the file with the header row plus a single `# no players in scope` comment line.
-- `experts.csv`, `raw_research_outcomes.md`, `audit.md` — the brain's, unchanged.
+- `experts.csv`, `<slug>-raw-report.md`, `audit.md` — the brain's, unchanged.

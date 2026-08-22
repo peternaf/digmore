@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, utimesSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Sandbox } from './helpers.mjs';
 import * as experts from '../skill/scripts/experts.mjs';
@@ -142,41 +142,39 @@ test('a row matching two people is appended and flagged, never merged', async ()
   assert.match(rows[2].notes, /Grace Hopper/);
 });
 
-// Atomic .tmp + rename, so concurrent sources never half-write.
+// Atomic .tmp + rename, so a crash mid-write cannot leave a half-written file. This guards a
+// different failure from the lock that used to sit beside it, and it stays.
 test('the write is atomic and leaves no .tmp behind', async () => {
   await add('--real-name', 'Ada Lovelace');
   const files = readdirSync(join(sandbox.cwd, 'digmore', 'demo'));
-  assert.deepEqual(files, ['experts.csv']);
+  assert.deepEqual(files, ['experts.csv'], 'no .tmp, and no .lock either');
 });
 
-// Phase B fans out one sub-agent per branch, so concurrent appends are the normal
-// case. An atomic write alone would still lose updates — two processes read N rows
-// and both write N+1 — so appendOrMerge takes a lock.
-test('concurrent adds all survive', async () => {
+// There is one writer now, and so no lock. Vet's Handle Vetters fan out one per handle and hand
+// back a short object each; the orchestrator writes this file, in batches as they arrive. A lock
+// existed for a fan-out that no longer happens, and a fan-out writer coming back is a design to
+// change rather than a lock to restore.
+test('a sequence of adds all survive, and none leaves a lock behind', async () => {
   const names = ['Ada', 'Grace', 'Barbara', 'Katherine', 'Margaret', 'Dorothy', 'Mary'];
-  const results = await Promise.all(
-    names.map((name) => add('--real-name', name, '--reddit', name.toLowerCase())),
-  );
-  for (const result of results) assert.equal(result.code, 0, result.err);
+  for (const name of names) {
+    const result = await add('--real-name', name, '--reddit', name.toLowerCase());
+    assert.equal(result.code, 0, result.err);
+  }
   const rows = JSON.parse((await sandbox.run('experts.mjs', 'list', 'demo')).out);
-  assert.equal(rows.length, names.length, 'no row is lost to a racing write');
+  assert.equal(rows.length, names.length);
   assert.deepEqual([...rows.map((row) => row.real_name)].sort(), [...names].sort());
-});
-
-test('the lock is released, so a later run is not blocked', async () => {
-  await add('--real-name', 'Ada', '--reddit', 'ada');
   assert.deepEqual(readdirSync(join(sandbox.cwd, 'digmore', 'demo')), ['experts.csv']);
-  assert.equal((await add('--real-name', 'Grace', '--reddit', 'grace')).code, 0);
 });
 
-test('a stale lock left by a killed process does not block forever', async () => {
+// A leftover .lock from a version that took one is not a file this script knows about, so it
+// must not block, break or be tidied away — it is simply ignored.
+test('a lock file left by an older version is ignored rather than waited on', async () => {
   mkdirSync(join(sandbox.cwd, 'digmore', 'demo'), { recursive: true });
-  const lock = `${csvPath()}.lock`;
-  writeFileSync(lock, '');
-  const old = new Date(Date.now() - 60_000);
-  utimesSync(lock, old, old);
+  writeFileSync(`${csvPath()}.lock`, '');
   const { code } = await add('--real-name', 'Ada', '--reddit', 'ada');
-  assert.equal(code, 0, 'a lock older than the stale window is broken');
+  assert.equal(code, 0, 'nothing waits on it, so it cannot time out');
+  const rows = JSON.parse((await sandbox.run('experts.mjs', 'list', 'demo')).out);
+  assert.equal(rows.length, 1);
 });
 
 test('csv special characters survive a round trip', async () => {

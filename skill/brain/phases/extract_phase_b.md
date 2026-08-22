@@ -1,6 +1,6 @@
 # Extract
 
-Where the run does its bulk work: search every branch, read what it finds, then write per-source notes. Three sub-steps, each with its own progress marker — `[2.1/6] Extract · Search`, `[2.2/6] Extract · Read`, `[2.3/6] Extract · Source notes` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/full_source_analysis/`.
+Where the run does its bulk work: search every branch, read what it finds, then write one report per source. Three sub-steps, each with its own progress marker — `[2.1/6] Extract · Search`, `[2.2/6] Extract · Read`, `[2.3/6] Extract · Source reports` (`../reporting.md`). All write incrementally to `digmore/<topic-slug>/cache/<source>/` and `digmore/<topic-slug>/full_source_analysis/`.
 
 The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
@@ -81,7 +81,7 @@ Print `[2.2/6] Extract · Read`. For each URL that survived the dedupe, dispatch
 
 **Dispatch them all at once, up to the harness limit `preflight.mjs` reported** — the same rule as the searchers above, and for the same reason: nothing here shares a rate limit, so the only bound is how many sub-agents Claude Code will run. Batch only when the limit errors, exactly as in §Search. Do not invent a smaller batch size of your own.
 
-**The claims do not come back into your context, and you do not read the files.** Several hundred of these run in one job; a run that holds every claim runs out of room before it reaches the report. What needs them reads them: the Source Analyst for its roster, the Report Writer for the summary, the fact checker for verification. What you keep is the receipts — enough to total the branch's fetches, and to write `audit.md`'s two page-level records: the URLs that came back `blocked`, and the ones WebFetch had to take. Both vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
+**The claims do not come back into your context, and you do not read the files.** Several hundred of these run in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead. What you keep is the receipts — enough to total the branch's fetches, and to write `audit.md`'s two page-level records: the URLs that came back `blocked`, and the ones WebFetch had to take. Both vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
 **One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../subagents/dispatch_structured_subagent.md` for the prompt.
 
@@ -106,17 +106,16 @@ A hard cap, not advisory. Re-runs must not loosen it implicitly.
 
 Vetting fetches are **not** in this cap — they are bounded separately in `vet_phase_c.md`. They are roughly half of a run's network traffic, so a cap that ignored them would be bounding the smaller half.
 
-## Source notes
+## Source reports
 
 For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes three files, all to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
 
-**`<source>.md` — the notes.** Unstructured observations, no schema:
-- Patterns that aren't claims (recurring tone, vibe shifts, "everyone is suddenly talking about X").
-- Throwaway lines a claim-extractor would skip.
-- Cross-thread connections (the same author contradicting themselves elsewhere).
-- Oddities.
+**`<source>-raw-report.json` — that source's whole record.** The `source-raw-report` shape in `../../scripts/subagent_returns.json`. Two halves:
 
-These are an LLM-only artifact — Synthesize reads them alongside the claims. They do NOT appear in the summary directly. Surprises mined from them feed into "Non-trivial insights" via the Report Writer. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
+- **`claims`** — every claim this source produced, deduplicated within this source only, each carrying its citations, and each citation carrying the handle that said it, the URL it can be read at, and the cached page it was read from.
+- **`observations`** — markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers.
+
+**This is the last read of the claims files.** It is bounded because it is one source, and writing that source's claims out is a third view over material already in front of the agent — which is what lets everything after Extract work from six compact reports instead of several hundred files. `observations` never appears in the summary directly; the surprises mined from it reach "Non-trivial insights" through the raw report. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
 
 **`<source>-handles.json` — the handles.** Only on Reddit, Hacker News, Twitter and forums; the open web and the user's own documents have no accounts to vet. Every handle the source produced, ranked by the highest importance of the claims attributed to them and then by how many documents they appear in, with whatever the pages already showed about them. The `source-handles` shape in `../../scripts/subagent_returns.json`.
 
@@ -124,7 +123,7 @@ These are an LLM-only artifact — Synthesize reads them alongside the claims. T
 
 **`<source>-players.json` — every entity this source named.** All six sources: unlike handles, there is no source without players. One entry per company, project or product the material named, with how many of this source's documents named it, one line on how it showed up in that source's conversation, and one entry per claim about it carrying the handle that said it. The `source-players` shape in `../../scripts/subagent_returns.json`.
 
-**Nobody reads these six files here.** Enrichment's script merges them, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide.
+**Nobody reads the players files here.** Enrichment's script merges the six, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide. The raw reports wait the same way, for `synthesis.mjs join` at the start of Synthesize.
 
 ### Tell it to write a heartbeat
 
@@ -138,13 +137,16 @@ It reads every page and every claims file a source produced, so it is one of the
 the run and the only one with no script behind it to explain the wait. Without the line there is
 nothing to read when it goes quiet (`index.md` §"When a sub-agent goes quiet").
 
-### Check the two JSON files
+### Check the files it wrote
 
-The notes are prose and there is nothing to check. **The other two are JSON with a shape**, and the
-phase after each of them cannot run without it, so check them the way every other payload is checked
-— the calls are yours, because this agent gets no dispatch template to carry them:
+**All three are JSON with a shape**, and the phase after each of them cannot run without it, so check
+them the way every other payload is checked — the calls are yours, because this agent gets no
+dispatch template to carry them:
 
 ```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-raw-report \
+  digmore/<slug>/full_source_analysis/<source>-raw-report.json
+
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-handles \
   digmore/<slug>/full_source_analysis/<source>-handles.json
 
@@ -153,10 +155,16 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-players 
 ```
 
 One repair attempt on exit 1, then a recorded drop, per `../subagents/dispatch_structured_subagent.md`
-§"The repair pass". A handles file that still fails is a source that cannot be vetted — treat it as
-a missing one below. A players file that still fails is a source whose entities never reach
-Enrichment: record it in `audit.md` and name it in the run's Issues, because the run's subject list
-will be short by whatever that source alone would have contributed.
+§"The repair pass". What each failure costs is different, and the run says which:
+
+- **A raw report that still fails** is a source whose evidence never reaches the summary at all —
+  the largest loss of the three, because it is every claim that source produced.
+- **A handles file that still fails** is a source that cannot be vetted — treat it as a missing one
+  below.
+- **A players file that still fails** is a source whose entities never reach Enrichment: the run's
+  subject list will be short by whatever that source alone would have contributed.
+
+Record any of them in `audit.md` and name it in the run's Issues.
 
 ### When a Source Analyst fails
 
@@ -166,17 +174,15 @@ that did produce documents: the material is on disk, one of its files is not, an
 identical to a source with nobody and nothing in it.
 
 1. **Re-dispatch it once.**
-2. If the second attempt also ends with `<source>.md` written and a JSON file missing or still
-   failing its check, record it in `audit.md` and name it in the run's Issues. A missing
-   `<source>-handles.json` means **that source is not vetted**; a missing `<source>-players.json`
-   means **its entities never reach Enrichment**.
-3. **Do not rebuild either file by hand.** You no longer hold the claims, so any ranking or count you
+2. If the second attempt still leaves one of the three missing or failing its check, record it in
+   `audit.md` and name it in the run's Issues, per the costs above.
+3. **Do not rebuild any of them by hand.** You no longer hold the claims, so any ranking or count you
    built would be by frequency alone — the thing these files exist to replace.
 
-The claims from that source still reach the report either way. What is lost is the verdict on the
-people behind them, or the companies they named, and the run says so rather than quietly quoting
-unvetted voices or reporting a subject list it knows is short.
+Which loss it is decides what the rest of the run can still do. A source that produced a raw report
+but no handles file still reaches the summary, quoted as unvetted; one that produced no raw report
+contributes nothing at all. The run says which rather than quietly shipping the shortfall.
 
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned, and every source with data has its `full_source_analysis/<source>.md` and its checked `<source>-players.json` — plus its checked `<source>-handles.json`, on the sources that carry handles. A source still missing one of the two JSON files after a re-dispatch is complete too, and recorded as unvetted or as missing from the subject list. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its checked `full_source_analysis/<source>-raw-report.json` and `<source>-players.json` — plus its checked `<source>-handles.json`, on the sources that carry handles. A source still missing one after a re-dispatch is complete too, and recorded as the loss it is. No marker file is written — resume infers completion from the presence of these artifacts.

@@ -27,6 +27,21 @@ import { assertWorkspaceRoot } from './fetch.mjs';
 
 export const REQUEST_TIMEOUT_MS = 30000;
 
+/**
+ * What a 429 waits, in order, before the next attempt. Three waits, so four attempts.
+ *
+ * digmore's own API has no per-key rate limit today, and this is built anyway: the X bearer
+ * token and the residential proxy behind it can throttle us upstream, and that reaches the
+ * user the same way. Without it a 429 is a hard failure at the moment it arrives — a Reddit
+ * branch that never ran, or a handle that never got vetted, in the middle of the run's
+ * widest fan-out. `extract_phase_b.md`'s rule is that a source nobody queried must never
+ * read as a source that came back empty, and an unhandled throttle produces exactly that,
+ * silently.
+ *
+ * The order is: the client survives a 429 first, the server gets a limit second.
+ */
+export const BACKOFF_MS = Object.freeze([5000, 15000, 45000]);
+
 /** The API takes 1–100 tweet ids per call. */
 const MAX_TWEET_IDS_PER_CALL = 100;
 
@@ -180,6 +195,26 @@ export function searchRequestKey({ query, subreddits = [], sort, timeWindow, lim
 
 const skip = (value) => value === undefined || value === null || value === '';
 
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/**
+ * How long to wait before retrying a throttled request.
+ *
+ * `Retry-After` wins where the server sent one and it is a plain number of seconds — it is
+ * the only party that knows when the window reopens. The date form is not read: it needs a
+ * trustworthy clock on both ends, and getting it wrong waits either far too long or not at
+ * all. Anything unusable falls back to the schedule, which is what the header is a
+ * refinement of rather than a replacement for.
+ */
+export function backoffMs(retryAfterHeader, attempt) {
+  const scheduled = BACKOFF_MS[attempt] ?? BACKOFF_MS[BACKOFF_MS.length - 1];
+  const seconds = Number(retryAfterHeader);
+  if (!Number.isFinite(seconds) || seconds < 0) return scheduled;
+  // A server asking for longer than the schedule is honoured; one asking for less is not,
+  // because the schedule is also protecting the paid dependencies behind our own API.
+  return Math.max(scheduled, Math.round(seconds * 1000));
+}
+
 async function request(config, path, params = {}) {
   const url = new URL(path, config.apiBaseUrl);
   for (const [key, value] of Object.entries(params)) {
@@ -193,13 +228,28 @@ async function request(config, path, params = {}) {
   }
 
   let response;
-  try {
-    response = await fetch(url, {
-      headers: { 'X-API-KEY': config.apiKey },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ApiError('the digmore API could not be reached', EXIT.FAILED);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      response = await fetch(url, {
+        headers: { 'X-API-KEY': config.apiKey },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch {
+      throw new ApiError('the digmore API could not be reached', EXIT.FAILED);
+    }
+
+    if (response.status !== 429) break;
+
+    // Out of waits. A throttle we could not outlast is the source being unavailable, not a
+    // failure of the call — the run names it as one it could not reach, which is a different
+    // sentence from one that came back empty.
+    if (attempt >= BACKOFF_MS.length) {
+      throw new ApiError(
+        'the digmore API is rate limiting this run — try again later',
+        EXIT.UNAVAILABLE,
+      );
+    }
+    await wait(backoffMs(response.headers.get('retry-after'), attempt));
   }
 
   // 401 and only 401. V0.1 has no authorization layer, so the API rejects a key with
@@ -290,28 +340,20 @@ const reddit = {
    * every entry after it, so a body and the subreddit beside it would describe different
    * comments.
    *
-   * The brain fetched this as two requests and cached the verdict in a third, so the one
-   * response is split back into the three filenames its resume paths and sub-agents read.
+   * One request, one file: the vetting record for one handle, profile and comments and
+   * verdict together.
+   *
+   * It used to be three — the Python brain made two requests and cached the verdict in a
+   * third, and this split the single response back into that shape. Nothing ever read the
+   * pieces separately, and three files meant three reads that all had to hit before the
+   * cache counted as warm. Files written under the old names are simply not found, so the
+   * first run after this pays one request per handle and no more.
    */
   async user(ctx, [name]) {
     if (!name) throw new ApiError('reddit user needs a name', EXIT.USAGE);
-    const aboutKey = `reddit-user-about-${name}.json`;
-    const commentsKey = `reddit-user-comments-${name}.json`;
-    const vetKey = `reddit-vet-${name}.json`;
-
-    const about = readCache(ctx.dir, aboutKey);
-    const comments = readCache(ctx.dir, commentsKey);
-    const vetted = readCache(ctx.dir, vetKey);
-    if (about !== undefined && comments !== undefined && vetted !== undefined) {
-      return { ...about, recent_comments: comments, ...vetted };
-    }
-
-    const user = await request(ctx.config, `/v1/reddit/user/${encodeURIComponent(name)}`);
-    const { recent_comments: recentComments = [], verdict, signals, reason, ...profile } = user ?? {};
-    writeCache(ctx.dir, aboutKey, profile);
-    writeCache(ctx.dir, commentsKey, recentComments);
-    writeCache(ctx.dir, vetKey, { verdict, signals, reason });
-    return user;
+    return cached(ctx, `reddit-vet-${name}.json`, () =>
+      request(ctx.config, `/v1/reddit/user/${encodeURIComponent(name)}`),
+    );
   },
 };
 
@@ -370,13 +412,21 @@ const twitter = {
   },
 
   /**
-   * Vetting runs at two depths, and `--posts` is the whole of the difference: 0 reads the
-   * profile alone, a positive number also reads that many of the handle's recent posts.
-   * Which counts X will actually serve is the API's business, so this refuses only what
-   * could never be a count at all.
+   * Vetting reads at a depth, and `--posts` is the whole of it: 0 reads the profile alone, a
+   * positive number also reads that many of the handle's recent posts. Which counts X will
+   * actually serve is the API's business, so this refuses only what could never be a count.
    *
-   * Each depth caches under its own name, so going deeper on a handle fetches the deeper
-   * answer instead of re-reading the shallow one already on disk.
+   * **One file per handle, however many times it is vetted**, carrying `posts_sampled` — the
+   * depth it was actually fetched at. The cache hits only when the stored depth is AT LEAST
+   * what this call asked for: deeper supersedes shallower, never the other way round.
+   *
+   * The name used to carry the depth, because a handle could be vetted twice — once cheaply,
+   * then again over the ones that came back `unknown`. It cannot any more: depth is decided
+   * from the ranking before anything runs, so one handle means one call. What the depth
+   * comparison still protects is resume and re-runs — a re-run that raises
+   * `twitter.postsPerDeepVet`, or a handle that moved up into the deep set, asks for more
+   * than the file holds. Drop the suffix without the comparison and a shallow file would
+   * answer a deep call, returning cached having never read the posts it was dispatched for.
    */
   async vet(ctx, [handle], flags) {
     if (!handle) throw new ApiError('twitter vet needs a handle', EXIT.USAGE);
@@ -387,9 +437,19 @@ const twitter = {
       );
     }
     const posts = Number(flags.posts);
-    return cached(ctx, `twitter-vet-${handle}-${posts}posts.json`, () =>
-      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { posts }),
-    );
+    const key = `twitter-vet-${handle}.json`;
+
+    const hit = readCache(ctx.dir, key);
+    // A file written before `posts_sampled` existed reads as depth 0, so it answers a
+    // profile-only call and is re-fetched for anything deeper. That is the right way round.
+    if (hit !== undefined && Number(hit.posts_sampled ?? 0) >= posts) return hit;
+
+    const fresh = await request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { posts });
+    // Recorded here rather than trusted from the response: the depth we asked for is what
+    // the cache comparison has to mean, and the API does not report it back.
+    const stored = { ...fresh, posts_sampled: posts };
+    writeCache(ctx.dir, key, stored);
+    return stored;
   },
 };
 
@@ -405,7 +465,7 @@ async function cached(ctx, key, fetcher) {
   return fresh;
 }
 
-/** A runaway loop guard, not a real ceiling — two collisions on one name is already rare. */
+/** A runaway loop guard, not a configured bound — two collisions on one name is already rare. */
 const MAX_CACHE_PROBES = 20;
 
 /**

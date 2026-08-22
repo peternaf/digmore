@@ -13,7 +13,7 @@
  * stderr says why.
  */
 
-import { loadOrCreateConfig, MALFORMED, configPath, ceilingsFor, CEILING_NOTES } from './config.mjs';
+import { loadOrCreateConfig, MALFORMED, configPath, configurationsFor, CONFIGURATION_NOTES } from './config.mjs';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -38,7 +38,7 @@ export const WANTED_HARNESS_LIMITS = Object.freeze([
     key: 'CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS',
     stock: 20,
     wanted: 100,
-    why: 'Extract fans out one sub-agent per branch — 25 or more at once — against a stock limit of 20, so the run is throttled into batches',
+    why: 'Extract fans out one sub-agent per branch — 25 or more at once — against a stock limit of 20, so the run is throttled into batches. Raise it only where 16GB or more of RAM is free for the run: a hundred agents each hold their own material, and on a machine that cannot feed them the run is slower rather than wider',
   },
 ]);
 
@@ -138,26 +138,26 @@ Use these numbers. Do not assume a default the user may have raised.${advice}`;
 }
 
 /**
- * digmore's own ceilings, for the same reason `harnessReport` prints the harness's: the
- * brain names a default, the user's settings file is what actually applies, and prose
- * cannot know which. A run that assumes 20 on a machine set to 5 fetches four times what
- * the user allowed.
+ * digmore's own configurations, for the same reason `harnessReport` prints the harness's
+ * limits: the brain names a default, the user's settings file is what actually applies, and
+ * prose cannot know which. A run that assumes 20 on a machine set to 5 fetches four times
+ * what the user allowed.
  */
-export function ceilingsReport(config) {
+export function configurationsReport(config) {
   if (config === MALFORMED) return '';
 
-  const full = ceilingsFor(config);
-  const fast = ceilingsFor(config, { fast: true });
+  const full = configurationsFor(config);
+  const fast = configurationsFor(config, { fast: true });
 
   const rows = [];
-  for (const [group, ceilings] of Object.entries(full)) {
-    for (const name of Object.keys(ceilings)) {
-      const fullValue = ceilings[name];
+  for (const [group, configurations] of Object.entries(full)) {
+    for (const name of Object.keys(configurations)) {
+      const fullValue = configurations[name];
       const fastValue = fast[group][name];
       rows.push({
         key: `${group}.${name}`,
         value: fastValue === fullValue ? String(fullValue) : `${fullValue} → ${fastValue}`,
-        note: CEILING_NOTES[`${group}.${name}`] ?? '',
+        note: CONFIGURATION_NOTES[`${group}.${name}`] ?? '',
       });
     }
   }
@@ -170,7 +170,7 @@ export function ceilingsReport(config) {
 
   return `
 
-digmore: RUN CEILINGS — from ${configPath()}:
+digmore: RUN CONFIGURATIONS — from ${configPath()}:
 ${lines}
 
 Use these numbers. They are the user's, not defaults to assume. Where two are shown, the
@@ -298,7 +298,7 @@ async function main() {
   try {
     const config = loadOrCreateConfig();
     const state = await resolveState(config);
-    process.stdout.write(`${report(state)}${ceilingsReport(config)}${harnessReport()}\n`);
+    process.stdout.write(`${report(state)}${configurationsReport(config)}${harnessReport()}\n`);
     process.exitCode = 0;
   } catch (error) {
     // Every state preflight knows about is reported on stdout and exits 0 — NO_KEY,

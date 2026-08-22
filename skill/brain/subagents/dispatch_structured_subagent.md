@@ -1,22 +1,21 @@
-# Dispatching a structured sub-agent
+# Dispatching a sub-agent
 
-The prompt for a sub-agent that **returns structured output** — anything whose return has a shape in `scripts/subagent_returns.json`. Assembled here so a dispatch is one read instead of four. `phases/index.md` says why the shape is what it is.
+Two parts. **The first goes in every dispatch, whatever comes back.** The second is the extra block
+for a sub-agent whose return has a shape in `scripts/subagent_returns.json`.
 
-The phase file dispatching one points here; this file names none of them, so a new kind of structured sub-agent needs no edit to it.
+The phase file dispatching one points here; this file names none of them, so a new kind of sub-agent
+needs no edit to it. `phases/index.md` says why the shape of a sub-agent is what it is.
 
-**It does not apply to a sub-agent that returns no shape** — one writing prose to its own file, or editing the draft summary in place. There is no block to paste, nothing to write to `_returns/`, and nothing for `validate.mjs` to check. Those carry their instructions in the phase file that dispatches them.
+## Every dispatch carries this
 
-## The template
-
-Fill the three slots and send it. Nothing is optional, and nothing is paraphrased — the wording below is the wording that goes in.
+Nothing here is optional, and nothing is paraphrased — the wording below is the wording that goes in.
 
 ```
 <THE JOB — one kind of work over one item. See the phase file.>
 
 Do the work inline with the tools you already have: one kind of work over one item, then
-return what you found. Log a line before each step. Anything you cannot do yourself is a
-finding to report back — never a script to write, an agent to dispatch, or something to
-wait on.
+return what you found. Anything you cannot do yourself is a finding to report back — never
+a script to write, an agent to dispatch, or something to wait on.
 
 Run from the directory you were started in. Never cd. Every script builds its own paths
 from there as digmore/<slug>/..., so stepping into the topic directory first makes it
@@ -27,7 +26,17 @@ digmore/<slug>/cache/_progress/<your-label>.log: the time, and what you are abou
 
 Read ${CLAUDE_PLUGIN_ROOT}/skills/digmore/brain/output.md before you write anything you
 return. Its rules govern your output as much as the final report.
+```
 
+**The last two lines used to live in the block below**, which only agents returning a shape ever
+received — so an agent that returns prose or edits a file in place silently got neither. Both are
+exactly as necessary there: an agent that writes to disk and returns nothing is one of the longest
+silences in a run, and an agent whose product *is* prose is the one that most needs the writing rules.
+They are here now, and no phase file writes them in by hand any more.
+
+## When a shape comes back, add this
+
+```
 Return exactly this JSON, and write the same JSON to
 digmore/<slug>/cache/_returns/<your-label>.json:
 
@@ -38,39 +47,47 @@ format and worked example from the command's reference file, verbatim. A sub-age
 pointed at a file instead of given the spec defaults to the shortest plausible content.>
 ```
 
-## The three slots
-
 | Slot | Where it comes from |
 |---|---|
 | The job | The phase file dispatching it — one item, named. |
 | The shape | `scripts/subagent_returns.json`, the entry matching what this agent returns. Its `description` says what the shape is for; paste the whole entry. |
-| The format spec | The command's reference file, and only for agents that produce formatted output — today the synthesizer. |
+| The format spec | The command's reference file, and only for agents that render a section of the summary. |
+
+**A `_returns/` copy is written because `validate.mjs` reads a file, not a message.** The one
+deliberate exception is the Handle Vetter: it fans out one dispatch per handle, its return is a short
+object, and the gate that matters is on `<source>-handles.json` where its two acted-on fields land —
+so it writes no copy and is checked over stdin instead, `validate.mjs source-handles -`.
 
 ## Then check what comes back
 
-Every payload gets checked before anything is built on it. Write the sub-agent's returned JSON to
-`digmore/<slug>/cache/_returns/<label>.json`, then:
+Every payload gets checked before anything is built on it:
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" <shape> digmore/<slug>/cache/_returns/<label>.json
 ```
 
-`<shape>` is the key in `scripts/subagent_returns.json`: `scope`, `branch-searcher`,
-`page-analyst`, `player-profile`, `synthesizer`, `verifier`.
+**`<shape>` is a key in `scripts/subagent_returns.json`**, and that file is the list — run
+`validate.mjs --shapes` to print it rather than keeping a copy here, which is how the copy in this
+file went stale.
 
-Three shapes are checked as **files rather than returns**, because they never enter the
-orchestrator's context: `page-claims`, which every Page Analyst writes beside its stripped page, and
-`source-handles` and `source-players`, which each Source Analyst writes for Vet and Enrichment to
-work from. Same command, pointed at the file the agent wrote rather than at `_returns/`.
+**Some shapes are checked as files rather than as returns**, because they never enter your context at
+all: what a Page Analyst writes beside its stripped page, what a Source Analyst writes for the phases
+after it, and the claim index. Same command, pointed at the file the agent wrote rather than at
+`_returns/`. Each shape's `description` says which it is.
 
 Exit 0 means use it. Exit 1 prints the problems, one line each, already worded to be pasted at the
-sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong — there is no
-document to repair, so treat it as a failed return.
+sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong — there is no document
+to repair, so treat it as a failed return.
 
-**What it checks:** the keys that must be there, the JSON type of each one, allowed enum values,
-array and number bounds, and the one conditional rule in the page-claims shape. **What it
-does not check:** whether a quote is real, whether a URL resolves, whether a price is a price.
-Those are the audit phase and, later, typed fields. A payload that passes is well-formed, not true.
+**What it checks:** the keys that must be there, the JSON type of each one, allowed enum values, array
+and number bounds, and the conditional requirements a shape declares. **What it does not check:**
+whether a quote is real, whether a URL resolves, whether a price is a price. A payload that passes is
+well-formed, not true.
+
+**A CSV and a markdown document cannot be checked this way at all** — the script reads JSON against a
+shape and nothing else. The agents that write those re-read their own output against the file that
+says what the right answer is; that is a prose check rather than a gate, and the agents' own files say
+so rather than implying otherwise.
 
 ### The repair pass — one attempt, then drop
 
@@ -94,13 +111,16 @@ an invented quote passes every check there is.
 
 Re-check the repaired payload. Still failing → **drop that item**, name it in the run's Issues, and
 record it in `audit.md`. Never a second repair: a fix-and-recheck loop that can run twice can run
-forever, and `subagents.repairAttempts` in `~/.digmore/settings.json` is 1 so the limit is a fact rather than a judgement
-call.
+forever, and `subagents.repairAttempts` in `~/.digmore/settings.json` is 1 so the limit is a fact
+rather than a judgement call.
 
-Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_f.md` §5). A shape that
-needs repairing on most returns is a broken dispatch prompt, and that is only visible if the number
-is written down.
+Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_f.md`). A shape that needs
+repairing on most returns is a broken dispatch prompt, and that is only visible if the number is
+written down.
 
 ## Count them
 
-Every dispatch counts toward the run's total, recorded in `audit.md` (`phases/audit_phase_f.md` §5). A full run reaches into the hundreds — one per source × angle, one per URL read, one per claim verified, plus the review passes — and the number is only knowable after the fact if it is written down.
+Every dispatch counts toward the run's total, recorded in `audit.md` split by agent kind. A full run
+reaches into the hundreds — one per branch, one per URL read, one per handle vetted, one per player
+profiled, one per paragraph fact-checked, plus the writing and review passes — and the number is only
+knowable after the fact if it is written down.

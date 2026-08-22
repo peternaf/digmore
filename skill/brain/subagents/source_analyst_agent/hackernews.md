@@ -9,9 +9,12 @@
 | `hackernews-item-<N>.json` | one per story the run read: the story, and its comment tree |
 | `hackernews-item-<N>-claims.json` | the Page Analyst's extraction from that story |
 
-Vetting files — `hackernews-user-*`, `hackernews-vet-*` — appear here too if Vet ran before you did.
-They are the Handle Vetter's, and they tell you who was judged credible, which is useful context for
-weighing a pattern.
+`hackernews-vet-<name>.json` files appear here too if Vet ran before you did — one per handle,
+carrying that person's profile, their recent comments in full and the verdict. They are the Handle
+Vetter's, and they tell you who was judged credible, which is useful context for weighing a pattern.
+
+**In Enrichment mode those files are also where the new material came from**: an expert's cached
+comments are extracted straight out of them, with no fetch.
 
 ## What Hacker News gives you that a single story cannot
 
@@ -45,9 +48,9 @@ Where `num_comments` on the story greatly exceeds what is in the tree, record bo
 - **`signals` worth carrying:** whether they submitted the story or only commented, their depth in
   the tree, and whether they disclosed working for something being discussed — employees answering in
   the thread are common on HN and usually say so.
-- **Depth 3 hides handles.** The script flattens the tree and drops everything below, so a person who
+- **The depth cut hides handles.** The script flattens the tree and drops everything below, so a person who
   only ever replied deep in a chain is absent from the material and cannot appear in this file at
-  all. That is a coverage gap, not an empty source — say so in the notes.
+  all. That is a coverage gap, not an empty source — say so in `observations`.
 
 ## The players — `full_source_analysis/hackernews-players.json`
 
@@ -59,12 +62,12 @@ alias — it is the most reliable identifier this source produces.
   the company's own words, and their handle will usually vet as `promoter`. Record the entity
   normally; whether those claims count is decided later, not by you.
 - **Comparison comments name a dozen tools in a line.** One document, one count each.
-- **Depth-3 flattening hides players too.** A tool only ever recommended deep in a reply chain is
+- **The depth cut hides players too.** A tool only ever recommended deep in a reply chain is
   absent from the material entirely. Say so in the notes where you can see it happening.
 
-## Known gaps to record in `full_source_analysis/hackernews.md`
+## Known gaps — they go in `observations`
 
-- **Depth-3 flattening**, per above — the single biggest limit on this source.
+- **The `hackernews.commentDepth` cut**, per above — the single biggest limit on this source.
 - **Dead and flagged comments** do not come back — Algolia 404s a dead item, so a moderated thread
   reads as an intact one that happens to be one-sided, and the absence is invisible in the file.
   Vet can see it for a handle it vets (`../handle_vetter_agent/hackernews.md` §"The shadowban

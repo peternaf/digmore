@@ -40,7 +40,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { browserHeaders, assertWorkspaceRoot } from './fetch.mjs';
-import { loadOrCreateConfig, MALFORMED, CEILING_DEFAULTS } from './config.mjs';
+import { loadOrCreateConfig, MALFORMED, CONFIGURATION_DEFAULTS } from './config.mjs';
 
 // ---------------------------------------------------------------- constants
 
@@ -53,14 +53,14 @@ const REQUEST_TIMEOUT_MS = 30000;
 const CONCURRENCY = 8;
 
 /**
- * The ceilings the user owns, in ~/.digmore/settings.json under `hackernews`. Read once in
+ * The configurations the user owns, in ~/.digmore/settings.json under `hackernews`. Read once in
  * runCommand() and passed down as options, so the functions below stay pure — a test hands
  * them a number instead of writing a settings file. These are the values used when the
  * caller passes none.
  */
-const COMMENT_DEPTH_FALLBACK = CEILING_DEFAULTS.hackernews.commentDepth;
-const RECENT_COMMENTS_SAMPLED_FALLBACK = CEILING_DEFAULTS.hackernews.recentCommentsSampled;
-const DEAD_SAMPLE_FALLBACK = CEILING_DEFAULTS.hackernews.deadSampleSize;
+const COMMENT_DEPTH_FALLBACK = CONFIGURATION_DEFAULTS.hackernews.commentDepth;
+const RECENT_COMMENTS_SAMPLED_FALLBACK = CONFIGURATION_DEFAULTS.hackernews.recentCommentsSampled;
+const DEAD_SAMPLE_FALLBACK = CONFIGURATION_DEFAULTS.hackernews.deadSampleSize;
 
 /**
  * How many of the sampled submissions must come back `dead` before the account is called
@@ -107,7 +107,7 @@ const makeVerdict = (name, value, signals, reason) => ({ name, verdict: value, s
 export async function fetchStory(itemId, options = {}) {
   const client = options.client ?? createHttpClient(options);
   const algolia = options.algoliaBase ?? ALGOLIA_BASE;
-  // Cached tree first. The depth it is flattened to is a ceiling the user can change, so
+  // Cached tree first. The depth it is flattened to is a configuration the user can change, so
   // the raw tree is what gets stored and the flattening is redone on every read.
   const data =
     readCacheJson(options.cacheDir, `hackernews-item-${itemId}.json`) ??
@@ -185,7 +185,6 @@ export async function fetchUser(name, options = {}) {
   let user;
   let submitted = [];
   if (profile.status === 'fulfilled') {
-    writeCacheFile(options.cacheDir, `hackernews-user-firebase-${name}.json`, JSON.stringify(profile.value, null, 2));
     user = {
       name,
       karma: profile.value?.karma ?? null,
@@ -197,7 +196,6 @@ export async function fetchUser(name, options = {}) {
     if (Array.isArray(profile.value?.submitted)) submitted = profile.value.submitted;
   } else {
     const fallback = await client.getJson(`${algolia}/users/${name}`);
-    writeCacheFile(options.cacheDir, `hackernews-user-algolia-${name}.json`, JSON.stringify(fallback, null, 2));
     user = {
       name,
       karma: fallback.karma ?? null,
@@ -211,8 +209,6 @@ export async function fetchUser(name, options = {}) {
   const deadSample = await sampleDeadPosts(client, submitted, { ...options, firebase });
   user.recent_posts_checked = deadSample.checked;
   user.recent_posts_dead = deadSample.dead;
-
-  writeCacheFile(options.cacheDir, `hackernews-user-comments-${name}.json`, JSON.stringify(comments.value, null, 2));
 
   const hits = comments.value.hits ?? [];
   const recent = [];
@@ -243,7 +239,10 @@ export async function fetchUser(name, options = {}) {
   if (Number.isInteger(storiesMeta.value.nbHits)) user.stories_submitted = storiesMeta.value.nbHits;
   if (Number.isInteger(commentsMeta.value.nbHits)) user.comments_submitted = commentsMeta.value.nbHits;
 
-  writeCacheFile(options.cacheDir, `hackernews-user-${name}.json`, JSON.stringify(user, null, 2));
+  // Written without a verdict, which `vet` adds when it judges. A `user` call that stopped
+  // here would otherwise pay the whole request chain again on the next call for the same
+  // handle, and the chain is four requests plus the dead sample.
+  writeCacheFile(options.cacheDir, VET_CACHE_NAME(name), JSON.stringify(user, null, 2));
   return user;
 }
 
@@ -514,17 +513,20 @@ function readCacheJson(dir, name) {
 }
 
 /**
- * The assembled snapshot, not the parts.
+ * One file per handle: the vetting record, profile and comments and verdict together.
  *
- * fetchUser builds a user from the Firebase profile, three Algolia calls and the dead
- * sample, and only two of those leave a file — the profile and the recent-comment search.
- * The lifetime counts, the true last-activity date and the dead tally come from calls that
- * cache nothing, so the parts cannot rebuild the whole. The finished object is written
- * instead, and the raw profile and comment payloads stay beside it as the evidence the
- * Source Analyst reads.
+ * It used to be five — the raw Firebase profile, the Algolia fallback, the raw comment
+ * search, the assembled snapshot, and the verdict apart from all of them. Nothing ever read
+ * the raw payloads: fetchUser builds the snapshot from them plus three calls that cache
+ * nothing, so the parts could never rebuild the whole anyway.
+ *
+ * Files written under the old names are simply not found, so the first run after this pays
+ * one request chain per handle and no more.
  */
+export const VET_CACHE_NAME = (name) => `hackernews-vet-${name}.json`;
+
 function readCachedUser(name, options) {
-  return readCacheJson(options.cacheDir, `hackernews-user-${name}.json`);
+  return readCacheJson(options.cacheDir, VET_CACHE_NAME(name));
 }
 
 // ---------------------------------------------------------------- cli
@@ -544,30 +546,31 @@ export async function runCommand(argv, options = {}) {
   if (!topic) throw new Error('--topic <slug> is required on every call');
 
   const config = loadOrCreateConfig();
-  const ceilings = config === MALFORMED ? CEILING_DEFAULTS.hackernews : config.hackernews;
+  const configurations = config === MALFORMED ? CONFIGURATION_DEFAULTS.hackernews : config.hackernews;
   const resolvedOptions = {
-    commentDepth: ceilings.commentDepth,
-    recentCommentsSampled: ceilings.recentCommentsSampled,
-    deadSampleSize: ceilings.deadSampleSize,
+    commentDepth: configurations.commentDepth,
+    recentCommentsSampled: configurations.recentCommentsSampled,
+    deadSampleSize: configurations.deadSampleSize,
     ...options,
     cacheDir: options.cacheDir ?? cacheDirForTopic(topic),
   };
 
   if (verb === 'story') return fetchStory(Number.parseInt(target, 10), resolvedOptions);
 
-  // Checked before the user is fetched, not after: the point is to skip the request chain
-  // entirely rather than to shorten it.
-  if (verb === 'vet') {
-    const verdict = readCacheJson(resolvedOptions.cacheDir, `hackernews-vet-${target}.json`);
-    if (verdict !== undefined) return verdict;
-  }
+  // fetchUser checks the same file first, so a handle already on disk costs no request
+  // whichever verb asked for it. The point is to skip the request chain entirely rather
+  // than to shorten it.
+  const record = await fetchUser(target, resolvedOptions);
+  if (verb === 'user') return record;
 
-  const user = await fetchUser(target, resolvedOptions);
-  if (verb === 'user') return user;
+  // A cached record already carries its verdict; a fresh one is judged now. The judgement is
+  // computation over comments already in hand, so it is never a second request.
+  if (record.verdict) return record;
 
-  const verdict = vetUser(user, resolvedOptions.now);
-  writeCacheFile(resolvedOptions.cacheDir, `hackernews-vet-${target}.json`, JSON.stringify(verdict, null, 2));
-  return verdict;
+  const verdict = vetUser(record, resolvedOptions.now);
+  const vetted = { ...record, ...verdict };
+  writeCacheFile(resolvedOptions.cacheDir, VET_CACHE_NAME(target), JSON.stringify(vetted, null, 2));
+  return vetted;
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

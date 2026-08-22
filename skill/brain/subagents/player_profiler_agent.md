@@ -1,7 +1,24 @@
 # Player Profiler — the agent
 
-**Phase: Enrichment, `[4/6]`.** Dispatched by `../phases/enrich_phase_d.md` §4, one per row the
-orchestrator has already written into `players.csv`.
+| Field | |
+|---|---|
+| **Phase** | Enrichment `[4/6]`, at its profiling sub-step |
+| **Purpose** | Fill one player's row — every cell of it. One agent owns everything the run says about one company, so no cell falls between two actors |
+| **Input text** | one player's name and url · the topic · **the columns this run's `players.csv` carries**, since the optional ones are decided per topic and cannot be inferred · the topic-lens rule: a cell that would read identically in an unrelated topic is wrong |
+| **Input rule files** | `subagents/player_profiler_agent.md` · `fetching.md` · the command's reference file, for the column list and the price and funding vocabularies · `output.md` |
+| **Input data files** | **the path to `player_candidates.json`** — it finds its own entry there and follows the claim references, already filtered to the voices the run listens to. It opens those claims files itself; the text never reaches the orchestrator |
+| **Runs** | reads the claim files it was pointed at, no network · WebSearch then `fetch.mjs` for sentiment · `fetch.mjs` on the front page · `fetch.mjs` on the pricing page · **WebFetch** on SimilarWeb · WebSearch then `fetch.mjs` for funding and recent moves. Gathering is ordered; composing is one closing step |
+| **Settings that control it** | none. There is no cap on rows profiled and no `--fast` reduction — the five-document floor and the claim filter are the bound, and they scale with what the run actually found |
+| **Held in its context** | the company's whole surface: the claims, the sentiment search, the front page, the pricing page, SimilarWeb, the funding results. It reads all of that and hands back a dozen short cells |
+| **Returns to main context** | the `player-profile` shape — every column of `players.csv`, plus `fetch_failed` and `reason`. `name` and `url` came in with the dispatch and do not come back |
+| **Writes to disk** | **the pages it fetches**, into `cache/players/` at the name `fetch.mjs` derives — kept out of the six source piles on purpose. SimilarWeb leaves nothing, since WebFetch writes no file. Plus `cache/_returns/player-profiler-<player>.json`. **It never touches `players.csv`** |
+| **Logs** | `cache/_progress/player-profiler-<player>.log` — `reading <n> claims for <player>` · `searching for what people say about <player>` · `finding the marketing domain for <player>` · `fetching the pricing page for <domain>` · `fetching similarweb for <domain>` · `searching for <player> funding` · `fetching <url>` · `retrying <domain> after <reason>` · `composing the cells for <player>` |
+| **How it reports failure** | `fetch_failed: true` with a `reason`, and **no cells at all** — a failure is the orchestrator's to retry or skip, and a cell that hides one is worse than no cell |
+| **One dispatch per** | one `players.csv` row |
+| **Run instances** | one per selected row. A run whose declared sections need no players dispatches none |
+| **`--fast`** | the same in both modes |
+| **Concurrency** | **5** — a scraping limit, not the harness limit. Every dispatch hits SimilarWeb, and running wider gets the run captcha'd there, after which no row gets its traffic number |
+| **Model tier** | placeholder, unused for now |
 
 Where it sits: the run has already decided this company is one of its subjects. **You fill its whole
 row** — every cell of it — and hand the cells back. The orchestrator writes them into the row it

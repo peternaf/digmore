@@ -10,10 +10,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG = join(repoRoot, 'skill', 'scripts', 'config.mjs');
 const POSIX = process.platform !== 'win32';
 
-/** Every top-level key the file carries. Grouped by where each ceiling applies. */
+/** Every top-level key the file carries. Grouped by where each configuration applies. */
 const TOP_LEVEL_KEYS = [
   'apiBaseUrl', 'apiDeclined', 'apiKey',
-  'extract', 'fast', 'hackernews', 'plan', 'subagents', 'synthesize', 'twitter', 'vet',
+  'enrich', 'extract', 'fast', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
 ];
 
 let home;
@@ -54,26 +54,41 @@ test('creates the file on first run with every parameter present', () => {
   assert.equal(written.apiDeclined, false);
 });
 
-// Every ceiling is written out, in both modes, so a user can see and change one without
+// Every configuration is written out, in both modes, so a user can see and change one without
 // having to know it exists. A file listing only the reductions would hide most of them.
-test('the fast block lists every ceiling group, not only the ones it reduces', () => {
+test('the fast block lists every configuration group, not only the ones it reduces', () => {
   run('show');
-  const { plan, extract, vet, synthesize, twitter, hackernews, subagents, fast } = settings();
+  const { plan, extract, vet, enrich, twitter, hackernews, subagents, fast } = settings();
   assert.deepEqual(Object.keys(fast).sort(),
-    ['extract', 'hackernews', 'plan', 'subagents', 'synthesize', 'twitter', 'vet']);
+    ['enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
   assert.equal(plan.maxAngles, 6);
   assert.equal(extract.fetchesPerBranch, 20);
   assert.equal(extract.maxPagesPerDocument, 5);
   assert.equal(vet.handleCapPerSource, 50);
-  assert.equal(synthesize.claimsFactChecked, 50);
+  assert.equal(enrich.expertsFollowed, 10);
+  assert.equal(enrich.urlsPerExpert, 10);
   assert.equal(twitter.handlesDeepVetted, 20);
   assert.equal(twitter.postsPerDeepVet, 50);
   assert.equal(hackernews.commentDepth, 5);
   assert.equal(hackernews.deadSampleSize, 5);
   assert.equal(subagents.repairAttempts, 1);
   assert.equal(fast.extract.fetchesPerBranch, 5);
+  assert.equal(fast.enrich.expertsFollowed, 3);
+  assert.equal(fast.enrich.urlsPerExpert, 3);
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
   assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
+});
+
+// The group is named for the phase that spends it, and two phases spend nothing: every rendered
+// claim is fact-checked, so there is no checked subset to size and nothing is flagged for the
+// user to chase. A `synthesize` group reappearing here means one of those caps came back.
+test('there is no synthesize group and no audit group', () => {
+  run('show');
+  const written = settings();
+  assert.ok(!('synthesize' in written), 'its two survivors were renamed to enrich.*');
+  assert.ok(!('audit' in written), 'the fact check has no configuration of its own');
+  assert.ok(!('synthesize' in written.fast));
+  assert.ok(!('audit' in written.fast));
 });
 
 test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {
@@ -89,15 +104,15 @@ test('a complete file is not rewritten — the same read twice changes nothing',
 });
 
 // A file written by an earlier version is missing whatever was added since. Completing it
-// on read is what makes a new ceiling visible to someone who installed before it existed:
+// on read is what makes a new configuration visible to someone who installed before it existed:
 // filling the gap only in memory would leave the knob undiscoverable forever.
 test('a file from an older version gains the new parameters, keeping what the user set', () => {
   writeSettings(JSON.stringify({ apiKey: 'sk-kept', vet: { handleCapPerSource: 7 } }));
   run('show');
   const healed = settings();
   assert.equal(healed.apiKey, 'sk-kept', 'the key survives');
-  assert.equal(healed.vet.handleCapPerSource, 7, 'a tuned ceiling survives');
-  assert.equal(healed.extract.fetchesPerBranch, 20, 'a missing ceiling is filled in');
+  assert.equal(healed.vet.handleCapPerSource, 7, 'a tuned configuration survives');
+  assert.equal(healed.extract.fetchesPerBranch, 20, 'a missing configuration is filled in');
   assert.ok('fast' in healed, 'and so is the whole fast block');
 });
 
@@ -204,23 +219,23 @@ test('an unknown verb is an error', () => {
   assert.ok(err.length > 0, 'errors go to stderr');
 });
 
-// ---------------------------------------------------------------- run ceilings
+// ---------------------------------------------------------------- run configurations
 //
 // Every number that bounds a run lives here rather than in brain prose, because prose is
 // obeyed on trust: two real runs on 2026-08-17 applied 20 and 8 for the same cap with
 // nothing flagging the difference. Grouped by where each applies — the phase for a
-// phase-wide ceiling, the source for a source-specific one.
+// phase-wide one, the source for a source-specific one.
 
-test('the ceilings default as documented', () => {
+test('the configurations default as documented', () => {
   run('show');
   const config = settings();
   assert.equal(config.extract.fetchesPerBranch, 20);
   assert.equal(config.vet.handleCapPerSource, 50);
   assert.equal(config.plan.scopingSearches, 10);
-  assert.equal(config.synthesize.manualVerifyFlagCap, 15);
+  assert.equal(config.enrich.urlsPerExpert, 10);
 });
 
-test('a user-set ceiling survives a read', () => {
+test('a user-set configuration survives a read', () => {
   writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   const { code, out } = run('show');
   assert.equal(code, 0);
@@ -228,14 +243,14 @@ test('a user-set ceiling survives a read', () => {
   assert.equal(JSON.parse(out).vet.handleCapPerSource, 200);
 });
 
-test('a user-set ceiling survives a write', () => {
+test('a user-set configuration survives a write', () => {
   writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   run('set-key', 'sk-test-123');
-  assert.equal(settings().extract.fetchesPerBranch, 8, 'setting a key does not reset the ceilings');
+  assert.equal(settings().extract.fetchesPerBranch, 8, 'setting a key does not reset the configurations');
   assert.equal(settings().vet.handleCapPerSource, 200);
 });
 
-test('show reports the ceilings, so a run can read them without the key', () => {
+test('show reports the configurations, so a run can read them without the key', () => {
   const { out } = run('show');
   const reported = JSON.parse(out);
   assert.equal(reported.extract.fetchesPerBranch, 20);
@@ -243,21 +258,21 @@ test('show reports the ceilings, so a run can read them without the key', () => 
   assert.ok(!('apiKey' in reported), 'the key itself is still never printed');
 });
 
-// A ceiling of zero, a negative, or a string would stop a run doing any work at all while
+// A configuration of zero, a negative, or a string would stop a run doing any work at all while
 // looking configured. The default is safer than honouring it — and the file is corrected,
 // so it never says one number on disk while the run uses another.
 for (const bad of [0, -5, '20', 1.5, null]) {
-  test(`a ceiling of ${JSON.stringify(bad)} reads back as the default`, () => {
+  test(`a configuration of ${JSON.stringify(bad)} reads back as the default`, () => {
     writeSettings(JSON.stringify({ extract: { fetchesPerBranch: bad }, vet: { handleCapPerSource: bad } }));
     const { code, out } = run('show');
-    assert.equal(code, 0, 'a bad ceiling is not a malformed file');
+    assert.equal(code, 0, 'a bad configuration is not a malformed file');
     assert.equal(JSON.parse(out).extract.fetchesPerBranch, 20);
     assert.equal(JSON.parse(out).vet.handleCapPerSource, 50);
     assert.equal(settings().extract.fetchesPerBranch, 20, 'and the file is corrected to match');
   });
 }
 
-// Zero is a real instruction for the ceilings that can be switched off, and must not be
+// Zero is a real instruction for the configurations that can be switched off, and must not be
 // treated as the mistake it would be elsewhere.
 test('zero is honoured where it means "skip this step"', () => {
   writeSettings(

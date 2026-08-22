@@ -35,7 +35,13 @@ const scoutReturn = () => ({
   queries: ['video api providers 2026', 'video api pricing complaints'],
   vocabulary: ['per-minute billing', 'live-to-VOD', 'ingest latency'],
   recurring_names: ['Mux', 'Cloudflare Stream', 'Livepeer'],
-  live_arguments: ['whether per-minute pricing survives at scale'],
+  angles: [
+    {
+      label: 'per-minute-pricing',
+      query: 'video api per-minute billing complaints at scale',
+      rationale: 'Pricing is what the request turns on, and the vocabulary calls it per-minute.',
+    },
+  ],
 });
 
 const pageClaims = () => ({
@@ -67,7 +73,14 @@ test('a well-formed payload exits 0 and says so', async () => {
 });
 
 test('optional fields may be absent', async () => {
-  const result = await check('verifier', { verdict: 'verified' });
+  // raw-report-writer's claimIndexError is only present when the index failed its check.
+  const result = await check('raw-report-writer', {
+    claimsSurviving: 40,
+    claimsMerged: 6,
+    sections: [],
+    claimsDeletedUnsourced: [],
+    droppedSubjects: [],
+  });
   assert.equal(result.code, 0);
 });
 
@@ -187,17 +200,12 @@ test('internal is an allowed source quality', async () => {
   assert.equal(result.code, 0);
 });
 
-test('internal is allowed on a synthesized finding source too', async () => {
-  const result = await check('synthesizer', {
-    findings: [
-      {
-        claim: 'churn is concentrated in month two',
-        confidence: 'medium',
-        sources: [{ url: 'digmore/x/cache/local/churn.md', pageQuality: 'internal' }],
-      },
-    ],
-    stats: {},
-  });
+test('internal is allowed on a claim-index citation too', async () => {
+  const payload = claimIndex();
+  payload.claims[0].pageQuality = 'internal';
+  payload.claims[0].citations[0].pageQuality = 'internal';
+  payload.claims[0].citations[0].cachedPage = 'cache/local/churn.md';
+  const result = await check('claim-index', payload);
   assert.equal(result.code, 0);
 });
 
@@ -271,13 +279,25 @@ test('a claim records who said it', async () => {
 const roster = () => ({
   source: 'reddit',
   handles: [
-    { handle: 'u/someone', topImportance: 'central', claimCount: 3, documentCount: 2 },
-    { handle: 'u/passerby', topImportance: 'none', claimCount: 0, documentCount: 1 },
+    {
+      handle: 'u/someone',
+      topImportance: 'central',
+      claimCount: 3,
+      documentCount: 2,
+      documents: ['cache/reddit/reddit-thread-1a2b.json', 'cache/reddit/reddit-thread-3c4d.json'],
+    },
+    {
+      handle: 'u/passerby',
+      topImportance: 'none',
+      claimCount: 0,
+      documentCount: 1,
+      documents: ['cache/reddit/reddit-thread-1a2b.json'],
+    },
   ],
 });
 
 test('a roster of ranked handles passes', async () => {
-  const result = await check('handle-roster', roster());
+  const result = await check('source-handles', roster());
   assert.equal(result.code, 0);
 });
 
@@ -286,7 +306,7 @@ test('a roster of ranked handles passes', async () => {
 test('none is an allowed topImportance', async () => {
   const payload = roster();
   payload.handles = [payload.handles[1]];
-  const result = await check('handle-roster', payload);
+  const result = await check('source-handles', payload);
   assert.equal(result.code, 0);
 });
 
@@ -294,9 +314,293 @@ test('a roster for a source with no accounts is refused', async () => {
   // Only reddit, hackernews, twitter and forums have handles to rank.
   const payload = roster();
   payload.source = 'websearch';
-  const result = await check('handle-roster', payload);
+  const result = await check('source-handles', payload);
   assert.equal(result.code, 1);
   assert.deepEqual(paths(result), ['source']);
+});
+
+// The Handle Vetter on forums has no script and no profile to fetch — the cached pages this
+// handle appears in are the only evidence there is, and they are named per URL, so nothing
+// else can recover the list. A row without it is a forum handle nobody can judge.
+test('documents is required, and empty is not a list', async () => {
+  const payload = roster();
+  delete payload.handles[0].documents;
+  const missing = await check('source-handles', payload);
+  assert.equal(missing.code, 1);
+  assert.deepEqual(paths(missing), ['handles[0].documents']);
+
+  const emptied = roster();
+  emptied.handles[0].documents = [];
+  const empty = await check('source-handles', emptied);
+  assert.equal(empty.code, 1, 'a handle appears in at least one document or it is not a handle');
+});
+
+// Vet fills these in later; the Source Analyst writes the file without them. Absent has to
+// stay legal, or every roster fails its check the moment it is written.
+test('the verdict fields Vet adds later may all be absent', async () => {
+  const result = await check('source-handles', roster());
+  assert.equal(result.code, 0);
+});
+
+test('a verdict outside the five is caught', async () => {
+  const payload = roster();
+  payload.handles[0].verdict = 'suspicious';
+  const result = await check('source-handles', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['handles[0].verdict']);
+});
+
+// ------------------------------------------------------------------ the claim index
+//
+// Everything after the Raw report writer depends on this file: the fact-check dispatches are
+// built from it, the claim texts split the summary's paragraphs, and every verdict joins back
+// through a claimId. A malformed index is not a bad section — it is a fact check that silently
+// checks nothing. It is also the only new file in the run a script can check, which is why it
+// gets one while the CSVs and the summary do not.
+
+const claimIndex = () => ({
+  claims: [
+    {
+      claimId: 'claim-001',
+      claim: 'Mux charges $0.005 per minute of encoding',
+      importance: 'central',
+      pageQuality: 'primary-self',
+      citations: [
+        {
+          quote: '$0.005 per minute',
+          url: 'https://mux.com/pricing',
+          cachedPage: 'cache/websearch/mux.com_pricing.md',
+          status: 'no-handle',
+          pageQuality: 'primary-self',
+        },
+      ],
+    },
+  ],
+});
+
+test('a claim index passes', async () => {
+  const result = await check('claim-index', claimIndex());
+  assert.equal(result.code, 0);
+});
+
+// The URL is what the report cites and what a reader clicks; cachedPage is the file the fact
+// check reads the claim against. Neither is derivable from the other — on the three scripted
+// sources the script names the file and the URL is not in it at all.
+for (const field of ['url', 'cachedPage', 'quote', 'status']) {
+  test(`a citation without ${field} is refused`, async () => {
+    const payload = claimIndex();
+    delete payload.claims[0].citations[0][field];
+    const result = await check('claim-index', payload);
+    assert.equal(result.code, 1);
+    assert.deepEqual(paths(result), [`claims[0].citations[0].${field}`]);
+  });
+}
+
+// unvetted and no-handle are the majority of a real run — a handle below the vetting cap, and
+// every claim from the open web. Treating either as an error would gut the index.
+for (const status of ['legit', 'unknown', 'unvetted', 'promoter', 'no-handle']) {
+  test(`status ${status} is allowed on a citation`, async () => {
+    const payload = claimIndex();
+    payload.claims[0].citations[0].status = status;
+    const result = await check('claim-index', payload);
+    assert.equal(result.code, 0);
+  });
+}
+
+// spammer and throwaway citations are dropped by the join, not labelled, so they can never
+// reach the index. A status that names one means the filter did not run.
+test('a dropped verdict cannot appear as a citation status', async () => {
+  const payload = claimIndex();
+  payload.claims[0].citations[0].status = 'spammer';
+  const result = await check('claim-index', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['claims[0].citations[0].status']);
+});
+
+// Written onto the loser at merge time, in the one pass that holds both claims. It is the only
+// route a refutation has to audit.md, and the file is never edited after it is written.
+test('refutedBy and refutedReason are optional, and legal together', async () => {
+  const payload = claimIndex();
+  assert.equal((await check('claim-index', payload)).code, 0, 'absent on a claim nothing beat');
+
+  payload.claims[0].refutedBy = 'claim-004';
+  payload.claims[0].refutedReason = 'the vendor pricing page outranks a forum recollection';
+  assert.equal((await check('claim-index', payload)).code, 0);
+});
+
+// ------------------------------------------------------------------ the writing receipts
+//
+// Four agents write the report and hand back a receipt rather than the work. Each records
+// something that leaves no other trace: what was discarded, what could not be closed, what was
+// deleted. A receipt that arrives as prose is one nobody can count, which is why they have
+// shapes at all — nothing computes on them.
+
+test('the raw report writer returns counts and its two discard lists', async () => {
+  const result = await check('raw-report-writer', {
+    claimsSurviving: 128,
+    claimsMerged: 31,
+    sections: [{ csv: 'paid-promoter-programmes.csv', rows: 7 }],
+    claimsDeletedUnsourced: [
+      { claim: 'everyone moved off Acme in 2025', sourceReport: 'reddit-raw-report.json' },
+    ],
+    droppedSubjects: [{ subject: 'Acme pricing', reason: 'every citation was a spammer' }],
+  });
+  assert.equal(result.code, 0);
+});
+
+// The deletions leave no trace on disk by definition — the claim is gone — and audit.md is
+// written by the orchestrator two steps later, so the receipt is the only route they have.
+test('an unsourced deletion names the report it came from', async () => {
+  const result = await check('raw-report-writer', {
+    claimsSurviving: 1,
+    claimsMerged: 0,
+    sections: [],
+    claimsDeletedUnsourced: [{ claim: 'a claim with no URL behind it' }],
+    droppedSubjects: [],
+  });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['claimsDeletedUnsourced[0].sourceReport']);
+});
+
+test('the final report writer returns every claim it dropped, with a reason', async () => {
+  const result = await check('final-report-writer', {
+    claimsDropped: [{ claimId: 'claim-009', reason: 'no room in its section' }],
+    sectionsDrafted: 8,
+    findingsWritten: 34,
+  });
+  assert.equal(result.code, 0);
+});
+
+test('a dropped claim without its reason is refused', async () => {
+  const result = await check('final-report-writer', {
+    claimsDropped: [{ claimId: 'claim-009' }],
+    sectionsDrafted: 8,
+    findingsWritten: 34,
+  });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['claimsDropped[0].reason']);
+});
+
+// One entry per item across all three lists — what the user asked for, what the plan promised,
+// what the run set out to answer — plus one per sentence the report cannot back.
+test('the reviewer answers per item, across all three kinds', async () => {
+  const result = await check('final-report-reviewer', {
+    items: [
+      { kind: 'request', asked: 'name the cheapest provider', status: 'present', quote: 'Livepeer at $0.001/min' },
+      { kind: 'section', asked: 'Players', status: 'present', quote: '| Mux | 11.1M |' },
+      { kind: 'angle', asked: 'pricing-tiers', status: 'missing', reason: 'nothing was gathered on it' },
+    ],
+    unsourced: [{ sentence: 'Most teams self-host by year two.', section: 'Verdict' }],
+  });
+  assert.equal(result.code, 0);
+});
+
+// An item it could not judge comes back as unjudged with the reason, never as present — the
+// two are indistinguishable to the orchestrator otherwise, and one of them is a gap.
+test('unjudged is a status the reviewer may return', async () => {
+  const result = await check('final-report-reviewer', {
+    items: [{ kind: 'angle', asked: 'reception', status: 'unjudged', reason: 'the draft was not on disk' }],
+    unsourced: [],
+  });
+  assert.equal(result.code, 0);
+});
+
+test('a status outside the four is caught', async () => {
+  const result = await check('final-report-reviewer', {
+    items: [{ kind: 'section', asked: 'Players', status: 'probably-fine' }],
+    unsourced: [],
+  });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['items[0].status']);
+});
+
+// A citation lost with a deleted duplicate is otherwise untraceable, and audit.md has no other
+// way to say which claims left the report here rather than failing the fact check. Reported by
+// claimId, because a list of ids is exact where a description of deleted prose is not.
+test('the copy editor reports removals by claimId, with both sections', async () => {
+  const result = await check('final-report-copy-editor', {
+    removals: [{ claimId: 'claim-012', cutFrom: 'Buying signals', keptIn: 'Players' }],
+    rewrites: [{ section: 'Verdict', sentence: 'Self-hosting costs more than teams expect.' }],
+    flagsRaised: 9,
+    flagsFixed: 8,
+  });
+  assert.equal(result.code, 0);
+});
+
+test('a removal that does not say where the idea was kept is refused', async () => {
+  const result = await check('final-report-copy-editor', {
+    removals: [{ claimId: 'claim-012', cutFrom: 'Buying signals' }],
+    rewrites: [],
+    flagsRaised: 0,
+    flagsFixed: 0,
+  });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['removals[0].keptIn']);
+});
+
+// ------------------------------------------------------------------ the fact check
+//
+// Only what failed comes back, plus a count. Nothing downstream reads a pass, so returning one
+// entry per claim would be a few hundred entries mostly saying "fine", in the one context that
+// has to survive the run.
+
+test('a clean paragraph returns nothing unsupported, and says how much it read', async () => {
+  const result = await check('claim-fact-checker', {
+    unsupported: [],
+    statementsJudged: 7,
+    pagesRead: 3,
+    evidenceUnreadable: false,
+  });
+  assert.equal(result.code, 0);
+});
+
+// The counts are what show the work happened: a paragraph returning nothing alongside 7 and 3
+// was read and found clean, where one returning 0 and 0 did nothing at all.
+test('the counts are required even when nothing failed', async () => {
+  const result = await check('claim-fact-checker', { unsupported: [], evidenceUnreadable: false });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result).sort(), ['pagesRead', 'statementsJudged']);
+});
+
+// Quoted rather than keyed on a claimId, because what the redraft has to remove is text — and
+// because a statement carrying no marker can fail too, which an id could never have covered.
+test('an unsupported statement is quoted, with the reason the pages do not carry it', async () => {
+  const result = await check('claim-fact-checker', {
+    unsupported: [
+      {
+        statement: 'Mux charges $0.005 per minute.',
+        reason: 'the cached pricing page gives $0.01/min',
+      },
+    ],
+    statementsJudged: 4,
+    pagesRead: 2,
+    evidenceUnreadable: false,
+  });
+  assert.equal(result.code, 0);
+});
+
+test('an unsupported statement without its reason is refused', async () => {
+  const result = await check('claim-fact-checker', {
+    unsupported: [{ statement: 'Mux charges $0.005 per minute.' }],
+    statementsJudged: 4,
+    pagesRead: 2,
+    evidenceUnreadable: false,
+  });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['unsupported[0].reason']);
+});
+
+// Where none of a paragraph's pages could be read there was no evidence to search, so returning
+// its sentences as unsupported would blame the report for a file we lost. The paragraph is
+// still deleted — nothing unverified reaches the user — but as unchecked, not as unsupported.
+test('the unreadable-evidence stop returns no statements at all', async () => {
+  const result = await check('claim-fact-checker', {
+    unsupported: [],
+    statementsJudged: 0,
+    pagesRead: 0,
+    evidenceUnreadable: true,
+  });
+  assert.equal(result.code, 0);
 });
 
 // Vet writes these back once per source, and they are the run's only record of a rejection.
@@ -308,24 +612,33 @@ test('the roster carries a vetting outcome once Vet has run', async () => {
     verdictReason: 'same URL host in 7 of 20 recent comments',
     inExperts: false,
   });
-  const result = await check('handle-roster', payload);
+  const result = await check('source-handles', payload);
   assert.equal(result.code, 0);
 });
 
-test('throwaway is a verdict everywhere a verdict appears', async () => {
-  const judgment = await check('vet-judgment', { verdict: 'throwaway', reason: 'new account, no following, nothing posted' });
-  assert.equal(judgment.code, 0);
-
+// The Handle Vetter's own return has no shape, deliberately: nothing is built on it directly,
+// so the gate is on this file, where the two fields anyone acts on actually land.
+test('throwaway is a verdict on the roster', async () => {
   const payload = roster();
   payload.handles[0].verdict = 'throwaway';
-  assert.equal((await check('handle-roster', payload)).code, 0);
+  assert.equal((await check('source-handles', payload)).code, 0);
+});
+
+// Transcribed from what a profile printed, never inferred. It is the only store there is —
+// experts.csv takes legit people alone — so a promoter's linked accounts live here or nowhere.
+test('statedIdentifiers is optional and takes a list of strings', async () => {
+  const payload = roster();
+  payload.handles[0].statedIdentifiers = ['github.com/someone', 'someone.dev'];
+  assert.equal((await check('source-handles', payload)).code, 0);
 });
 
 test('troll is gone from the vocabulary', async () => {
   // Nothing ever produced it: not the API's enum, not a heuristic, not the voice rubric.
-  const result = await check('vet-judgment', { verdict: 'troll', reason: 'unpleasant' });
+  const payload = roster();
+  payload.handles[0].verdict = 'troll';
+  const result = await check('source-handles', payload);
   assert.equal(result.code, 1);
-  assert.deepEqual(paths(result), ['verdict']);
+  assert.deepEqual(paths(result), ['handles[0].verdict']);
 });
 
 test('an unknown shape name exits 2 and lists the real ones', async () => {

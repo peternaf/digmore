@@ -1,20 +1,21 @@
 # Phases — overview
 
-All five phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
+All six phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
 
-**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run with verdicts on the top-ranked claims (`audit_phase_e.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
+**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run and every claim the summary renders has been checked against the text the run stored (`audit_phase_f.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
 
-Each step announces itself with one line — `[3/5] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
+Each step announces itself with one line — `[3/6] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
 
 Re-read `../output.md` before any sub-agent dispatch or before writing any user-facing text. The writing-style rules apply *at output time*, not only in final deliverables.
 
 ## Phase files
 
 - `plan_phase_a.md` — **Plan**: the topic, its angles, the branches they make with each available source, written to `research_plan.json`.
-- `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then per-source notes.
-- `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped.
-- `synthesize_phase_d.md` — **Synthesize**: expert-guided filter, expansion, synthesis. Critic pass at the end.
-- `audit_phase_e.md` — **Audit**: deep verification of the top-ranked claims + per-claim verdict log.
+- `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then one report per source.
+- `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped, one Handle Vetter each.
+- `enrich_phase_d.md` — **Enrichment**: who the research is about — the expert step, the player candidates, the selection, and one profiler per row.
+- `synthesize_phase_e.md` — **Synthesize**: evidence becomes documents. The Raw report writer builds the enumerable sections and the aggregate raw report; the Final report writer drafts the summary from them.
+- `audit_phase_f.md` — **Audit**: the report is checked and fixed — reviewed, repaired, copy edited, fact checked against the cache, and recorded.
 
 Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
 
@@ -25,35 +26,69 @@ Every file written *during* a run lives under `digmore/<topic-slug>/`, resolved 
 ```
 digmore/<topic-slug>/
   <topic-slug>-executive-summary.md   # the user-facing summary
+  <topic-slug>-raw-report.md     # the aggregate evidence record, unsummarised
+  claim_index.json               # the same claims, structured, one entry per claimId
   research_plan.json             # the topic: identity, run history, and this run's plan
+  run_log.md                     # where the run spent its time, appended across runs
   experts.csv                    # curated experts (legit verdict only)
-  raw_research_outcomes.md       # LLM-facing structured claims index
   players.csv                    # competitor / subject matrix
+  player_candidates.json         # who qualified as a player, and their claim references
   <section-name>.csv             # one per invented enumerable section — ../sections.md
-  audit.md                       # Audit verdict log
-  source_notes/<source>.md       # free-flow notes per source
-  cache/<source>/<file>          # raw fetched content, per-source
+  audit.md                       # the run's own record, across all six phases
+  full_source_analysis/<source>-raw-report.json # one source's claims and observations
+  full_source_analysis/<source>-joined.json     # the same, with a verdict on every citation
+  full_source_analysis/<source>-handles.json    # every handle that source produced, ranked
+  full_source_analysis/<source>-players.json    # every entity that source named, and who said what
+  cache/<source>/<file>          # the stored pages and their claims, per source
+  cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
   cache/_misc/<file>             # scratch that belongs to no source
 ```
 
-Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`. The slug is in the name so it stays findable once it has been moved or shared out of its folder.
+Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`. The slug is in the name so it stays findable once it has been moved or shared out of its folder, and so the summary and the raw report read as the pair they are in a folder listing.
 
-**One writer per file.** Nothing here is written by two things at once, and that is what keeps it safe: only `experts.csv` has a lock, because only Vet fans out writers to a shared file.
+**Every pass that writes the summary writes a temp file and renames it over the original.** `<topic-slug>-executive-summary.md.tmp`, renamed when the pass finishes. Three passes rewrite that file in Audit, and a run killed mid-write would otherwise leave a half-written document that looks finished and that resume reads as complete. The file on disk is then always a whole version, the old one or the new one, never half of either; a `.tmp` left behind is a pass that died, and the summary beside it is the last complete version. The same rule covers the Run footer, which is the last write of all.
+
+**One writer per file, and no file has a lock.** Where sub-agents fan out they hand back and the orchestrator writes — a file written by a fan-out loses rows silently, with no error and no trace, and the fix for that is to remove the fan-out rather than to add a lock.
 
 | File | Written by |
 |---|---|
 | `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled, a `run_history` entry at the end of the run |
-| `experts.csv` | Vet, through `experts.mjs` — the one locked writer |
-| `players.csv`, `promoter_network.csv`, any `<section-name>.csv`, `raw_research_outcomes.md`, the summary | Synthesize's single synthesizer |
+| `run_log.md` | the orchestrator, through `scripts/runlog.mjs`, two lines per step as they happen. Appended across runs, never replaced |
+| `experts.csv` | the orchestrator, in Vet, through `experts.mjs` |
+| `player_candidates.json` | `players.mjs candidates`, once, in Enrichment |
+| `players.csv` | the orchestrator, in Enrichment — the rows before profiling, the returned cells after. Everyone else only reads it |
+| `<topic-slug>-raw-report.md`, `claim_index.json`, `promoter_network.csv`, any `<section-name>.csv` | the Raw report writer, in Synthesize, and again if the reviewer finds a closable gap |
+| the summary | the Final report writer in Synthesize, then the copy editor and two redrafts in Audit — one at a time, each renaming a complete file over the last |
 | `audit.md` | the orchestrator, in Audit |
-| `source_notes/<source>.md` | one sub-agent per source, each to its own file |
+| `full_source_analysis/<source>-raw-report.json`, `<source>-players.json` | one Source Analyst per source, each to its own files, created in Extract and appended once in Enrichment |
+| `full_source_analysis/<source>-joined.json` | `synthesis.mjs join`, once, at the start of Synthesize |
+| `full_source_analysis/<source>-handles.json` | three writers at three different times, never at once: the Source Analyst creates it in Extract, the orchestrator adds the verdicts in batches during Vet, and the Source Analyst appends handles first seen in expert material during Enrichment |
 | `cache/**` | whichever sub-agent fetched or produced it, each to its own filename |
 
-**Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`.
+**Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`. The summary's `.tmp` is the one exception, and it sits beside the file it replaces because that is what makes the rename atomic.
 
 `_misc` is only for what belongs to no source. **Anything a source produced goes under that source**, at the filename that source's own file gives it. That is where resume looks for it, so a vetting verdict parked in `_misc` is a verdict the next run will pay to fetch again.
+
+## The bulk material never enters your context (cross-phase)
+
+**Claims and source reports live on disk. You hold neither.** Whatever step needs them opens the files itself.
+
+Your context has to survive all six phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, six per-source reports — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
+
+| What | Written by | Read by |
+|---|---|---|
+| `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst, which reads every one its source produced; the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory |
+| `full_source_analysis/<source>-raw-report.json` | each Source Analyst | `synthesis.mjs join`, which stamps a verdict on every citation and writes the joined copy beside it |
+| `full_source_analysis/<source>-joined.json` | `synthesis.mjs join` | the Raw report writer, which is the only actor that ever holds all six |
+| `full_source_analysis/<source>-handles.json` | the Source Analyst, then the orchestrator, then the Source Analyst again | Vet, to know who to vet and in what order; the Raw report writer on `gtm`, for the promoter network's identity join; every later run, as the record of who was rejected and why |
+| `full_source_analysis/<source>-players.json` | each Source Analyst | `players.mjs candidates` alone. Nobody reads the six files directly — the script merges them, joins the verdicts and hands back candidates |
+| `claim_index.json` | the Raw report writer | a script, to assemble the fact check's dispatches. Never a sub-agent, and never you, whole |
+
+What you keep across the run: the receipts, the plan, the verdicts, and the run's own record. Never the bodies.
+
+**So a step that needs the material says which files, not what is in them.** A dispatch that pastes several hundred claims into a prompt has moved the problem rather than solved it — and it can only paste what you are holding, which is the thing this rule exists to prevent.
 
 ## What a sub-agent is (cross-phase)
 
@@ -71,7 +106,7 @@ A missing capability is a finding, not a task. Note the gap in `audit.md` as a k
 
 ### Heartbeat — how a sub-agent stays visible
 
-A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. That is why the prompt in `../subagents/dispatch_structured_subagent.md` asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log`.
+A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. Every dispatch asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log` — every dispatch, whatever comes back, because an agent that returns prose or edits a file in place needs it just as much.
 
 The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. That makes the line diagnostic on its own — the orchestrator reads elapsed time off the file's modification time, so the line only has to say what, never how long.
 
@@ -81,27 +116,51 @@ Caveat: on the way into the step, never on a schedule. Reporting every N seconds
 
 Every sub-agent notifies on completion, so the signal is a notification that never arrives. Do not poll on a timer.
 
-1. **Wait 5 minutes** from dispatch with no notification before suspecting anything. The longest honest silence is one request chain: `hackernews.mjs` throttles HN to one request per 15s and backs off 5s + 15s + 45s on top of a 30s timeout, so roughly two minutes. Five is the margin.
-2. **Read every heartbeat at once**, not one agent at a time:
+1. **Read every heartbeat at once**, not one agent at a time:
    `tail -n 1 digmore/<slug>/cache/_progress/*.log`
    The last line says what each agent is waiting on; the file's mtime says for how long.
-3. **Decide from the line, not the clock alone.** A fetch or a documented backoff is work — leave it. A line that has not changed while its subject should have completed, or a heartbeat that stopped mid-step, is stuck.
+2. **Two minutes without that mtime moving is the trigger — not two minutes since dispatch.** Time since dispatch says nothing: an agent twenty minutes into a long branch whose heartbeat moved ten seconds ago is working, and one that fell over thirty seconds in is not. Two minutes is the default because the open web is the slow case — the sources with their own scripts all answer in about a second. **A source whose every call is fast sets a tighter threshold in its own `subagents/<agent>/<source>.md`**; where one does, that value wins for its sub-agents and this one applies to the rest.
+3. **Decide from the line, not the clock alone.** The trigger is when to look, never a reason on its own to act. A fetch in flight or a documented backoff is work — a request that times out and retries its way through the 5s + 15s + 45s schedule can hold one line for three minutes and be perfectly healthy, and that is the open web, not Reddit, Hacker News or Twitter. Leave it. A line that has not changed while its subject should have completed, or a heartbeat that stopped mid-step, is stuck.
 4. **Confirm liveness** with `TaskOutput(task_id, block: false)`, which returns `running` / `success` / `killed` and nothing else. It reports that an agent is alive, never that it is progressing — the heartbeat is the only progress signal there is.
-5. **Stop it** with `TaskStop(task_id)` if it is still `running` at 10 minutes. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
+5. **Stop it** with `TaskStop(task_id)` if it is still `running` and its heartbeat has not moved for 10 minutes. Same instrument as above, a longer patience — a live agent is never killed for being slow, only for having stopped. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
 
 **Killing a working agent is an acceptable cost.** With one verb over one item, a wrong kill loses one URL rather than a batch, anything already fetched is on disk, and the drop is recorded rather than silent. That is cheaper than trying to detect stuckness from a signal that does not exist.
 
 ## Salvage paths on phase failure (cross-phase)
 
-If a phase errors, runs out of context, or the process is killed, the run still produces the artifacts available at that point. Resume re-enters from the last completed phase boundary by scanning on-disk artifacts.
+If a phase errors, runs out of context, or the process is killed, the run still produces the artifacts available at that point.
+
+**Read `run_log.md` first, then the disk.** The log gives you the phase; the disk gives you what is outstanding inside it.
+
+| Last line for a phase | What you do |
+|---|---|
+| `done` | re-enter the **next** phase, without opening the completed one's artifacts |
+| `start` with no `done` after it | re-enter **that** phase and run its salvage path below |
+
+The saving is the five phases you no longer scan, not the one you still do: a run killed during Extract · Read wrote `start` and nothing else, which names the phase and says nothing about which of 188 URLs were read.
+
+Three rules keep it honest:
+
+- **No log, unreadable, or a topic predating it → full scan.** An absent log is no information, never evidence that nothing ran.
+- **Where the log and the disk disagree, the disk wins.** These lines are written as the run goes, so one can be missing because the process died between the work and the write. A file that exists exists.
+- **Record the resume decision as its own line** — `runlog.mjs note` — naming the phase re-entered and whether it came from a `done` or an unfinished `start`. Otherwise a skipped four-second Extract and a broken one look identical.
+
+Then, inside that phase:
 
 - **Plan failure** → an empty or absent `scope` in `research_plan.json`, so nothing was fetched. Resume re-plans from scratch; it costs one sub-agent.
 - **Extract failure** → `research_plan.json` holds the branch list; the cache holds whatever was fetched. Resume compares the two and runs only the branches with nothing on disk. It does not re-scope: new angles would not match the cache the half-finished run built.
-- **Vet failure** → handles seen so far are in `cache/`. Already-promoted experts are in `experts.csv`. Resume re-runs `vet_user` only on un-vetted handles.
-- **Synthesize failure** → `raw_research_outcomes.md` written from what was collected; partial summary with a `<!-- SYNTHESIZE-INCOMPLETE -->` header. Resume re-runs synthesis on the full claim set.
-- **Audit failure** → the summary exists without verification annotations; `audit.md` notes `audit-incomplete`. Resume re-runs Audit from scratch, which is cheap next to the phases before it.
+- **Vet failure** → skip any handle whose `<source>-handles.json` row already carries a `verdict`, and dispatch the rest. Do not re-dispatch and rely on the script's cache to make the repeat cheap: that works on Reddit, Hacker News and Twitter, where the script returns the cached verdict without a request, and not on forums, where there is no script and the whole judgement is redone.
+- **Enrichment failure** → `player_candidates.json` records who qualified and `players.csv` the rows already chosen. Resume reads both, dispatches only the rows whose fetched cells are still empty, and does not re-choose: the selection is a decision this run already made and recorded.
+- **Synthesize failure** → the six per-source reports are settled and nothing in this phase touches them. **Either `<topic-slug>-raw-report.md` or `claim_index.json` missing means the pass did not finish**, so resume rebuilds from those reports — cheap, because the expensive reading happened in the phase before.
+- **Audit failure** → re-enter at the sub-step the log names, not at the top of the phase. It holds up to six dispatch groups and rewrites the deliverable three times, so re-running it whole is no longer cheap. The fact check resumes per paragraph: it writes `cache/_returns/claim-fact-checker-<n>.json` as each one returns, a resumed run re-reads the same summary so the numbering is identical, and only the paragraphs with no return file are re-dispatched. Nothing needs undoing — `audit.md` is replaced whole rather than appended.
 
-Resume infers progress from on-disk state. `research_plan.json` is the one checkpoint, and it is a plan rather than a progress marker — everything else is inferred by comparing that plan against the cache and the partial outputs.
+## When the cache is gone
+
+A cleared `cache/` leaves the topic root intact — `research_plan.json`, the summary, `claim_index.json`, the CSVs — so a run reaches a phase, finds nothing to work from, and still looks complete.
+
+**Stop at the first phase that finds it missing, say so, and offer to restart the research from scratch.** Manual mode offers the restart and waits; `--auto` stops, says why, and records it in Issues. It applies wherever the cache is read after Extract: Enrichment's expert step, the Source Analyst's Enrichment pass, and the fact check.
+
+**Never reported as a source that came back empty.** Nothing was queried and nothing failed — the material was fetched and later removed, which is a different sentence and a different fix.
 
 ## When the harness runs out of web searches
 
