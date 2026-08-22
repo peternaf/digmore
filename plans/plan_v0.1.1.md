@@ -57,6 +57,13 @@ reviewer · 10 Final report copy editor · 11 Claim Fact Checker.
 - [ ] `phases/index.md` — add `run_log.md` to the layout and to the who-writes-what table. §The run log
 - [ ] `phases/index.md` — add `cache/players/` to both. #6
 - [ ] `phases/index.md` — say `<source>-handles.json` has three writers at three different times. #4
+- [ ] `phases/index.md` — the who-writes-what row gives `promoter_network.csv`, the invented section
+      CSVs, the raw report and the summary to one synthesizer. The first three are #7's, the summary
+      is #8's. §The agents
+- [ ] The deleted "Report Writer" and "synthesizer" are still named in six files the rest of this plan
+      does not touch: `enrich_phase_d.md`, `extract_phase_b.md` ×2, `page_analyst_agent/index.md`,
+      `source_analyst_agent/index.md` and `general-inquiry.md`. Each becomes #7 or #8, whichever
+      actually does the reading or the writing that sentence describes. §The agents
 - [ ] `phases/index.md` — the source notes file becomes `<source>-raw-report.json` in the layout tree,
       the who-writes-what table and the bulk-material table. #4
 - [ ] `phases/index.md` — four lines describe the abolished ranking: `audit.md` "with verdicts on the
@@ -80,7 +87,7 @@ reviewer · 10 Final report copy editor · 11 Claim Fact Checker.
 - [ ] `enrich_phase_d.md` — the claim-filter table says "never vetted"; the word is `unvetted`, and it
       covers a handle first seen in expert material as well as one below the cap. §What counts, and what is judgement
 
-## Agent files
+## Agent files and brain rules
 
 - [ ] Open every agent's file with the summary table. `AGENTS.md` §Writing a sub-agent file
 - [ ] Write files for #7 to #11 under `brain/subagents/`; none of them has one. §Turning an entry here into a skill file
