@@ -31,7 +31,7 @@ The three hosts that have their own file in this directory — `reddit.md`, `hac
 Titles, short snippets and URLs. Enough to rank a candidate, not enough to extract a claim from —
 the Page Analyst opens what you return.
 
-## What you return
+## What you write
 
 The `branch-searcher` shape.
 

@@ -4,33 +4,57 @@
 |---|---|
 | **Phase** | Extract `[2.2/6]`, and again in Enrichment `[4/6]` at its read sub-step — see §"Enrichment mode" |
 | **Purpose** | Turn one document into evidence: fetch it, strip it to readable text that keeps its structure, and pull out the checkable claims with the words the source used |
-| **Input text** | one URL, and **which of the six sources it belongs to** · the branch label, so the log line and the fetch tally can be attributed. **In Enrichment**, the research question instead of a branch, and the path to that expert's vetting cache where the material is already there |
+| **Input text** | **the batch's URLs, numbered, in the order to read them** · **which of the six sources they belong to**, one word for the whole batch · the branch label, so the log lines and the fetch tally can be attributed · the sequential instruction. **In Enrichment**, the research question instead of a branch, and the path to that expert's vetting cache where the material is already there |
 | **Input rule files** | `subagents/page_analyst_agent/index.md` · that agent's `<source>.md` · `fetching.md` · `page_quality.md` · `output.md` |
 | **Input data files** | **none in Extract** — everything it needs it fetches. **In Enrichment**, that expert's vetting cache on Reddit and Hacker News |
-| **Runs** | one script per source — `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet`, or `fetch.mjs` on websearch and forums, paginating first and parsing second. WebFetch on a bot wall. **In Enrichment on Reddit and Hacker News it may run nothing at all**, extracting from the vetting cache it was handed |
-| **Settings that control it** | `extract.maxPagesPerDocument` — **this agent enforces it**; it bounds one document, which is the one thing it can see. `extract.fetchesPerBranch` — **the orchestrator's**, counted from the `pagesRead` on each receipt; one agent holding one URL cannot see the other nineteen, so it is never passed |
-| **Held in its context** | the document, every page of it, and the claims it pulled out. Both go to disk; neither comes back |
-| **Returns to main context** | the `page-analyst` shape — a receipt, not the extraction: `outcome`, `claimCount`, `pagesRead`, `fetchedWith` |
-| **Writes to disk** | `cache/<source>/` — **two files per document, sharing one name**: the stripped page and its `<name>-claims.json`. Plus `cache/_returns/page-analyst-<filename>.json` |
-| **Logs** | `cache/_progress/page-analyst-<source>-<n>.log` — `fetching <url>` · `reading cached <filename>` · `fetching page <n> of <url>` · `<source> 429, backing off <n>s (attempt <n> of 3)` |
-| **How it reports failure** | `outcome: blocked` when the page could not be read by either tool, and `fetchedWith` naming what was tried. A blocked page leaves nothing on disk, so the receipt is the only trace it was attempted |
-| **One dispatch per** | one document — one URL, or one post from Reddit, Hacker News or Twitter |
-| **Run instances** | branches × `extract.fetchesPerBranch` in Extract, plus up to `enrich.expertsFollowed × enrich.urlsPerExpert` in Enrichment, and fewer in practice since the dedupe drops the expert pages Extract already read |
-| **`--fast`** | the same shape at the reduced `extract.fetchesPerBranch` and the reduced `enrich.*`. Twitter contributes nothing to the Enrichment pass, because `twitter.handlesDeepVetted` is `0` and no handle's posts were cached |
-| **Concurrency** | all at once, up to the harness limit `preflight.mjs` reported. Nothing here is rate-limited per host, so that is the only bound — do not invent a smaller batch size |
+| **Runs** | per URL, one script for its source — `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet`, or `fetch.mjs` on websearch and forums, paginating first and parsing second. WebFetch on a bot wall. One URL finished before the next is started. **In Enrichment on Reddit and Hacker News it may run nothing at all**, extracting from the vetting cache it was handed |
+| **Settings that control it** | `extract.maxPagesPerDocument` — **this agent enforces it**; it bounds **each document individually, never the batch**, and a document is the one thing it can see. `extract.fetchesPerBranch` — **the orchestrator's**, totalled from the `pagesRead` on every receipt and enforced between waves; an agent holding one batch cannot see the branch's others, so it is never passed. `extract.urlsPerDispatch` — the orchestrator's too: it sizes the batch this agent is handed |
+| **Held in its context** | **one document at a time**, every page of it, and the claims it pulled out. Both go to disk; neither comes back, and neither is carried into the next URL of the batch |
+| **Returns to main context** | **the word `done`.** The `page-analyst` shape — an array, one receipt per URL — goes to `cache/_returns/page-analyst-<label>.json`, and the orchestrator reads it there |
+| **Writes to disk** | `cache/<source>/` — **two files per document, sharing one name**: the stripped page and its `<name>-claims.json`. Plus `cache/_returns/page-analyst-<label>.json`, one per batch |
+| **Logs** | `cache/_progress/page-analyst-<source>-<n>.log`, one per batch — `url <n> of <n>: <url>` · `fetching <url>` · `reading cached <filename>` · `fetching page <n> of <url>` · `<source> 429, backing off <n>s (attempt <n> of 3)` |
+| **How it reports failure** | `outcome: blocked` on that URL's receipt when the page could not be read by either tool, and `fetchedWith` naming what was tried. **Per URL — the batch carries on.** A blocked page leaves nothing on disk, so its receipt is the only trace it was attempted |
+| **One dispatch per** | **one batch of up to `extract.urlsPerDispatch` URLs, all from one branch** — each a document, one URL or one post from Reddit, Hacker News or Twitter |
+| **Run instances** | branches × ⌈`extract.fetchesPerBranch` ÷ `extract.urlsPerDispatch`⌉ in Extract, plus the same division over `enrich.expertsFollowed × enrich.urlsPerExpert` in Enrichment, and fewer in practice since the dedupe drops the expert pages Extract already read |
+| **`--fast`** | the same shape at the reduced `extract.fetchesPerBranch` and the reduced `enrich.*`. **`extract.urlsPerDispatch` is the same in both modes** — fast's branch budget is already about one batch, so cutting it would raise the dispatch count. Twitter contributes nothing to the Enrichment pass, because `twitter.handlesDeepVetted` is `0` and no handle's posts were cached |
+| **Concurrency** | one batch per branch at a time, every branch at once, up to the harness limit `preflight.mjs` reported. Nothing here is rate-limited per host, so that limit is the only bound on width — do not invent a lower concurrency, and do not hold one branch for another |
 | **Model tier** | placeholder, unused for now |
 
-Where it sits: the **Branch Searcher** found this URL and ranked it. What you write to disk is what
-the **Source Analyst** reads across the whole source, and what the **Claim Fact Checker** goes back
-to in Audit.
+Where it sits: the **Branch Searcher** found these URLs and ranked them. What you write to disk is
+what the **Source Analyst** reads across the whole source, and what the **Claim Fact Checker** goes
+back to in Audit.
 
 ## What this agent does
 
-**Turn one document into evidence.**
+**Turn one document into evidence**, then the next one.
 
 1. **Get it.** Fetch the page, following it to its end if it runs across several.
 2. **Strip it.** One markdown file: the readable content, wrapping removed, shape kept.
 3. **Read it.** Pull out the checkable claims, each carrying the words the source actually used.
+
+## Your batch — one URL at a time, in order
+
+You were given several URLs, all from one branch and all from one source. **Do the three steps above
+on the first URL, completely, and only then start the second.** Its page and its claims are on disk
+before you touch the next one.
+
+**Never fetch them all first**, and never hold two documents at once. What bounds this job is not how
+much you read but how much you are holding while you read it — one document at a time is what keeps a
+batch no heavier than a single URL was.
+
+**Never dispatch a sub-agent, and never parallelise.** This is the one place the rule against handing
+an agent several items is relaxed, and it is relaxed on the condition that you work through them
+yourself. You receive no completion notification for anything you start, so whatever you start you
+wait on forever — an agent that fans out here does not finish, and its whole batch is lost rather
+than slow.
+
+**A URL you cannot read does not stop the batch.** Give that one `outcome: blocked` and go on to the
+next. Your return is one receipt per URL, so four good reads never arrive behind one wall.
+
+**Say which URL you are on before you start it**, as the first heartbeat line of each: `url 3 of 5:
+<the url>`. One log now covers your whole batch, so without that line nothing outside can tell a
+batch that is working from one that stopped — and if you are killed mid-batch it is the only record
+of how far you got.
 
 ## Get it — the fetch
 
@@ -165,16 +189,63 @@ Your source's file gives the exact pair.
 
 Per **document**, not per page: eight pages make one pair, not eight.
 
-Plus `digmore/<slug>/cache/_returns/page-analyst-<filename>.json` — a copy of what you returned.
+Plus `digmore/<slug>/cache/_returns/page-analyst-<label>.json` — one file per batch, a copy of what
+you returned.
 
-## What you return — a receipt, not the claims
+## What you return — the word `done`
 
-The `page-analyst` shape, and it is four fields: `outcome`, `claimCount`, `pagesRead`,
-`fetchedWith`.
+**Write your receipts to the file, then return `done` and nothing else.** No summary, no account of
+what you read, no note about what was interesting. The file is the record.
+
+A measured return ran 1,255 tokens where the schema needed 150 — twelve percent — and every one of 85
+sampled returns carried prose outside the JSON. That prose is read once, by one reader, and then
+carried for the rest of the run; the file is read by whoever actually needs it, whenever they need it.
+
+The `page-analyst` shape: **an array, one receipt per URL you were given**, in the order you were
+given them. Each is `url`, `outcome`, `claimCount`, `pagesRead`, `fetchedWith` — and `notes` only
+where there is something to say.
+
+**`url` is how each receipt is identified.** The dispatch is named after the batch, not the page, so
+without it the orchestrator cannot tell which of your URLs a receipt is about.
+
+**One receipt per URL, always** — including the ones that came back `blocked`, and the ones already
+cached. A missing receipt reads as a batch that did not finish.
 
 **Nothing else comes back with you** — not the claims, not the page quality, not the page's date.
 All of that is in the file you wrote. Not even the path: your file sits in `cache/<source>/` under the
 name the fetch gave it, and whoever needs it finds it by reading the directory.
+
+### `notes` — only what changes the orchestrator's next move
+
+**Two things qualify, and almost nothing else does:** the URL served a different document than it
+promised, and the host walled both tools. One short string, on the receipt it belongs to. **Empty on
+almost every read.**
+
+**The test is who can act on it.** The orchestrator totals fetches, records blocked URLs and moves on
+— it never weighs a citation and never judges coverage. Anything it cannot act on is not a note, it
+is prose in the wrong place.
+
+**What a page says about its own reliability goes on the claims file instead**, as `pageNote` — see
+below. Measured: five of five sampled receipts filled `notes` at 27–78 words, and only the
+walled-and-redirected kind was anything the orchestrator could use.
+
+### `pageNote` — what the document's standing is, on the claims file
+
+**On `page-claims`, not on the receipt**, because the two agents who need it never see a receipt: the
+**Source Analyst** reads every claims file its source produced, and the **Raw report writer** weighs
+citations against each other.
+
+What belongs here is anything that should qualify a claim taken from this page:
+
+- **Undated**, or dated only by inference.
+- **Second-hand figures**, with no link to the primary.
+- **The party describing the problem sells the remedy** — a vendor's page about the pain its product
+  removes is evidence, and evidence with an interest.
+- **Partial coverage** — most of the surface this page covers sits on pages you did not read, so a
+  claim about completeness is not supported by it. The Source Analyst turns that into a coverage
+  observation.
+
+**Leave it out where the page is unremarkable.** It qualifies a claim; it never repeats one.
 
 **Two things read your claims file, and nothing after Extract does.** The **Source Analyst** opens
 every one this source produced, to build that source's report, its handles and its entities. The
@@ -184,10 +255,10 @@ agent ever opens several hundred claims files in one dispatch. Your **stripped p
 reader still: the **Claim Fact Checker**, at the very end, checking a rendered claim against the text
 you stored.
 
-Four, because four is what the orchestrator does anything with: whether the page yielded something,
-how much, how many fetches it cost against the branch's budget, and which tool got it. Several
-hundred of these dispatches run in one job, and anything carried back in each of them is carried for
-the rest of the run.
+These fields, because they are what the orchestrator does anything with: which page this was, whether
+it yielded something, how much, how many fetches it cost against the branch's budget, and which tool
+got it. Hundreds of documents are read in one job, and anything carried back for each of them is
+carried for the rest of the run.
 
 **`fetchedWith` is the one that outlives the run.** Say `WebFetch` when the wall forced you onto it,
 and the orchestrator lists that URL in `audit.md` — WebFetch shortens long pages without saying
@@ -212,8 +283,8 @@ the URL was ever tried.
 
 ## Enrichment mode
 
-The same job from a different starting state. In Extract a search found this URL and the branch's
-angle made it on-topic **by construction**. In Enrichment the page arrives because of *who wrote it* —
+The same job from a different starting state. In Extract a search found these URLs and the branch's
+angle made them on-topic **by construction**. In Enrichment a page arrives because of *who wrote it* —
 a vetted expert the run decided is worth following — and nothing makes it on-topic.
 
 Four things differ, and nothing else does:
@@ -236,8 +307,8 @@ Four things differ, and nothing else does:
    | **Blogs, personal sites, anything off-platform** | nothing | **out of scope.** Never searched for, never fetched |
 
 **Everything else is unchanged** — the same `page-claims` shape, the same two files per document, the
-same receipt. Which budget the fetch is charged to and what the receipt is labelled are the
-orchestrator's business, not yours.
+same receipt per URL, the same batch worked through one at a time. Which budget the fetch is charged
+to and what the batch is labelled are the orchestrator's business, not yours.
 
 ## Per-source files
 

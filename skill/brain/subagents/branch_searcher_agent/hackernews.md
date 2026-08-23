@@ -27,12 +27,13 @@ A WebSearch result on Hacker News gives you the story title and little else. The
 comments, and only `hackernews.mjs story` returns them — which is the Page Analyst's step. Return
 the URL and let it do that.
 
-## What you return
+## What you write
 
 The `branch-searcher` shape. `url` is the `item?id=<N>` link, `title` the story title, `relevance`
 your estimate for this angle.
 
 ## What lands on disk
 
-Nothing from this step. WebSearch results live in what you return; the story trees are written by
+No search response from this step — WebSearch results reach disk only through the list you write to
+`cache/_returns/`, so a URL you leave out of it is gone. The story trees are written by
 the Page Analyst as `digmore/<slug>/cache/hackernews/hackernews-item-<N>.json`.

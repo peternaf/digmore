@@ -61,14 +61,28 @@
     }
   },
   "branch-searcher": {
-    "description": "Returned by a Branch Researcher, one per branch — one angle paired with one source. Carries the candidate URLs that branch found.",
+    "description": "WRITTEN by a Branch Searcher to cache/_returns/branch-searcher-<branch>.json, one per branch — one angle paired with one source. Not returned: the agent returns the word 'done' and this file is the only place its candidates exist. It holds the survivors of its own cut, already sorted by relevance and already reduced to extract.fetchesPerBranch, plus two numbers about what the cut cost. The orchestrator's dedupe reads these files rather than any message, which is what it read in practice even when the list was also returned inline.",
     "type": "object",
     "required": [
-      "results"
+      "results",
+      "droppedCount",
+      "lowestSurvivingScore"
     ],
     "properties": {
+      "droppedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many candidates the cut discarded — the count alone, never the rows. It is what audit.md's dropped-for-budget record names for this branch. Zero when the search returned no more than the cap."
+      },
+      "lowestSurvivingScore": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "The relevance of the weakest URL that survived the cut, which is what says whether the discarded ones were close. Forty candidates dropped just under a strong cut line is a different finding from forty no-hopers, and neither is visible from the survivors alone."
+      },
       "results": {
         "type": "array",
+        "description": "The survivors, highest relevance first, at most extract.fetchesPerBranch of them. The agent sorts and cuts before writing: this is the same cap the orchestrator used to apply one step later, moved to the only actor already holding the scores.",
         "items": {
           "type": "object",
           "required": [
@@ -96,43 +110,55 @@
     }
   },
   "page-analyst": {
-    "description": "Returned by a Page Analyst, one per document, in Extract and again in Enrichment. A receipt, not the extraction: the claims go to <name>-claims.json and are read from there by whoever needs them. Only what the orchestrator acts on comes back — everything else about the page is in the file, and the file is found by reading cache/<source>/ rather than by being handed a path several hundred times.",
-    "type": "object",
-    "required": [
-      "outcome",
-      "claimCount",
-      "pagesRead",
-      "fetchedWith"
-    ],
-    "properties": {
-      "outcome": {
-        "type": "string",
-        "enum": [
-          "ok",
-          "blocked",
-          "nothing-found"
-        ],
-        "description": "ok = claims were found. blocked = the page could not be read: walled, paywalled, or refused. nothing-found = the page was read and yielded nothing. The two failures are not the same finding — a walled page is a gap in what the run could reach, an empty one is a fact about the topic — and a blocked page leaves no file, so this is the only trace it was ever tried."
-      },
-      "claimCount": {
-        "type": "integer",
-        "minimum": 0
-      },
-      "pagesRead": {
-        "type": "integer",
-        "minimum": 0,
-        "description": "How many pages were fetched to assemble this document. Every one spends the branch's fetch budget, and only the orchestrator can total them. Zero when the page was already cached or could not be read at all."
-      },
-      "fetchedWith": {
-        "type": "string",
-        "enum": [
-          "script",
-          "fetch.mjs",
-          "WebFetch",
-          "cache",
-          "none"
-        ],
-        "description": "Which tool got the page. WebFetch shortens long pages silently and never says where it cut, so every claim taken from one may be missing a tail nobody can see — the orchestrator records those URLs in audit.md so the limit is visible rather than invisible. 'cache' when the page was already on disk, 'none' when it could not be read at all."
+    "description": "Returned by a Page Analyst, in Extract and again in Enrichment. An ARRAY, one receipt per URL in the dispatch's batch — the agent reads up to extract.urlsPerDispatch of them in sequence. A receipt is not the extraction: the claims go to <name>-claims.json and are read from there by whoever needs them. Only what the orchestrator acts on comes back — everything else about the page is in the file, and the file is found by reading cache/<source>/ rather than by being handed a path. No maxItems: the batch size is a configuration the user owns, and the check that matters is one receipt per URL sent, which only the orchestrator can make because it built the list.",
+    "type": "array",
+    "items": {
+      "type": "object",
+      "required": [
+        "url",
+        "outcome",
+        "claimCount",
+        "pagesRead",
+        "fetchedWith"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Which URL of the batch this receipt is for. A receipt inside an array is no longer identified by the dispatch it came back from — the label names the batch, not the page — so this is what the orchestrator matches against the list it sent, and what it names in audit.md when a page was blocked or a receipt was dropped."
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "blocked",
+            "nothing-found"
+          ],
+          "description": "ok = claims were found. blocked = the page could not be read: walled, paywalled, or refused. nothing-found = the page was read and yielded nothing. The two failures are not the same finding — a walled page is a gap in what the run could reach, an empty one is a fact about the topic — and a blocked page leaves no file, so this is the only trace it was ever tried. Per URL: one blocked page never fails the rest of the batch."
+        },
+        "claimCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pagesRead": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many pages were fetched to assemble this document. Every one spends the branch's fetch budget, and only the orchestrator can total them — which is why a batch is one branch's. Zero when the page was already cached or could not be read at all."
+        },
+        "fetchedWith": {
+          "type": "string",
+          "enum": [
+            "script",
+            "fetch.mjs",
+            "WebFetch",
+            "cache",
+            "none"
+          ],
+          "description": "Which tool got the page. WebFetch shortens long pages silently and never says where it cut, so every claim taken from one may be missing a tail nobody can see — the orchestrator records those URLs in audit.md so the limit is visible rather than invisible. 'cache' when the page was already on disk, 'none' when it could not be read at all."
+        },
+        "notes": {
+          "type": "string",
+          "description": "ONLY what changes the orchestrator's next move, and empty on almost every read: the URL served a different document than it promised, the host walled both tools. Nothing else. What a page says about its own reliability — undated, second-hand, sold by the party describing the problem — goes on the claims file as pageNote, where the Source Analyst and the Raw report writer actually read it; the orchestrator never weighs a citation and cannot act on it here. Never a summary of the claims, and never an account of the work. Measured: five of five sampled receipts filled this at 27-78 words, and only the walled-and-redirected kind was anything the orchestrator could act on."
+        }
       }
     }
   },
@@ -148,6 +174,10 @@
       "url": {
         "type": "string",
         "description": "The document these claims came from. A path under cache/local/ on the local source, which has no URL."
+      },
+      "pageNote": {
+        "type": "string",
+        "description": "OPTIONAL, and about this document's standing rather than its content: what a reader weighing a claim from it would want warned about. Undated. Figures are second-hand and the primary is not linked. The vendor sells the remedy it describes. Most of the surface this page covers sits on pages that were not read, so its coverage is partial. Read by the Source Analyst, which turns a coverage gap into an observation, and by the Raw report writer, which weighs it when two citations compete. It is NOT the receipt's notes field: that one carries only what the orchestrator must act on, and neither of these agents ever sees a receipt. Leave it out where the page is unremarkable."
       },
       "pageQuality": {
         "type": "string",
@@ -315,8 +345,7 @@
               "items": {
                 "type": "object",
                 "required": [
-                  "cachedPage",
-                  "handle"
+                  "cachedPage"
                 ],
                 "properties": {
                   "cachedPage": {

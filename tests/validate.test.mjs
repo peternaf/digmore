@@ -147,9 +147,37 @@ test('a wrong-typed value is not then checked against the rules for its keys', a
 test('number bounds are enforced', async () => {
   const result = await check('branch-searcher', {
     results: [{ url: 'https://example.com', title: 'Example', relevance: 1.4 }],
+    droppedCount: 0,
+    lowestSurvivingScore: 0.4,
   });
   assert.equal(result.code, 1);
   assert.deepEqual(paths(result), ['results[0].relevance']);
+});
+
+// The searcher cuts its own list now, so the file has to say what the cut cost. The rows it
+// discarded are not kept — nothing backfills from them — and these two numbers are what
+// audit.md's dropped-for-budget record is written from.
+test('a branch list says what its cut discarded', async () => {
+  const survivors = [{ url: 'https://example.com', title: 'Example', relevance: 0.8 }];
+  const ok = await check('branch-searcher', {
+    results: survivors, droppedCount: 37, lowestSurvivingScore: 0.62,
+  });
+  assert.equal(ok.code, 0);
+
+  const missing = await check('branch-searcher', { results: survivors });
+  assert.equal(missing.code, 1);
+  assert.deepEqual(paths(missing).sort(), ['droppedCount', 'lowestSurvivingScore']);
+});
+
+// A branch whose search returned less than the cap dropped nothing, and that is a real answer
+// rather than an absent one.
+test('dropping nothing is zero, not an omission', async () => {
+  const result = await check('branch-searcher', {
+    results: [{ url: 'https://example.com', title: 'Example', relevance: 0.9 }],
+    droppedCount: 0,
+    lowestSurvivingScore: 0.9,
+  });
+  assert.equal(result.code, 0);
 });
 
 test('every problem is reported at once, not just the first', async () => {
@@ -245,26 +273,78 @@ test('a payload that is not JSON exits 2 — there is nothing to repair', async 
 
 // ------------------------------------------------------------------ the claims stay on disk
 
-// The Page Analyst hands back a receipt, not its extraction. Several hundred of these run
+const receipt = (over = {}) => ({
+  url: 'https://example.com/a', outcome: 'ok', claimCount: 4, pagesRead: 1,
+  fetchedWith: 'fetch.mjs', ...over,
+});
+
+// The Page Analyst hands back receipts, not its extraction. Hundreds of documents are read
 // in one job, and the claims arrays are what used to fill the orchestrator's context.
-test('a page-analyst receipt is three fields and no claims', async () => {
-  const result = await check('page-analyst', { outcome: 'ok', claimCount: 4, pagesRead: 1, fetchedWith: 'fetch.mjs' });
+test('a page-analyst return is receipts and no claims', async () => {
+  const result = await check('page-analyst', [receipt(), receipt({ url: 'https://example.com/b' })]);
   assert.equal(result.code, 0);
+});
+
+// One dispatch now reads a batch, so the return is an array even when the batch held one URL.
+test('a bare receipt object is refused — the return is an array', async () => {
+  const result = await check('page-analyst', receipt());
+  assert.equal(result.code, 1);
 });
 
 test('a receipt without its page count is refused', async () => {
   // Only the orchestrator can total pages against the branch's fetch budget.
-  const result = await check('page-analyst', { outcome: 'ok', claimCount: 4, fetchedWith: 'fetch.mjs' });
+  const result = await check('page-analyst', [{ url: 'https://example.com/a', outcome: 'ok', claimCount: 4, fetchedWith: 'fetch.mjs' }]);
   assert.equal(result.code, 1);
-  assert.deepEqual(paths(result), ['pagesRead']);
+  assert.deepEqual(paths(result), ['[0].pagesRead']);
+});
+
+// The label names the batch, not the page, so without the URL a receipt cannot be matched
+// back to what was sent — or named in audit.md when the page was blocked.
+test('a receipt without its URL is refused', async () => {
+  const result = await check('page-analyst', [{ outcome: 'ok', claimCount: 4, pagesRead: 1, fetchedWith: 'fetch.mjs' }]);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['[0].url']);
 });
 
 test('zero claims is a real outcome, not a missing one', async () => {
   // A page we could not read and a page that yielded nothing are different findings.
   for (const outcome of ['blocked', 'nothing-found']) {
-    const result = await check('page-analyst', { outcome, claimCount: 0, pagesRead: 0, fetchedWith: 'none' });
+    const result = await check('page-analyst', [receipt({ outcome, claimCount: 0, pagesRead: 0, fetchedWith: 'none' })]);
     assert.equal(result.code, 0, outcome);
   }
+});
+
+// One wall never fails the four reads beside it: outcome is per URL, which is the whole
+// reason the shape is an array rather than one verdict over the batch.
+test('a blocked URL sits beside ok ones in the same return', async () => {
+  const result = await check('page-analyst', [
+    receipt(),
+    receipt({ url: 'https://example.com/b', outcome: 'blocked', claimCount: 0, pagesRead: 0, fetchedWith: 'none' }),
+    receipt({ url: 'https://example.com/c' }),
+  ]);
+  assert.equal(result.code, 0);
+});
+
+// notes is for what outcome cannot express, and it is optional — an ordinary read leaves it out.
+test('notes is optional and takes a string', async () => {
+  const withNotes = await check('page-analyst', [receipt({ notes: 'the URL served a different article' })]);
+  assert.equal(withNotes.code, 0);
+  const wrongType = await check('page-analyst', [receipt({ notes: ['a', 'list'] })]);
+  assert.equal(wrongType.code, 1);
+});
+
+// A page's standing — undated, second-hand, sold by the party describing the problem — belongs
+// on the claims file, where the Source Analyst and the Raw report writer read it. The receipt's
+// notes field carries only what the orchestrator can act on, and it never weighs a citation.
+test('pageNote is optional and lives on the claims file', async () => {
+  const withNote = pageClaims();
+  withNote.pageNote = 'Undated, and the figures are second-hand.';
+  assert.equal((await check('page-claims', withNote)).code, 0);
+  assert.equal((await check('page-claims', pageClaims())).code, 0);
+
+  const wrongType = pageClaims();
+  wrongType.pageNote = { undated: true };
+  assert.equal((await check('page-claims', wrongType)).code, 1);
 });
 
 test('a claim records who said it', async () => {
@@ -294,6 +374,49 @@ const roster = () => ({
       documents: ['cache/reddit/reddit-thread-1a2b.json'],
     },
   ],
+});
+
+// ------------------------------------------------------- a citation's handle is source-dependent
+
+const sourceRawReport = (citation) => ({
+  source: 'websearch',
+  claims: [{
+    claim: 'Mux charges $0.005 per minute of encoding',
+    quote: '$0.005 per minute of encoding',
+    importance: 'central',
+    kind: 'quantitative',
+    value: 0.005,
+    unit: 'USD per minute',
+    citations: [citation],
+  }],
+  observations: 'Pricing pages agree; the forums do not.',
+});
+
+// The open web and the user's own documents have authors rather than accounts — which is why
+// neither writes a handles file. Requiring one here forced the Source Analyst to invent a byline,
+// and a fabricated handle scores 'unvetted' (an account we failed to check) where an absent one
+// scores 'no-handle' (there was never an account). The second is true and the first is not.
+test('a citation on a source with no accounts omits its handle', async () => {
+  const result = await check('source-raw-report', sourceRawReport({
+    cachedPage: 'mux.com_pricing.md', url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  }));
+  assert.equal(result.code, 0);
+});
+
+test('a citation still carries the page it was read from', async () => {
+  const result = await check('source-raw-report', sourceRawReport({
+    url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  }));
+  assert.equal(result.code, 1);
+  assert.ok(paths(result).some((path) => path.endsWith('cachedPage')));
+});
+
+test('a handle is still accepted where the source has accounts', async () => {
+  const result = await check('source-raw-report', sourceRawReport({
+    cachedPage: 'reddit-thread-abc.json', url: 'https://reddit.com/r/x/abc',
+    handle: 'u/someone', pageQuality: 'forum',
+  }));
+  assert.equal(result.code, 0);
 });
 
 test('a roster of ranked handles passes', async () => {

@@ -121,7 +121,7 @@ You can trust that split because the API does the work: Reddit answers a blocked
 redirect to its login page, HTTP 200, which parses as zero results. The API spots that, retries on a
 fresh connection, and reserves exit 3 for the case where every attempt was walled.
 
-## What you return
+## What you write
 
 The `branch-searcher` shape — `{"results":[{"url","title","relevance"}]}`, `relevance` rank-based.
 Each search's output already matches it; what you hand back is **both searches merged and deduped on

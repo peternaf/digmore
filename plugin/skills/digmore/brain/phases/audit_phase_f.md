@@ -84,7 +84,7 @@ one the writer cannot mark and the fact check never receives — the newest mate
 be the one part verification structurally could not reach.
 
 **Nothing fetches during rework.** Closing a gap by searching would mean a Branch Searcher, then a
-Page Analyst per URL, then both writers again — a miniature Extract for one gap, late in the run, with
+Page Analyst over what it found, then both writers again — a miniature Extract for one gap, late in the run, with
 a new failure surface and a budget nothing bounds. The run says what it did not gather instead.
 
 **One pass, then record and stop.** An unbounded validation-and-repair loop is a defect marker in its

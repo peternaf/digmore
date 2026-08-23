@@ -20,6 +20,8 @@ Two things trigger a prompt, and both are about **intent** rather than cost:
 1. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
 2. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
 
+**Those two are the only places a run stops, and both are in Plan.** Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
+
 **A run never stops to ask permission to spend.** Every configuration is a number the user already set, printed by `preflight.mjs` at the start of the run — asking again mid-run is asking them to re-approve their own settings, which teaches them to say yes without reading.
 
 ## Auto mode (`--auto`)
@@ -62,14 +64,16 @@ The configurations it prints, and what each bounds:
 | Group | Configurations |
 |---|---|
 | `plan` | `minAngles`, `maxAngles`, `scopingSearches` |
-| `extract` | `fetchesPerBranch`, `maxPagesPerDocument` |
-| `vet` | `handleCapPerSource` |
+| `extract` | `fetchesPerBranch`, `maxPagesPerDocument`, `urlsPerDispatch` |
+| `vet` | `handleCapPerSource`, `handlesPerDispatch` |
 | `enrich` | `expertsFollowed`, `urlsPerExpert` |
 | `twitter` | `handlesDeepVetted`, `postsPerDeepVet` |
 | `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize` |
 | `subagents` | `repairAttempts` |
 
 **A configuration is named for the phase that spends it**, which is why the expert step's two sit under `enrich`. **Synthesize and Audit have no group at all**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase.
+
+**The two `*PerDispatch` configurations are batch sizes, and neither reduces in fast mode.** They set how many items one Page Analyst or one Handle Vetter works through in sequence, so a run spends fewer sub-agent dispatches without reading anything less. Fast mode already cuts how many items there are; cutting the batch as well would put the dispatch count back up, which is the opposite of what the mode is for. Neither is a concurrency limit — that is the harness's, and it is how many agents run at once.
 
 **A user's own configuration is never loosened by asking for a shallower run.** Fast takes the lower of the two, so someone who set `vet.handleCapPerSource` to 10 gets 10 in both modes. The exception is a fast value of `0`, which is a deliberate skip and wins.
 

@@ -29,7 +29,7 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | Before any external request | `recency.md` |
 | Fetching a web page — the command, the cache hit, the bot-wall fallback | `fetching.md` |
 | Plan — slugging the topic, deciding fresh / re-run / branched, the angles, the sections, the branches, and `research_plan.json` itself | `phases/plan_phase_a.md`, `modes.md`, `sections.md`, `scripts/subagent_returns.json` (`scope` shape) |
-| Extract — one searcher per branch, one reader per URL, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
+| Extract — one searcher per branch, one reader per batch of URLs, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `page_quality.md`, `subagents/handle_vetter_agent/` |
 | Enrichment — who the research is about: the player candidates, the selection, the profiling | `phases/enrich_phase_d.md`, `subagents/player_profiler_agent.md` |
 | Synthesize — the evidence becomes documents: the enumerable sections and the raw report, then the summary drafted from them | `phases/synthesize_phase_e.md`, `subagents/raw_report_writer_agent.md`, `subagents/final_report_writer_agent.md`, `sections.md`, `output.md` (writing style is non-negotiable) |

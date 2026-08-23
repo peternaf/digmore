@@ -326,8 +326,8 @@ test('the run prints every configuration it will apply, under its own heading', 
 
   for (const key of [
     'plan.minAngles', 'plan.maxAngles', 'plan.scopingSearches',
-    'extract.fetchesPerBranch', 'extract.maxPagesPerDocument',
-    'vet.handleCapPerSource',
+    'extract.fetchesPerBranch', 'extract.maxPagesPerDocument', 'extract.urlsPerDispatch',
+    'vet.handleCapPerSource', 'vet.handlesPerDispatch',
     'enrich.expertsFollowed', 'enrich.urlsPerExpert',
     'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet',
     'hackernews.commentDepth', 'hackernews.recentCommentsSampled', 'hackernews.deadSampleSize',
@@ -353,6 +353,8 @@ test('a configuration reduced by --fast prints both values, and an unchanged one
   assert.match(rowFor('enrich.expertsFollowed'), /10 → 3/);
   assert.match(rowFor('twitter.handlesDeepVetted'), /20 → 0/, 'zero is a skip and is shown as one');
   assert.match(rowFor('extract.maxPagesPerDocument'), /\s5\s/, 'the same in both modes');
+  assert.ok(!/→/.test(rowFor('extract.urlsPerDispatch')), 'a batch size does not reduce in fast');
+  assert.ok(!/→/.test(rowFor('vet.handlesPerDispatch')), 'a batch size does not reduce in fast');
   assert.ok(!/→/.test(rowFor('subagents.repairAttempts')), 'no arrow where nothing changes');
 
   // Whitespace-normalised: the sentence wraps in the printed block, so a raw substring match

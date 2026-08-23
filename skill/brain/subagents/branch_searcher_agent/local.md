@@ -36,7 +36,7 @@ Out of scope, and say so plainly once rather than skipping it silently:
   digmore cannot read at all.
 - **Directories the user did not name.** Read what you were given, nothing beside it.
 
-## What you return
+## What you write
 
 The `branch-searcher` shape, with the **file path** in `url` — the copy under
 `digmore/<slug>/cache/local/`, not the user's original location.

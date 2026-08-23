@@ -23,7 +23,7 @@ Let the domains that surface tell you where this topic actually gets discussed, 
 `site:` query against the ones that keep recurring. Two or three keywords either way, and no
 `after:` — recency is judged when the thread is read (`../../recency.md`).
 
-## What you return
+## What you write
 
 Thread URLs, in the `branch-searcher` shape.
 

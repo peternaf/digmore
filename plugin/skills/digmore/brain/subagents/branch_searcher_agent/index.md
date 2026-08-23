@@ -3,15 +3,15 @@
 | Field | |
 |---|---|
 | **Phase** | Extract `[2.1/6]`, and again in Enrichment `[4/6]` at its search sub-step — see §"Enrichment mode" |
-| **Purpose** | Find what is worth reading for one branch, rank it, and hand back the list with a relevance score per URL — that ranking is what decides which pages the run spends its budget on |
+| **Purpose** | Find what is worth reading for one branch, rank it, cut it to what the branch can afford, and leave that list on disk — the ranking is what decides which pages the run spends its budget on |
 | **Input text** | **in Extract**, one angle `{label, query, rationale}`, one source name, the topic slug, and **the recency cutoff date** `preflight.mjs` printed — never worked out here, or six branches filter on six different days. **In Enrichment**, one handle, the research question to rank against, and the path to that handle's vetting cache — no angle and no query |
 | **Input rule files** | `subagents/branch_searcher_agent/index.md` · that agent's `<source>.md` · `output.md` |
 | **Input data files** | **none in Extract** — this agent is the one creating material. **In Enrichment**, that expert's vetting cache, which is the whole of what it picks from |
 | **Runs** | `api.mjs reddit search` **twice** on Reddit — site-wide, then scoped to subs it picks itself · WebSearch with a `site:` filter on Hacker News, Twitter and forums · plain WebSearch on the web source · on local, copies the user's named files into `cache/local/`. **In Enrichment it runs nothing**: it reads the vetting cache it was handed |
-| **Settings that control it** | none it enforces, and **no fetch budget is passed** — this agent fetches nothing, so a fetch cap is a number it cannot spend. `extract.fetchesPerBranch`, or `enrich.urlsPerExpert` on an expert branch, bounds what the Page Analyst reads off the list it returns, and the orchestrator counts it |
-| **Held in its context** | the search responses themselves — Reddit's two result sets, the WebSearch result lists, and in Enrichment the expert's cached comments. Titles and snippets are read to rank and are not carried |
-| **Returns to main context** | the `branch-searcher` shape — `results[]` of `{url, title, relevance}` |
-| **Writes to disk** | **search responses only — never a page, a thread or a post.** On Reddit, two files per branch, written by the script. On Hacker News, Twitter, websearch and forums, nothing: WebSearch results live in the return. On local, the user's named files copied into `cache/local/`. **In Enrichment, nothing at all** — there is no search response to save. Plus `cache/_returns/branch-searcher-<branch>.json` |
+| **Settings that control it** | **`extract.fetchesPerBranch` — this agent now applies it**, as the length of the list it writes; `enrich.urlsPerExpert` does the same on an expert branch. It is a count of URLs it may hand on, not a fetch budget it can spend — this agent still fetches nothing |
+| **Held in its context** | the search responses themselves — Reddit's two result sets, the WebSearch result lists, and in Enrichment the expert's cached comments. Titles and snippets are read to rank and are not carried. **Nothing leaves**: the list goes to disk and the message is one word |
+| **Returns to main context** | **the word `done`.** The `branch-searcher` shape goes to `cache/_returns/branch-searcher-<branch>.json`, which the orchestrator's dedupe reads |
+| **Writes to disk** | **`cache/_returns/branch-searcher-<branch>.json` — the cut, ranked list, and the only place its candidates exist.** Plus search responses, never a page, a thread or a post: on Reddit two files per branch, written by the script; on Hacker News, Twitter, websearch and forums nothing, since WebSearch results live only in this agent; on local, the user's named files copied into `cache/local/`. **In Enrichment there is no search response to save**, so the `_returns/` file is the whole of it |
 | **Logs** | `cache/_progress/branch-searcher-<branch>.log` — `searching <source> for <query>` (Extract) · `reading the vetting cache for <handle>` (Enrichment) · `copying <filename>` (local only, one per file) |
 | **How it reports failure** | an empty `results` array plus what the source said. A source that was never queried, one that was unavailable and one that came back empty are three different sentences — see the rules below |
 | **One dispatch per** | one branch. In Extract that is one angle paired with one source; in Enrichment it is one expert, whose source is implied — `u/foo` is Reddit's by construction |
@@ -21,28 +21,61 @@
 | **Model tier** | placeholder, unused for now |
 
 Where it sits: **Plan** produced the angle you were given, along with the vocabulary its own people
-use. What you return is the list the **Page Analyst** works through, one dispatch per URL.
+use. The list you leave on disk is what the **Page Analyst** works through, a few URLs per dispatch.
 
 ## What this agent does
 
-Find what is worth reading for its one branch, rank it, and hand back the list.
+Find what is worth reading for its one branch, rank it, cut it, write it.
 
 - **Search, and stop at the results.** The URLs and titles a search returns are the whole job. The
-  Page Analyst opens them, one dispatch per URL.
+  Page Analyst opens them, a few URLs per dispatch.
 - **Rank what you found.** `relevance` is how likely each URL is to answer this angle, and the run
-  spends its fetch budget in that order — so the ranking decides what gets read.
-- **Save the search response.** That one file per query is what this agent leaves on disk.
+  reads in that order — so the ranking decides what gets read.
+- **Cut to what the branch can afford.** See below.
+- **Save the search response.** That one file per query is what this agent leaves on disk beside its
+  list.
 
-## What it returns
+## Sort, cut, write, and return one word
+
+**Sort by your own `relevance`, highest first, then keep the first `extract.fetchesPerBranch`** — or
+`enrich.urlsPerExpert` on an expert branch. `preflight.mjs` prints the number this run uses; read it
+there and never substitute one of your own.
+
+**This is not a cap on your ranking, it is the branch's budget.** Everything past that line was going
+to be discarded anyway: the orchestrator used to make the same cut one step later, on the same scores,
+having been handed every row to do it with. You are the only actor already holding them.
+
+Write the result to:
+
+```
+digmore/<slug>/cache/_returns/branch-searcher-<branch>.json
+```
+
+**Then return the single word `done`.** Not the list, not a summary of it, not a count.
+
+**That file is the only place your candidates exist**, so a URL you leave out of it is a URL the run
+will never read. It is also what the dedupe reads — it always did, even when the list was returned
+inline as well, which is how a measured run came to spend ~60k of the orchestrator's context on 1,368
+rows nobody opened.
 
 The `branch-searcher` shape from `../../../scripts/subagent_returns.json`:
 
 ```json
-{"results": [{"url": "…", "title": "…", "relevance": 0.0}]}
+{"results": [{"url": "…", "title": "…", "relevance": 0.0}],
+ "droppedCount": 0, "lowestSurvivingScore": 0.0}
 ```
 
-`relevance` is 0..1, this agent's own estimate of how on-topic the URL is for its angle — or, in
-Enrichment, for the research question.
+`relevance` is 0..1, your own estimate of how on-topic the URL is for its angle — or, in Enrichment,
+for the research question.
+
+**The two numbers are what the cut cost, and they are the reason it can be recorded rather than
+silent.** `droppedCount` is how many candidates you discarded; `lowestSurvivingScore` is the
+relevance of your weakest survivor. Together they let `audit.md` say whether the budget cost this
+branch anything worth having — forty candidates dropped just below a strong line is a real finding,
+forty no-hopers is not, and the survivor list alone cannot tell them apart. **Never write out the
+dropped rows themselves.** Nothing backfills from them: a measured run read 400 documents for only 26
+non-ok outcomes, so the machinery would idle for 94% of reads and the branch would be finished before
+anyone reached for it.
 
 ## Enrichment mode — an expert is a branch
 

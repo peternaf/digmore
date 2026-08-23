@@ -36,7 +36,7 @@ Harvest two things from each result:
 2. **The tweet id** — the last path segment of `x.com/<handle>/status/<id>`. The Page Analyst uses
    it to pull the real body when the tweet gets quoted.
 
-## What you return
+## What you write
 
 The `branch-searcher` shape. Put the `status/<id>` URL in `url` so both the handle and the id travel
 with it.

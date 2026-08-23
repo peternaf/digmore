@@ -53,6 +53,12 @@ export const RECENCY_WINDOW_YEARS = 2;
  * sources has 30 branches, so this number multiplies by 30 rather than by 5. It counts
  * pages too — a paginated thread spends one per page, bounded by `maxPagesPerDocument`.
  *
+ * `extract.urlsPerDispatch` and `vet.handlesPerDispatch` are batch sizes: how many items
+ * one sub-agent works through in sequence, so that a run spends fewer dispatches rather
+ * than fewer requests. Neither is a concurrency limit — that is the harness's, and it is
+ * how many agents run at once. Neither reduces in fast mode either: fast already cuts the
+ * item count, and cutting the batch as well would put the dispatch count back up.
+ *
  * `vet.handleCapPerSource` is per source, not per run: Reddit, Hacker News, Twitter and
  * forums each get their own. Ranking happens inside a source, because the engagement
  * numbers that break ties — karma, followers, upvotes — do not compare across sources.
@@ -75,8 +81,8 @@ export const RECENCY_WINDOW_YEARS = 2;
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
-  extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5 },
-  vet: { handleCapPerSource: 50 },
+  extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
+  vet: { handleCapPerSource: 50, handlesPerDispatch: 5 },
   enrich: { expertsFollowed: 10, urlsPerExpert: 10 },
   twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
@@ -125,7 +131,9 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'plan.scopingSearches': 'web searches the scoping agent may spend',
   'extract.fetchesPerBranch': 'URLs per angle-source pair, pages included',
   'extract.maxPagesPerDocument': 'pages followed when one document paginates',
+  'extract.urlsPerDispatch': 'URLs one Page Analyst reads in sequence, all from one branch',
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
+  'vet.handlesPerDispatch': 'handles one Handle Vetter judges in sequence, all from one source',
   'enrich.expertsFollowed': 'vetted experts whose other writing is read',
   'enrich.urlsPerExpert': 'URLs read per followed expert, and that branch\'s whole fetch budget',
   'twitter.handlesDeepVetted': 'handles whose recent posts are read, on top of their profile',

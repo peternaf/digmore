@@ -29,7 +29,9 @@ Each searcher:
 1. Reads `../subagents/branch_searcher_agent/index.md` and its own `../subagents/branch_searcher_agent/<source>.md` before issuing requests.
 2. Uses that source's own tool — its script where it has one, `WebSearch` for the web source.
 3. **Must pass `--topic <slug>` on every source-script call.** The scripts refuse to run without it, because without a topic there is nowhere to cache and the run would look complete having saved nothing. Same rule for `fetch.mjs`: the `--output` path must resolve under `digmore/<slug>/cache/<source>/<safe-name>`, and the script enforces it.
-4. Returns the Branch searcher schema (see `../../scripts/subagent_returns.json`), dispatched per `../subagents/dispatch_structured_subagent.md`: `{results[{url, title, relevance}]}`.
+4. **Sorts its results by relevance, cuts to `extract.fetchesPerBranch`, writes the survivors to `cache/_returns/branch-searcher-<branch>.json`, and returns the word `done`.** The `branch-searcher` shape (see `../../scripts/subagent_returns.json`), dispatched per `../subagents/dispatch_structured_subagent.md`. The file also carries `droppedCount` and `lowestSurvivingScore` — the two numbers `audit.md` needs about what the cut cost, in place of the rows it discarded.
+
+**Nothing about the search comes back in a message.** You do not read the lists as they arrive; the dedupe below opens the files. A searcher that returns anything other than `done` is a dispatch prompt to fix, not a return to parse.
 
 ### Source-tool discipline — no WebSearch substitutes
 
@@ -57,14 +59,23 @@ On Reddit the API separates the last two for you: it detects a wall, retries on 
 
 ## Dedupe the URLs before dispatching a single reader
 
-Every branch's results are in your context and nowhere else, so this is the one moment the whole
-candidate set exists in one place. Cut the duplicates here.
+**Read each branch's list from `cache/_returns/branch-searcher-<branch>.json`.** The searchers return
+the word `done`; the list is on disk, already sorted by relevance and already cut to
+`extract.fetchesPerBranch` by the agent that scored it. The filename carries the branch, which is how
+each URL keeps its owning branch through the dedupe.
+
+This is the one moment the whole candidate set is in one place. Cut the duplicates here.
+
+**The lists arrive as files rather than as messages, and that is the only thing that changed.** What
+this step does is unchanged. A measured run had the searchers return 1,368 rows of
+`{url, title, relevance}` inline against a ceiling of 540 — ~60k of orchestrator context for a copy
+nobody opened, because the dedupe was reading the files even then.
 
 A page that five branches found is one page. Read it five times and you have spent five fetches to
 get one document, extracted the same claims five times into five files, and given the Source Analyst
 five copies of one thread to weigh as five.
 
-1. **Collect every branch's `results` and match on the URL.** Normalise before comparing — trailing
+1. **Read every branch's `results` from its `_returns/` file and match on the URL.** Normalise before comparing — trailing
    slash, `http` vs `https`, a `?utm_*` query, a `#fragment`, and on Reddit the same thread reached
    through `old.reddit.com` and `www.reddit.com`. Those are one URL.
 2. **Keep the highest `relevance` of the copies**, and remember every branch that found it. One
@@ -75,15 +86,60 @@ five copies of one thread to weigh as five.
 
 Only what survives this step is dispatched.
 
-## Read — one sub-agent per URL
+## Read — one sub-agent per batch of URLs
 
-Print `[2.2/6] Extract · Read`. For each URL that survived the dedupe, dispatch a Page Analyst sub-agent, per `../subagents/dispatch_structured_subagent.md`. It writes the claims it pulls to `<name>-claims.json` beside the stripped page and returns a **receipt** — the `page-analyst` shape in `../../scripts/subagent_returns.json`, which says what became of the page rather than what was in it.
+Print `[2.2/6] Extract · Read`. Group the URLs that survived the dedupe into batches and dispatch one Page Analyst per batch, per `../subagents/dispatch_structured_subagent.md`. It works through them one at a time, writing each document's claims to `<name>-claims.json` beside its stripped page, and **returns the word `done`** — its receipts, one per URL, go to `cache/_returns/page-analyst-<label>.json` in the `page-analyst` shape (`../../scripts/subagent_returns.json`), which says what became of each page rather than what was in it.
 
-**Dispatch them all at once, up to the harness limit `preflight.mjs` reported** — the same rule as the searchers above, and for the same reason: nothing here shares a rate limit, so the only bound is how many sub-agents Claude Code will run. Batch only when the limit errors, exactly as in §Search. Do not invent a smaller batch size of your own.
+### How a batch is formed
 
-**The claims do not come back into your context, and you do not read the files.** Several hundred of these run in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead. What you keep is the receipts — enough to total the branch's fetches, and to write `audit.md`'s two page-level records: the URLs that came back `blocked`, and the ones WebFetch had to take. Both vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
+**Up to `extract.urlsPerDispatch` URLs, all from one branch.** `preflight.mjs` prints the number this run uses; read it there rather than assuming.
 
-**One sub-agent per URL. Never a batch of URLs to one sub-agent.** Twelve URLs handed to one agent is a compound job over independent items, which reads as an invitation to parallelise — and a sub-agent that dispatches work cannot await it, so it hangs. One verb, one item: fan-out is yours, not theirs. See `../subagents/dispatch_structured_subagent.md` for the prompt.
+**One branch, never a mix, and the reason is the fetch cap below.** Each URL has exactly one owning branch by this point — the dedupe charged it to the branch whose copy ranked highest — and you total `pagesRead` per branch to enforce `extract.fetchesPerBranch`. A batch spanning two branches comes back as one array with the fetches of both in it, and the tally becomes a guess.
+
+**One branch also means one source**, a branch being one angle paired with one source, and that is the harder half of the rule: the agent is sent one `<source>.md` and reaches for one source's tool, so a batch holding a Reddit thread and a forum page leaves it with instructions for one of them and guessing at the other. The source goes into the dispatch once, for the whole batch.
+
+**Nothing re-orders them.** Send them as the dedupe left them. `relevance` is one searcher's judgement off a search snippet rather than a measurement, and sorting batches by it would spend real complexity on a number the run does not trust. What it costs is that a branch filling its budget early read whichever URLs came first — recorded in `audit.md` with the rest of "dropped-for-budget".
+
+### One batch per branch at a time, every branch at once
+
+**Dispatch every branch's first batch together, then send a branch its next batch when that branch's receipts come back.** Branches never wait on each other: one that fills its budget in its first batch stops there while the others carry on, and a slow branch on the open web holds up nothing.
+
+**This is what makes the fetch cap below a cap.** A wave is a decision point between dispatches, and the tally is only actionable at one.
+
+**Batch only when the harness limit errors, exactly as in §Search.** At one agent per branch that is far less likely than it was at one agent per URL, but the procedure is unchanged when it happens. Do not invent a lower concurrency of your own.
+
+Three numbers, and none substitutes for another: `extract.urlsPerDispatch` is how many URLs one agent works through in sequence, the wave is how many of a branch's batches are in flight — one — and the harness limit is how many agents run at once.
+
+### The batch is sequential, and the prompt has to say so
+
+**A batch would otherwise invite exactly the fan-out that `index.md` §"What a sub-agent is" forbids** — "fetch these 12 URLs and extract from all 12" is a compound job over independent items, and a sub-agent that dispatches work cannot await it, so it hangs. That reason applies here in full; what changes is that the prohibition is carried in words rather than in the shape of the job. Put this in every dispatch, verbatim:
+
+```
+Fetch these one at a time, in the order given. Finish each URL completely — fetch it,
+paginate it, strip it, write its page and its claims — before you start the next one.
+Do not dispatch sub-agents. Do not parallelise. You receive no completion notification
+for anything you start, so whatever you start you wait on forever.
+```
+
+Sequential is not a performance preference: an agent that fans out here hangs, and its batch is lost rather than slow.
+
+### What comes back
+
+**Read the receipts from `cache/_returns/`, not from the message.** A dispatch that finished says `done`; its file is the record. Read each batch's file as its dispatch returns — that is where the branch's `pagesRead` total comes from, and it is what gates the next wave.
+
+**Why the receipts moved out of the message too.** A sampled return ran 1,255 tokens where the schema needed 150, and all 85 sampled returns carried prose outside the JSON. The receipts were never large; the message around them was.
+
+**What you take from each file:** the `pagesRead` totals for the branch, and `audit.md`'s page-level records — the URLs that came back `blocked`, the ones WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
+
+**The claims do not come back into your context, and you do not read the claims files.** Several hundred documents are read in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead.
+
+**A page's own standing is not on its receipt.** Undated, second-hand, sold by the party describing the problem, partial coverage — that is `pageNote` on the claims file, read by the Source Analyst and the Raw report writer. You never weigh a citation, so it would arrive here with nobody to act on it.
+
+**Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs in `audit.md` rather than reading their absence as a reason to skip them. A missing file is the same finding.
+
+**One `blocked` URL does not fail a batch.** `outcome` is per URL, so four good reads never arrive behind one wall, and a batch that comes back all-`blocked` is four receipts saying so rather than a dispatch that failed.
+
+**A receipt that fails its check is dropped on its own, never the batch.** The agent wrote each page and its claims to disk before returning, so a dropped receipt costs that branch's fetch tally and that URL's `audit.md` line — not the evidence, which the Source Analyst still reads. Record it in `audit.md` naming the URL: an under-counted branch otherwise reads as a branch with budget left. The one-repair-then-drop rule in `../subagents/dispatch_structured_subagent.md` is otherwise unchanged.
 
 ## Incremental persistence
 
@@ -95,12 +151,19 @@ Raw data writes to `digmore/<topic-slug>/cache/<source>/` incrementally — one 
 
 **It counts every URL the branch fetches, whatever fetched it** — `fetch.mjs`, `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet` or `WebFetch`. Counting one tool's fetches would miss most of them.
 
-When a branch has more candidates than its cap:
+**You enforce it between waves, which is the only moment you can.** Add each batch's `pagesRead` to its branch's total as the receipts arrive, and send that branch another batch only while its total is under the cap. **Pages are fetches**, so the spending is not knowable in advance — a branch's URLs each paginate as far as their documents go — and a wave is the point where what was actually spent becomes visible. Dispatching a branch's URLs all at once, as this step used to, meant the receipts that would have stopped it arrived after the spending: the cap could be overrun several times over and nothing would notice.
 
-- Keep the highest-relevance ones and drop the rest.
-- Record what was dropped in `audit.md` under "dropped-for-budget", naming the branch.
+**The overshoot that remains is one batch.** The last wave commits `extract.urlsPerDispatch` URLs before you see any of them, so a branch can end up to `extract.urlsPerDispatch × extract.maxPagesPerDocument` over in the worst case, where every document in that batch paginates to its limit. Record the overrun in `audit.md` beside "dropped-for-budget"; do not try to trim it by sending part of a batch.
 
-A hard cap, not advisory. Re-runs must not loosen it implicitly.
+**The candidate cut is the searcher's, and it has already happened.** Each branch's list arrives at
+most `extract.fetchesPerBranch` long, sorted, because the agent holding the scores made the cut before
+writing. Do not re-cut it. Its file carries `droppedCount` and `lowestSurvivingScore`, and those two
+go in `audit.md` under "dropped-for-budget", naming the branch — a branch that dropped forty
+candidates whose best scored just under the line is a different finding from one that dropped forty
+no-hopers, and the survivors cannot tell you which.
+
+**What still cuts here is pagination, not candidates.** A hard cap, not advisory, and re-runs must not
+loosen it implicitly.
 
 **Pages are fetches.** A paginated thread followed to page 5 has spent five of the branch's budget — see `../subagents/page_analyst_agent/index.md` §"Follow the document to its end". A branch that spends all 20 on one long thread has read one document, and the run says so rather than reporting a source that looks fully searched. When the budget cuts a document short, record it beside "dropped-for-budget": the URL, the pages read, and that more existed.
 

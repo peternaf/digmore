@@ -2,6 +2,8 @@
 
 All six phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
 
+**Each phase file's "End of …" section is a completion test, not a handoff.** Pass it and start the next phase's first step, in the same turn. **The same holds between the sub-steps inside a phase**, which is where a run is most likely to stop: Enrichment's five and Audit's eight each finish on a decision worth reporting, and reporting it is what ends the turn. Plan's agreement gate is the only stop between the command and the four end-of-run sections — `../modes.md` §Manual mode owns that rule.
+
 **No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run and every claim the summary renders has been checked against the text the run stored (`audit_phase_f.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
 
 Each step announces itself with one line — `[3/6] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
@@ -11,7 +13,7 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 ## Phase files
 
 - `plan_phase_a.md` — **Plan**: the topic, its angles, the branches they make with each available source, written to `research_plan.json`.
-- `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per URL, then one report per source.
+- `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per batch of URLs, then one report per source.
 - `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped, one Handle Vetter each.
 - `enrich_phase_d.md` — **Enrichment**: who the research is about — the expert step, the player candidates, the selection, and one profiler per row.
 - `synthesize_phase_e.md` — **Synthesize**: evidence becomes documents. The Raw report writer builds the enumerable sections and the aggregate raw report; the Final report writer drafts the summary from them.
@@ -67,7 +69,11 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `full_source_analysis/<source>-handles.json` | three writers at three different times, never at once: the Source Analyst creates it in Extract, the orchestrator adds the verdicts in batches during Vet, and the Source Analyst appends handles first seen in expert material during Enrichment |
 | `cache/**` | whichever sub-agent fetched or produced it, each to its own filename |
 
-**Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`. The summary's `.tmp` is the one exception, and it sits beside the file it replaces because that is what makes the rename atomic.
+**Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source, and its name begins with the label of whoever wrote it.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`. The summary's `.tmp` is the one exception, and it sits beside the file it replaces because that is what makes the rename atomic.
+
+**The label is not decoration — naming only the directory is what caused this.** Agents run concurrently, identical prompts invent identical names, and two agents that both reach for `observations.md` write one file where the second silently overwrites the first. It has happened twice, on Page Analysts and on Source Analysts, and it is invisible both times: a scratch file has no reader to complain, so what surfaces is one source's material appearing inside another source's report. `<label>-<what>.md`, the same label its `_returns/` and `_progress/` files carry. One writer per file is the rule above, and a shared scratch file breaks it as surely as a shared output would.
+
+**Sub-agents are told this in their dispatch, not here.** They are sent their own files and nothing else, so a rule that lives only in this file reaches the orchestrator and no one else — which is why every agent that wrote scratch was inventing the path and the name unguided. The wording they get is in `../subagents/dispatch_structured_subagent.md` §"Every dispatch carries this".
 
 `_misc` is only for what belongs to no source. **Anything a source produced goes under that source**, at the filename that source's own file gives it. That is where resume looks for it, so a vetting verdict parked in `_misc` is a verdict the next run will pay to fetch again.
 
@@ -100,6 +106,8 @@ Why the shape is this tight:
 
 - **Inline, because the tools are the job.** digmore is a plugin, and its own files live in an install directory replaced on every update — anything a sub-agent writes there is invisible to the user and gone on the next upgrade. A run uses what it has and records what it could not reach.
 - **One item, because a batch invites a fan-out.** "Fetch these 12 URLs and extract from all 12" is a compound job over independent items, and it reads as an invitation to parallelise.
+
+  **Two agents carve out of this, and both pay for it in words.** The Page Analyst takes a batch of URLs and the Handle Vetter a batch of handles, because those two are dispatched hundreds of times in one run and the harness scaffolding around a dispatch costs the same whatever the agent returns — which made the dispatch count itself the largest remaining draw on your context. Their dispatches carry an explicit sequential instruction in place of the protection the one-item shape gave for free: `extract_phase_b.md` §"The batch is sequential" and `vet_phase_c.md` §Flow. **A batch is one kind of work over several items of it, never a compound job**; anything else still goes one item at a time.
 - **Nothing to wait on, because there is nothing to wait with.** A sub-agent receives no completion notification for anything it starts, so whatever it starts it waits on forever.
 
 A missing capability is a finding, not a task. Note the gap in `audit.md` as a known-gap and say so in the run's closing message. The user decides what to do about it.
@@ -131,7 +139,12 @@ Every sub-agent notifies on completion, so the signal is a notification that nev
 4. **Confirm liveness** with `TaskOutput(task_id, block: false)`, which returns `running` / `success` / `killed` and nothing else. It reports that an agent is alive, never that it is progressing — the heartbeat is the only progress signal there is.
 5. **Stop it** with `TaskStop(task_id)` if it is still `running` and its heartbeat has not moved for 10 minutes. Same instrument as above, a longer patience — a live agent is never killed for being slow, only for having stopped. Record the dropped item in `audit.md` under "dropped-for-budget" with the reason, and carry on.
 
-**Killing a working agent is an acceptable cost.** With one verb over one item, a wrong kill loses one URL rather than a batch, anything already fetched is on disk, and the drop is recorded rather than silent. That is cheaper than trying to detect stuckness from a signal that does not exist.
+**Killing a working agent is an acceptable cost**, because the alternative is detecting stuckness from a signal that does not exist. What a wrong kill costs depends on the agent:
+
+- **Most agents hold one item**, so a wrong kill loses that one.
+- **The Page Analyst and the Handle Vetter hold a batch** — up to `extract.urlsPerDispatch` URLs, or `vet.handlesPerDispatch` handles. A wrong kill loses the item in flight and the ones not yet reached, never the ones behind it: both agents finish each item completely, writing it to disk, before starting the next.
+
+**Whatever is lost is recorded item by item**, in `audit.md` under "dropped-for-budget" — by URL or by handle, never as one line naming the dispatch. A batch recorded as a batch is a report that cannot say which pages the run never read. **The heartbeat is what makes that possible**: both agents log a line naming which item of the batch they are starting, and it is the only record of how far the agent got.
 
 ## Salvage paths on phase failure (cross-phase)
 

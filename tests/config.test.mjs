@@ -64,7 +64,9 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(plan.maxAngles, 6);
   assert.equal(extract.fetchesPerBranch, 20);
   assert.equal(extract.maxPagesPerDocument, 5);
+  assert.equal(extract.urlsPerDispatch, 5);
   assert.equal(vet.handleCapPerSource, 50);
+  assert.equal(vet.handlesPerDispatch, 5);
   assert.equal(enrich.expertsFollowed, 10);
   assert.equal(enrich.urlsPerExpert, 10);
   assert.equal(twitter.handlesDeepVetted, 20);
@@ -77,6 +79,26 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(fast.enrich.urlsPerExpert, 3);
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
   assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
+});
+
+// A batch size is how many items one sub-agent works through in sequence, and fast mode already
+// cuts how many items there are. Reducing it as well would raise the dispatch count in the mode
+// that exists to lower it, so both stay out of the reductions.
+test('the two batch sizes are the same in both modes', () => {
+  run('show');
+  const { extract, vet, fast } = settings();
+  assert.equal(fast.extract.urlsPerDispatch, extract.urlsPerDispatch);
+  assert.equal(fast.vet.handlesPerDispatch, vet.handlesPerDispatch);
+});
+
+// Zero is not a real instruction for either: it would not skip a step, it would mean an agent
+// is handed no work at all. So it falls back to the default like any other invalid value, which
+// is what gives both a floor of 1.
+test('a batch size of zero falls back to its default', () => {
+  writeSettings(JSON.stringify({ extract: { urlsPerDispatch: 0 }, vet: { handlesPerDispatch: 0 } }));
+  run('show');
+  assert.equal(settings().extract.urlsPerDispatch, 5);
+  assert.equal(settings().vet.handlesPerDispatch, 5);
 });
 
 // The group is named for the phase that spends it, and two phases spend nothing: every rendered

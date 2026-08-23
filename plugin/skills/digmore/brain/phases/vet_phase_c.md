@@ -40,21 +40,38 @@ The file also saves requests: whatever the pages already showed about a handle �
 
    It used to run twice: the cheap pass over everyone, then a deep pass over whichever came back `unknown`. What made that necessary was not knowing who was `unknown` until the cheap verdict came back, and that reason is gone — the ranking exists before Vet starts, so the deep set is picked from what each handle contributed rather than from a verdict you have to buy first. On Twitter the heuristic floor never returns `legit` anyway, so the profile pass was mostly confirming what was already assumed. The cost is a few deep reads spent on handles that turn out to be `spammer` or `promoter`; that is a handful of calls against a whole extra pass over every handle.
 
-4. **Dispatch one Handle Vetter per handle**, batched to the concurrent sub-agent limit `preflight.mjs` reported, and on every source alike. **Nothing here is serialised any more** — Hacker News moved to Firebase and Algolia, neither of which is throttled, so it fans out like the rest.
+4. **Dispatch one Handle Vetter per batch of handles.** Up to `vet.handlesPerDispatch` of them, **all from one source**, judged one after another inside the agent. `preflight.mjs` prints the number this run uses.
+
+   **Form the batches from what survives step 2**, never from the raw list — a resumed run would otherwise hand an agent five handles it has nothing to do with. Both filters need a view of the whole list, which is why they are yours.
+
+   **One source per batch**, for the reason the agent is sent one `<source>.md` and runs one source's script: a batch mixing a Reddit handle with a forum handle leaves it guessing at half of them. **On Twitter, `--posts` rides per handle** — the depth was decided per handle from its rank at step 3, so a batch spans both tiers, and that is deliberate: splitting by tier would fragment Twitter's dispatches for nothing, while mixing evens out a batch's wall-clock instead of concentrating the slow reads together.
+
+   **No waves here, unlike Extract's readers.** `vet.handleCapPerSource` bounds *who is dispatched* and the ranked file exists before this phase starts, so the whole set is known up front and the cap cannot be overshot. Send every batch of a source at once, up to the concurrent sub-agent limit `preflight.mjs` reported, and on every source alike. **Nothing here is serialised any more** — Hacker News moved to Firebase and Algolia, neither of which is throttled, so it fans out like the rest.
+
+   **The batch is sequential, and the dispatch has to say so.** A batch would otherwise invite the fan-out `index.md` §"What a sub-agent is" forbids, and a sub-agent that dispatches work cannot await it. Put this in verbatim:
+
+   ```
+   Vet these one at a time, in the order given. Finish each handle completely — run its
+   call, read what came back, reach your verdict — before you start the next one. Do not
+   dispatch sub-agents. Do not parallelise. You receive no completion notification for
+   anything you start, so whatever you start you wait on forever.
+   ```
+
+   **What comes back is an array, one short object per handle.** One handle that could not be read is `unknown` with a reason on its own entry; the rest of the batch stands.
 
 5. **Write the verdicts back, in batches as they arrive.** Two files from one read, so a handle recorded as `legit` in one is never missing from the other:
    - **`<source>-handles.json`** — `verdict`, `topicalRelevance`, `verdictReason`, `inExperts`, and `statedIdentifiers`, onto the row that handle already has.
    - **`experts.csv`**, through `experts.mjs add` — one row when the verdict is `legit` **and** the handle is on-topic, and nothing else consulted. Pass `--last-active` when the source reported one, `--topical-relevance` with the agent's reading, and whatever `statedIdentifiers` printed into the handle columns it names.
 
-   **In batches, not once when the source finishes.** A run that stops at handle 30 would otherwise reach no write at all, and thirty dispatches would be gone.
+   **In batches, not once when the source finishes.** A run that stops at handle 30 would otherwise reach no write at all, and thirty dispatches would be gone. **A dispatch's array is one such batch** — the batch you sent and the batch you write are now the same batch, so write each one as it returns.
 
-   **You write these, not the Handle Vetters.** They fan out one per handle, and a file written by a fan-out loses rows silently; they hand you a short object each and you write.
+   **You write these, not the Handle Vetters.** They fan out, several batches at once, and a file written by a fan-out loses rows silently; they hand you an array each and you write.
 
 6. **Check the file after each batch** — `validate.mjs source-handles` against it, one repair attempt, then drop the offending row and name the handle it came from so its dispatch can be re-run. The gate is on the file rather than on the returns: nothing is built on a return directly, and the two fields anyone acts on are the ones that land here.
 
 7. **Record per source in `audit.md`**: how many distinct handles the file held, how many were vetted, and that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community, and the summary must not read as though it had.
 
-8. **Keep the user informed** — the marker, the handle count, and the reason it is slow.
+8. **Keep the user informed** — the marker and its running count, in the shape `../reporting.md` §Progress gives, and nothing beyond it.
 
 There is nothing to vet on the local source or the open web: a page has an author rather than an account. See `../subagents/page_analyst_agent/local.md`.
 

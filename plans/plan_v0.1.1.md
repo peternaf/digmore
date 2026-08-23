@@ -161,9 +161,107 @@ reviewer · 10 Final report copy editor · 11 Claim Fact Checker.
 - [x] `AGENTS.md` says the brain owns four phases; there are six.
       — plus its lock rule, now false: every file has one writer and no file has a lock
 
+## Batching the Page Analyst — §The batch, in #3
+
+- [x] `config.mjs` — `extract.urlsPerDispatch: 5` in `CONFIGURATION_DEFAULTS` and its line in
+      `CONFIGURATION_NOTES`. Nothing in `FAST_REDUCTIONS`; `preflight.mjs` needs no edit. §The configuration
+- [x] `modes.md` — the `extract` row of the group table gains it. §The configuration
+- [x] `plan_phase_a.md` — its two worked `run_history` examples spell out the `extract` group, so both
+      gain the new key; same for `plans/sample_research_plan.json`. §The configuration
+      — the sample also still used `ceilings` and `synthesize.claimsFactChecked`; both fixed on the way
+- [x] `tests/config.test.mjs` — whatever asserts the shape of the defaults tree. §The configuration
+      — plus `preflight.test.mjs`'s printed-key list, and `validate.test.mjs`'s `page-analyst` cases
+- [x] `subagent_returns.json` — `page-analyst` becomes an array, the present object as its `items`,
+      `url` joining the four required fields. §What else has to change
+      — `notes` folded in here too, the TO BUILD from the previous run
+- [x] `extract_phase_b.md` §"Read" — the heading and the "never a batch" paragraph both say the
+      opposite of what now happens; dispatch one agent per batch and read the receipts as an array. §What else has to change
+- [x] `extract_phase_b.md` §"Read" — "dispatch them all at once" becomes one batch per branch at a
+      time, every branch at once, no barrier between branches. §A branch's batches go out in waves
+- [x] `extract_phase_b.md` §"Per-branch fetch cap" — the tally is read between waves, and the
+      residual overshoot is at most one batch. §A branch's batches go out in waves
+- [x] `dispatch_structured_subagent.md` — "drop that item" is the receipt, not the dispatch, for #3. §What else has to change
+- [x] `page_analyst_agent/index.md` — eight summary-table rows, plus the sequential instruction and
+      the one-document-at-a-time rule in the body. §What else has to change
+- [x] `phases/index.md` — a wrong kill loses up to `extract.urlsPerDispatch` URLs, each recorded in
+      `audit.md` individually. §The stuck-agent check
+      — plus §"What a sub-agent is", whose one-item rule needed the carve-out named
+- [x] `enrich_phase_d.md` §`[4.2/6]` — the expert read batches the same way, an expert being the branch.
+
+## Batching the Handle Vetter — §The batch, in #5
+
+- [x] `config.mjs` — `vet.handlesPerDispatch: 5` in `CONFIGURATION_DEFAULTS` and `CONFIGURATION_NOTES`;
+      nothing in `FAST_REDUCTIONS`.
+- [x] `modes.md` — the `vet` row of the group table.
+- [x] `plan_phase_a.md`'s two `run_history` examples and `plans/sample_research_plan.json` gain the key.
+- [x] `vet_phase_c.md` §Flow step 4 — "batched to the concurrent sub-agent limit" now means the batch
+      size and the fan-out width; one agent per batch of `vet.handlesPerDispatch`, one source each.
+- [x] `vet_phase_c.md` §Flow — the batches are formed after step 2's two filters, from what survives.
+- [x] `handle_vetter_agent/index.md` — the summary table's *Input text*, *Run instances*, *`--fast`*,
+      *Returns*, *One dispatch per*, *Logs*, and the body's sequential instruction.
+- [x] Nothing changes in step 6: it already drops the offending row per handle.
+- [x] `dispatch_structured_subagent.md` §"Name every dispatch" — the Page Analyst and Handle Vetter
+      rows name a batch's unit, not one item's; `<n>` now counts batches. §What else has to change
+
+## Cutting the orchestrator's context in Extract — §#2, §#3, §The dispatch template closes
+
+Measured: 27 branches, 404 documents, 372k orchestrator context. Returns were ~115k of it, branch
+searchers ~60k more.
+
+- [x] `subagent_returns.json` — `branch-searcher` gains `droppedCount` and `lowestSurvivingScore`,
+      both required; its description says the file is written, not returned. #2
+- [x] `branch_searcher_agent/index.md` — sorts, cuts to `extract.fetchesPerBranch`, writes, returns
+      `done`. Summary table's *Purpose*, *Settings*, *Held*, *Returns*, *Writes*. #2
+- [x] `branch_searcher_agent/*.md` — the six "What you return" headings become "What you write". #2
+- [x] `page_analyst_agent/index.md` — returns `done`; `notes` narrows to what the orchestrator acts
+      on; new `pageNote` section. #3
+- [x] `subagent_returns.json` — `page-claims` gains `pageNote`; `page-analyst`'s `notes` narrows. #3
+- [x] `source_analyst_agent/index.md` — reads `pageNote`: a coverage gap joins the observations, an
+      evidence qualifier travels to the claim. #3
+- [x] `dispatch_structured_subagent.md` — "nothing outside the JSON" for every agent; the template
+      test becomes whether an agent *writes* a shape, not returns one. §The dispatch template closes
+- [x] `extract_phase_b.md` §Search — the searcher cuts and returns `done`; nothing is parsed from
+      the message. §#2
+- [x] `extract_phase_b.md` §Dedupe — reads each branch's list from `_returns/`; the candidate cut has
+      already happened, and the two numbers go to `audit.md`. §#2
+- [x] `extract_phase_b.md` §Read — receipts are read from `_returns/`, not the message. #3
+- [x] `tests/validate.test.mjs` — the two new branch-searcher fields, and `pageNote`.
+
+## Two gaps a real run flagged
+
+- [x] `subagent_returns.json` — `source-raw-report`'s citation required `handle`, which its own field
+      description says to omit on the open web. Dropped from `required`. §A citation's handle is source-dependent
+- [x] `source_analyst_agent/index.md` — "every citation carries its handle" said the same thing; now
+      says where the source has accounts, with the `no-handle`/`unvetted` consequence. §A citation's handle is source-dependent
+- [x] `tests/validate.test.mjs` — pins both directions: a handle-less citation passes, a handled one
+      still passes, `cachedPage` is still required.
+- [x] `dispatch_structured_subagent.md` — the scratch-file rule joins the block every dispatch carries:
+      inside the topic, name prefixed with the label. It lived only in `phases/index.md`, which no
+      sub-agent is ever sent. §Every temp file carries the agent's label
+- [x] `phases/index.md` — the directory rule gains the filename half, and points at the dispatch
+      template for the wording agents actually receive. §Every temp file carries the agent's label
+
+## The run stopped between phases — §The run does not stop between phases
+
+- [x] `modes.md` §Manual mode — those two triggers are the only stops, both in Plan; the phases follow
+      one another without a break; ending a turn hands control back whether or not you asked anything.
+- [x] `phases/index.md` — an "End of …" section is a completion test, not a handoff.
+- [x] `reporting.md` §Progress — no end-of-phase report; the next phase's marker is what says the last
+      one is done.
+- [x] `vet_phase_c.md` §Flow step 8 — "keep the user informed" is the marker and its running count,
+      in `reporting.md`'s shape and nothing beyond it. It is the step the digest was printed under.
+- [x] `modes.md` — the same paragraph, per step rather than per phase: nothing finishing is a place to
+      hand back, not a sub-step and not a phase. §It stopped again
+- [x] `reporting.md` §Progress — "no end-of-phase report" becomes "no end-of-step report", sub-steps
+      included. §It stopped again
+- [x] `reporting.md` §Progress — new bullet: a marker and its step go in the same turn. §It stopped again
+- [x] `phases/index.md` — the "End of …" rule holds between sub-steps too. §It stopped again
+
 ## Verification gates — manual, once
 
-- [ ] `npm test` passes.
+- [x] `npm test` passes. 370 pass, 0 fail, 2 skipped by design — the 429-that-never-clears wants
+      `DIGMORE_SLOW_TESTS=1`, and the 0600 mode check is POSIX-only.
+- [ ] A manual full run reaches the four end-of-run sections without handing back after Plan.
 - [ ] `node scripts/build.js && git diff --exit-code plugin/` is clean.
 - [ ] One full run per command, fast and full, with an API key and without.
 - [ ] `run_log.md` holds a start and a done line for every phase and every Audit sub-step.
@@ -171,3 +269,5 @@ reviewer · 10 Final report copy editor · 11 Claim Fact Checker.
 - [ ] Every paragraph of the summary that renders a claim carries its marker.
 - [ ] `audit.md` names every claim deleted, refuted or dropped, and which step did it.
 - [ ] A branch's fetch count on disk matches `extract.fetchesPerBranch`.
+- [ ] Every `_returns/page-analyst-*.json` is an array of at most `extract.urlsPerDispatch` receipts,
+      and every URL in one belongs to the same branch.

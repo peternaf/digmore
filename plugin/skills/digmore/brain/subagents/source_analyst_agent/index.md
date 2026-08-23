@@ -76,13 +76,24 @@ handles and entity files. `pageQuality` takes the canonical citation's — the h
 best-evidence selection the merge is already making. Both #4 and #7 deduplicate, so this could have
 been got wrong in two places independently; it is one rule in both.
 
-**Every citation carries its handle, its source URL and the `cachedPage` it was read from.**
+**Every citation carries its source URL and the `cachedPage` it was read from, and its handle where
+the source has accounts.**
 
 - **`handle` and `url` are already in the claims file you are reading** — copy them across. The handle
   is there because Vet has not run when you write this in Extract mode, so you cannot filter by
   verdict; the same reason `<source>-players.json` records handles rather than judgements. The join
   happens later, **per citation**: one entry can hold three citations from three people with three
   different verdicts.
+- **On the open web and the user's own documents, leave `handle` out entirely.** Those have authors
+  rather than accounts, which is the same reason neither writes a handles file. **A byline, a domain
+  or a publication is not a handle** — nothing can vet it, and putting one here is worse than leaving
+  the field empty: an absent handle is scored `no-handle`, which says correctly that there was never
+  an account to check, while a fabricated one is scored `unvetted`, which says an account exists and
+  the run failed to check it. The second is a claim about the run that is not true.
+
+  Where a page's author does turn up elsewhere as a Reddit, Hacker News or Twitter handle, that is an
+  `observations` finding — see this source's own file. It is how a byline becomes a person the Handle
+  Vetter can reach, and it never happens by writing the byline into this field.
 - **One `url` covers a whole document**, so the same value lands on every citation drawn from that
   file. Carry it even where that looks redundant. On reddit, hackernews and twitter the script named
   the file and the name encodes nothing about the URL, so a citation without it has no route back to
@@ -211,9 +222,26 @@ Where the material itself shows the run did not see everything, record it with t
 
 - A Reddit thread whose `num_comments` exceeds the comments returned.
 - A Hacker News discussion that clearly ran deeper than the levels the script returns.
+- **A claims file's `pageNote` saying its coverage was partial** — the Page Analyst read the page and
+  saw that most of the surface it covers sits on pages nobody fetched. It wrote that down for you; it
+  never reaches the orchestrator.
 
 Say how much was missed, not just that something was. `../../phases/audit_phase_f.md` carries the
 blocked and unavailable sources; you carry what was partially read.
+
+## `pageNote` — what a document says about its own standing
+
+**Optional, on each claims file, and about the document rather than its content.** Undated. Figures
+second-hand with no link to the primary. The vendor sells the remedy it is describing. Written by the
+Page Analyst, which is the only agent that read the page whole.
+
+**Two things to do with it.** Where it names a coverage gap, it goes in `observations` with the rest
+of them, above. Where it qualifies the evidence, **carry it into the observation or the claim it
+bears on** so the Raw report writer meets it when two citations compete — that agent opens this file
+and never the receipt, which is exactly why the note lives here.
+
+**It is not a claim and never becomes one.** Nobody asserted it; it is what you would tell a reader
+before they leaned on the page.
 
 ## Enrichment mode
 

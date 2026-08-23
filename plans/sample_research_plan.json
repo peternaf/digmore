@@ -12,39 +12,45 @@
       "kind": "branch",
       "prompt": "how is elevenlabs promoting itself — every tactic, who runs it, and what happened when they did",
       "mode": "manual, full",
-      "ceilings": {
+      "configurations": {
         "extract": {
           "fetchesPerBranch": 20,
-          "maxPagesPerDocument": 5
+          "maxPagesPerDocument": 5,
+          "urlsPerDispatch": 5
         },
         "vet": {
-          "handleCapPerSource": 50
+          "handleCapPerSource": 50,
+          "handlesPerDispatch": 5
         },
-        "synthesize": {
-          "claimsFactChecked": 50
+        "enrich": {
+          "expertsFollowed": 10,
+          "urlsPerExpert": 10
         },
         "twitter": {
           "handlesDeepVetted": 20,
           "postsPerDeepVet": 50
         }
       },
-      "phases_completed": "plan,extract,vet,synthesize,audit"
+      "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"
     },
     {
       "ts": "2026-08-19T08:10:00Z",
       "kind": "re-run",
       "prompt": "re-run — add the ElevenHacks weekly series and settle the hackathon dating conflict",
       "mode": "auto, fast",
-      "ceilings": {
+      "configurations": {
         "extract": {
           "fetchesPerBranch": 5,
-          "maxPagesPerDocument": 5
+          "maxPagesPerDocument": 5,
+          "urlsPerDispatch": 5
         },
         "vet": {
-          "handleCapPerSource": 20
+          "handleCapPerSource": 20,
+          "handlesPerDispatch": 5
         },
-        "synthesize": {
-          "claimsFactChecked": 10
+        "enrich": {
+          "expertsFollowed": 3,
+          "urlsPerExpert": 3
         },
         "twitter": {
           "handlesDeepVetted": 0,

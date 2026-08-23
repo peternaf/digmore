@@ -93,7 +93,7 @@ A gap goes back to the Raw report writer, not out to the network, and it goes on
 sends back what can still be closed and records the rest in `audit.md` under Unanswered.
 
 **Nothing fetches during rework, deliberately.** Closing a gap by searching would mean a searcher, then
-a reader per URL, then both writers again — a miniature Extract for one gap, late in the run, with a
+a reader over what it found, then both writers again — a miniature Extract for one gap, late in the run, with a
 new failure surface and a budget nothing bounds. The run says what it did not gather instead.
 
 **So the useful finding is a specific one.** "The pricing angle produced nothing" is actionable

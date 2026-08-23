@@ -59,7 +59,7 @@ has claims from.
 Same rule as `extract_phase_b.md` §"Dedupe the URLs before dispatching a single reader" — normalise
 before comparing, and here also compare against the cache on disk.
 
-### `[4.2/6]` Expert read — one Page Analyst per surviving page
+### `[4.2/6]` Expert read — one Page Analyst per batch of surviving pages
 
 In the Page Analyst's Enrichment mode (`../subagents/page_analyst_agent/index.md`). The dispatch
 carries the research question and the path to that expert's vetting cache, and **only claims that
@@ -67,8 +67,13 @@ bear on the research question are kept** — Extract's pages are on-topic by con
 query built on an angle returned them, and an expert's page is not, so without the filter the run
 stores a database expert's posts about their marathon training.
 
+**Batched exactly as Extract's readers are** (`extract_phase_b.md` §"How a batch is formed"): up to
+`extract.urlsPerDispatch` pages per dispatch, worked through one at a time, returning one receipt per
+page. **An expert is the branch here**, so a batch is one expert's pages and never two experts'.
+
 `enrich.urlsPerExpert` bounds what is read per expert; it is that branch's whole fetch budget. Count
-it off the `pagesRead` on each receipt, exactly as Extract counts `extract.fetchesPerBranch`.
+it off the `pagesRead` on every receipt and send an expert its next batch only while the budget
+holds — the same wave, for the same reason, as Extract counts `extract.fetchesPerBranch`.
 
 ### `[4.3/6]` Source append — one Source Analyst per source that gained material
 
