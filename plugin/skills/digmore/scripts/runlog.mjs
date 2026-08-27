@@ -217,9 +217,10 @@ export function run(argv, { at = new Date() } = {}) {
 
   if (verb === 'beat') {
     if (!flags.label) throw new Error('beat needs --label <your-dispatch-label>');
-    // No stamp on the line: the file's modification time is the clock, and the orchestrator
-    // reads elapsed off that. A line only has to say what the step is waiting on.
-    append(progressPath(flags.topic, flags.label), `${text}\n`);
+    // Stamped here, never by the agent: it has no clock, and a composed stamp is wrong silently.
+    // The file's modification time still answers "how long has this been quiet" for the
+    // stuck-agent check; the stamps answer "which step took the time", which mtime cannot.
+    append(progressPath(flags.topic, flags.label), `${stamp(at)}  ${text}\n`);
     return { path: progressPath(flags.topic, flags.label), wrote: 'beat' };
   }
 

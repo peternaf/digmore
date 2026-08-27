@@ -175,6 +175,23 @@ test('a skipped step still writes its pair', () => {
   assert.match(read(), /Vet · done — Reddit and Twitter unavailable, no API key/);
 });
 
+// The stamp is the script's, never the agent's — it has no clock. mtime says how long an agent
+// has been quiet; only the stamps say which of its steps took the time.
+test('a heartbeat carries its own timestamp', () => {
+  const result = run(['beat', 'fetching https://example.com/a', '--topic', 'demo', '--label', 'page-analyst-websearch-7'], { at: START });
+  assert.equal(result.wrote, 'beat');
+  const written = readFileSync(result.path, 'utf8');
+  assert.equal(written, '2026-08-21T09:14:02Z  fetching https://example.com/a\n');
+});
+
+test('heartbeats append in order, each with its own stamp', () => {
+  const first = run(['beat', 'url 1 of 5', '--topic', 'demo', '--label', 'page-analyst-websearch-7'], { at: START });
+  run(['beat', 'url 2 of 5', '--topic', 'demo', '--label', 'page-analyst-websearch-7'], { at: at('2026-08-21T09:16:30Z') });
+  const lines = readFileSync(first.path, 'utf8').trim().split('\n');
+  assert.equal(lines[0], '2026-08-21T09:14:02Z  url 1 of 5');
+  assert.equal(lines[1], '2026-08-21T09:16:30Z  url 2 of 5');
+});
+
 test('note writes a bare line, with no marker and no figure', () => {
   const result = run(['note', 'resumed at Vet, from an unfinished start', '--topic', 'demo'], { at: START });
   assert.equal(result.wrote, 'note');

@@ -42,8 +42,8 @@ Before each step you take, say what you are about to do:
   node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" beat "<what>" \
     --topic <slug> --label <your-label>
 
-That is the whole of it. Do not stamp it with a time, do not read the file back, and do
-not write to it any other way.
+That is the whole of it. The script stamps the line with the time — do not stamp it
+yourself, do not read the file back, and do not write to it any other way.
 
 Read ${CLAUDE_PLUGIN_ROOT}/skills/digmore/brain/output.md before you write anything you
 return. Its rules govern your output as much as the final report.

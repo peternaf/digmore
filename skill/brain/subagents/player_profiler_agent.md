@@ -8,16 +8,16 @@
 | **Input rule files** | `subagents/player_profiler_agent.md` · `fetching.md` · the command's reference file, for the column list and the price and funding vocabularies · `output.md` |
 | **Input data files** | **the path to `player_candidates.json`** — it finds its own entry there and follows the claim references, already filtered to the voices the run listens to. It opens those claims files itself; the text never reaches the orchestrator |
 | **Runs** | reads the claim files it was pointed at, no network · WebSearch then `fetch.mjs` for sentiment · `fetch.mjs` on the front page · `fetch.mjs` on the pricing page · **WebFetch** on SimilarWeb · WebSearch then `fetch.mjs` for funding and recent moves. Gathering is ordered; composing is one closing step |
-| **Settings that control it** | none. There is no cap on rows profiled and no `--fast` reduction — the five-document floor and the claim filter are the bound, and they scale with what the run actually found |
+| **Settings that control it** | **`extract.fetchesPerBranch` — this agent enforces it**, as the pages one dispatch may open across all six steps. It is the one configuration spent outside the phase it is named for: the quantity is the same one — how many pages an agent may open before it works with what it has — and a second number holding the same value drifts. There is still no cap on rows profiled and no `--fast` reduction; the five-document floor and the claim filter are that bound, and they scale with what the run found |
 | **Held in its context** | the company's whole surface: the claims, the sentiment search, the front page, the pricing page, SimilarWeb, the funding results. It reads all of that and hands back a dozen short cells |
 | **Returns to main context** | the `player-profile` shape — every column of `players.csv`, plus `fetch_failed` and `reason`. `name` and `url` came in with the dispatch and do not come back |
-| **Writes to disk** | **the pages it fetches**, into `cache/players/` at the name `fetch.mjs` derives — kept out of the six source piles on purpose. SimilarWeb leaves nothing, since WebFetch writes no file. Plus `cache/_returns/player-profiler-<player>.json`. **It never touches `players.csv`** |
+| **Writes to disk** | **the pages it fetches**, into `cache/players/` at the name `fetch.mjs` derives — kept out of the six source piles on purpose. **Its two searches too**, as `player-profiler-<player>-sentiment-search.md` and `-funding-search.md` beside them, so a re-dispatched row reads them instead of paying for them again. SimilarWeb leaves nothing, since WebFetch writes no file. Plus `cache/_returns/player-profiler-<player>.json`. **It never touches `players.csv`** |
 | **Logs** | `cache/_progress/player-profiler-<player>.log` — `reading <n> claims for <player>` · `searching for what people say about <player>` · `finding the marketing domain for <player>` · `fetching the pricing page for <domain>` · `fetching similarweb for <domain>` · `searching for <player> funding` · `fetching <url>` · `retrying <domain> after <reason>` · `composing the cells for <player>` |
 | **How it reports failure** | `fetch_failed: true` with a `reason`, and **no cells at all** — a failure is the orchestrator's to retry or skip, and a cell that hides one is worse than no cell |
 | **One dispatch per** | one `players.csv` row |
 | **Run instances** | one per selected row. A run whose declared sections need no players dispatches none |
 | **`--fast`** | the same in both modes |
-| **Concurrency** | **5** — a scraping limit, not the harness limit. Every dispatch hits SimilarWeb, and running wider gets the run captcha'd there, after which no row gets its traffic number |
+| **Concurrency** | **`min(20, the harness limit)`**, and the orchestrator refills it as each row returns rather than in groups. It was a hard 5 — a scraping limit, not a capacity one, because every dispatch hits SimilarWeb and running wider risks a captcha there. The 20 is deliberate and reversible: a captcha now shows up as a run full of identical `similarweb-blocked` reasons in `monthly_visits`, so the evidence for walking it back is in the output rather than absent |
 | **Model tier** | placeholder, unused for now |
 
 Where it sits: the run has already decided this company is one of its subjects. **You fill its whole
@@ -62,6 +62,19 @@ source caches. Those hold Extract's material, where every document is expected t
 beside it; your pages have none, and a re-run's Source Analyst would read them as branch material.
 
 SimilarWeb is the one exception, below.
+
+**You may open `extract.fetchesPerBranch` pages in total**, across all six steps — your dispatch
+gives you the number. It is a budget over the whole profile rather than a per-step allowance, so
+spend it where this company's evidence actually is: a vendor with three pricing tiers on one page and
+a funding round in a single announcement needs a fraction of it, and a company argued about in six
+places may want most of it on §2. Stop fetching when it is gone and compose the cells from what you
+have — a cell you could not fill carries its reason, exactly as it would if the page had been walled.
+
+**Both searches are cached beside the pages.** Write what the search returned to
+`cache/players/player-profiler-<player>-sentiment-search.md` and `-funding-search.md`, and **read
+those files first**: if one is already there, this row has been dispatched before and the search does
+not need running again. A `fetch.mjs` page comes back from disk for free already; a WebSearch does
+not, and a re-dispatched row was paying for both again.
 
 ## 1. The run's own claims — read these first
 
@@ -135,10 +148,19 @@ up. Other free traffic estimators are blocked; do not spend requests on them.
 | SimilarWeb returned data | the number, e.g. `1.4M` |
 | Only a code host, no marketing site anywhere | `github-only` |
 | Domain not indexed, or the parent was no help | `UNAVAILABLE — not-indexed` |
-| The fetch itself failed — captcha, network, blocked | **do not write a cell.** Return `fetch_failed` |
+| A captcha, a block, or the fetch failed | `UNAVAILABLE — similarweb-blocked` |
 
-**A bare `UNAVAILABLE` is never acceptable.** It carries its reason. A failed fetch is not a reason —
-it is a retry, and that is the orchestrator's call rather than yours.
+**A bare `UNAVAILABLE` is never acceptable.** It carries its reason.
+
+**A blocked SimilarWeb does not fail the profile.** Write the reason into this one cell and finish
+the other five steps — everything else about the company is unaffected by it, and returning
+`fetch_failed` over one number throws away a profile that was otherwise complete. This is also the
+only signal that the run is being throttled there: **the concurrency is now `min(20, harness limit)`,
+which is wide enough to attract a captcha**, and a run whose rows nearly all say `similarweb-blocked`
+is telling you to put it back down. A blank cell would have read as a company nobody visits.
+
+`fetch_failed` stays for the profile that could not be built at all — no site found, no claims
+readable, nothing to compose from.
 
 ## 6. Funding and recent moves — a search, not a known URL
 
@@ -188,18 +210,29 @@ SimilarWeb leaves nothing — WebFetch writes no file, and nothing later needs t
 
 ## When the fetch fails
 
-Return `fetch_failed` with the reason and stop. Do not retry, and do not write a cell that hides it.
+Return `fetch_failed` with the reason and stop, when there is no profile to be had at all. Do not
+retry, and do not write a cell that hides it.
 
-The orchestrator decides what happens next, per mode: in manual it asks the user once per wave of
-five — retry, skip, or abort; in auto it re-dispatches the row once, then skips it and records the
-skip in `audit.md`.
+**One page failing is not that.** A walled pricing page, a domain SimilarWeb will not serve, a funding
+search that returns nothing — each is one cell carrying its reason while the rest of the profile
+stands. `fetch_failed` is for a company you could not build a row about.
 
-## Concurrency: 5
+The orchestrator decides what happens next, per mode: in auto it re-dispatches the row once, then
+skips it and records the skip in `audit.md`; in manual it collects the failures and asks once, when
+every row has returned — retry, skip, or abort.
 
-Every dispatch hits SimilarWeb, and that is the binding limit — running wider gets the run captcha'd
-there, after which no row gets its traffic number. The rest of what you fetch is spread across as many
-hosts as there are players and adds no pressure of its own. A scraping limit, not the harness's
-sub-agent limit.
+## Concurrency: `min(20, the harness limit)`
+
+Every dispatch hits SimilarWeb, and that is the only host under pressure — the rest of what you fetch
+is spread across as many hosts as there are players. It was a hard 5 for that reason, and it is now
+20, which is wide enough to attract a captcha there.
+
+**What makes that safe to try is that a captcha is now visible.** A blocked traffic fetch writes
+`UNAVAILABLE — similarweb-blocked` rather than failing the profile, so a throttled run says so across
+its rows instead of returning a traffic column that reads like a finding about the companies.
+
+Not the harness's sub-agent limit, which is separate and may be lower — the orchestrator takes
+whichever of the two is smaller.
 
 ## Writing style
 

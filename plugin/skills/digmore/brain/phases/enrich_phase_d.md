@@ -223,26 +223,38 @@ during the selection, and nothing more. Copying each player's references into it
 every reference for every candidate through your context on the way — the exact payload this design
 keeps on disk.
 
-**Concurrency 5**, not the harness limit. Every dispatch fetches SimilarWeb, and running wider gets
-the run captcha'd there — after which no row gets its traffic number. Full reasoning in the agent's
-own file.
+**Concurrency `min(20, the harness limit)`**, and **keep it full: dispatch the next row the moment one
+returns, rather than sending a group and waiting for all of it.** A group runs at its slowest member's
+pace — a company argued about in six places takes three times what a quiet one does, and in groups the
+other nineteen agents wait for it. Rows are independent; nothing here needs a barrier.
+
+It was a hard 5, to keep SimilarWeb from captcha'ing the run. That risk is now carried in the output
+instead: a blocked traffic fetch writes `UNAVAILABLE — similarweb-blocked` into that one cell and the
+profile stands, so a throttled run says so in `players.csv` rather than quietly returning rows with no
+traffic number. Full reasoning in the agent's own file.
+
+**Each dispatch carries `extract.fetchesPerBranch` as the pages that profiler may open**, across all
+six of its steps. `preflight.mjs` prints the number this run uses.
 
 **There is no cap on how many rows are profiled**, in either mode. The five-document floor and the
 claim filter are the bound, and unlike a fixed number they scale with what the run actually found.
 
 **When a profile fails**, the agent returns `fetch_failed` rather than writing a cell that hides it.
-In manual mode, ask once per wave of five, for all the failed rows together: retry, skip, or abort.
-In auto mode, re-dispatch each failed row once, then skip it and record the skip in `audit.md`. Never
-one prompt per failed player — that interrupts the run as many times as the topic happens to have
-awkward companies in it.
+In auto mode, re-dispatch each failed row once, then skip it and record the skip in `audit.md`. In
+manual mode, collect the failures and ask once — retry, skip, or abort — when the last row has
+returned, not as they arrive. Never one prompt per failed player: that interrupts the run as many
+times as the topic happens to have awkward companies in it, and with rows now dispatched
+continuously there is no group boundary to gather them at.
 
-**Count the waves down on the marker**, and write a run-log pair for each: `[4.5/6] Enrichment ·
-Profile · 5/12`. It is the longest stretch of this phase and the only one where the user can see
-progress in units they recognise.
+**Count the rows down on the marker** — `[4.5/6] Enrichment · Profile · 18/47` — reprinted as they
+return, and one run-log pair for the sub-step as a whole. It is the longest stretch of this phase and
+the only one where the user can see progress in units they recognise. **The marker is the whole
+message**, and the next one follows it in the same turn (`../reporting.md`).
 
 ## Fill the cells
 
-As each wave returns, write its cells into the rows already in `players.csv`.
+As each row returns, write its cells into the row already in `players.csv`. One return, one write —
+not a batch held until the end, which is what a run killed mid-phase then loses.
 
 A row that comes back with no identifiable presence at all is a research error: record it in
 `audit.md` and name it in the run's Issues. A bare `UNAVAILABLE` in a cell is never acceptable — it

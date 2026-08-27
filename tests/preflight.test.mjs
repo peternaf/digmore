@@ -329,7 +329,7 @@ test('the run prints every configuration it will apply, under its own heading', 
     'extract.fetchesPerBranch', 'extract.maxPagesPerDocument', 'extract.urlsPerDispatch',
     'vet.handleCapPerSource', 'vet.handlesPerDispatch',
     'enrich.expertsFollowed', 'enrich.urlsPerExpert',
-    'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet',
+    'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet', 'twitter.handlesPerDispatch',
     'hackernews.commentDepth', 'hackernews.recentCommentsSampled', 'hackernews.deadSampleSize',
     'subagents.repairAttempts',
   ]) {

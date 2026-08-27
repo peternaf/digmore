@@ -59,6 +59,13 @@ export const RECENCY_WINDOW_YEARS = 2;
  * how many agents run at once. Neither reduces in fast mode either: fast already cuts the
  * item count, and cutting the batch as well would put the dispatch count back up.
  *
+ * `twitter.handlesPerDispatch` overrides `vet.handlesPerDispatch` on that source alone,
+ * and is the only per-source override of a batch size. A deep vet reads
+ * `postsPerDeepVet` posts, so a Twitter batch carries several times the material of a
+ * Reddit or forums one at the same count. It stays at its lower value in fast mode too,
+ * even though `handlesDeepVetted` is 0 there and no posts are read — a second conditional
+ * to win back a handful of dispatches is not worth the branch.
+ *
  * `vet.handleCapPerSource` is per source, not per run: Reddit, Hacker News, Twitter and
  * forums each get their own. Ranking happens inside a source, because the engagement
  * numbers that break ties — karma, followers, upvotes — do not compare across sources.
@@ -82,9 +89,9 @@ export const RECENCY_WINDOW_YEARS = 2;
 export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
   extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
-  vet: { handleCapPerSource: 50, handlesPerDispatch: 5 },
+  vet: { handleCapPerSource: 50, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 10, urlsPerExpert: 10 },
-  twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50 },
+  twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50, handlesPerDispatch: 5 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
   subagents: { repairAttempts: 1 },
 });
@@ -134,6 +141,7 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'extract.urlsPerDispatch': 'URLs one Page Analyst reads in sequence, all from one branch',
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
   'vet.handlesPerDispatch': 'handles one Handle Vetter judges in sequence, all from one source',
+  'twitter.handlesPerDispatch': 'the same for Twitter, lower because a deep vet reads that many posts',
   'enrich.expertsFollowed': 'vetted experts whose other writing is read',
   'enrich.urlsPerExpert': 'URLs read per followed expert, and that branch\'s whole fetch budget',
   'twitter.handlesDeepVetted': 'handles whose recent posts are read, on top of their profile',

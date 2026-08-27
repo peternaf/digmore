@@ -116,7 +116,9 @@ A missing capability is a finding, not a task. Note the gap in `audit.md` as a k
 
 A sub-agent's findings arrive only when it finishes, so the heartbeat is what makes it readable while it runs. Every dispatch asks for a line before each step, appended to `digmore/<slug>/cache/_progress/<your-label>.log` — every dispatch, whatever comes back, because an agent that returns prose or edits a file in place needs it just as much.
 
-The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. That makes the line diagnostic on its own — the orchestrator reads elapsed time off the file's modification time, so the line only has to say what, never how long.
+The line goes in on the way into each step, naming what that step is waiting on: `fetching <url>`, or `HN 429, backing off 45s (attempt 2 of 3)`. The agent says only what the step is; **`runlog.mjs beat` stamps each line with the time**, because an agent has no clock and a composed stamp is wrong silently.
+
+**Two clocks, two questions.** The file's modification time says how long an agent has been quiet, which is what the check below triggers on. The stamps inside say when each step began, which is the only way to see afterwards which step spent the time — a profiler that took eleven minutes over six steps is a different problem depending on which one took nine of them, and mtime cannot tell them apart.
 
 Caveat: on the way into the step, never on a schedule. Reporting every N seconds means sleeping in a loop.
 
@@ -142,7 +144,7 @@ Every sub-agent notifies on completion, so the signal is a notification that nev
 **Killing a working agent is an acceptable cost**, because the alternative is detecting stuckness from a signal that does not exist. What a wrong kill costs depends on the agent:
 
 - **Most agents hold one item**, so a wrong kill loses that one.
-- **The Page Analyst and the Handle Vetter hold a batch** — up to `extract.urlsPerDispatch` URLs, or `vet.handlesPerDispatch` handles. A wrong kill loses the item in flight and the ones not yet reached, never the ones behind it: both agents finish each item completely, writing it to disk, before starting the next.
+- **The Page Analyst and the Handle Vetter hold a batch** — up to `extract.urlsPerDispatch` URLs, or that source's Handle Vetter batch size. A wrong kill loses the item in flight and the ones not yet reached, never the ones behind it: both agents finish each item completely, writing it to disk, before starting the next.
 
 **Whatever is lost is recorded item by item**, in `audit.md` under "dropped-for-budget" — by URL or by handle, never as one line naming the dispatch. A batch recorded as a batch is a report that cannot say which pages the run never read. **The heartbeat is what makes that possible**: both agents log a line naming which item of the batch they are starting, and it is the only record of how far the agent got.
 

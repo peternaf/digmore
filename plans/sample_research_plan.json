@@ -20,7 +20,7 @@
         },
         "vet": {
           "handleCapPerSource": 50,
-          "handlesPerDispatch": 5
+          "handlesPerDispatch": 10
         },
         "enrich": {
           "expertsFollowed": 10,
@@ -28,6 +28,7 @@
         },
         "twitter": {
           "handlesDeepVetted": 20,
+          "handlesPerDispatch": 5,
           "postsPerDeepVet": 50
         }
       },
@@ -46,7 +47,7 @@
         },
         "vet": {
           "handleCapPerSource": 20,
-          "handlesPerDispatch": 5
+          "handlesPerDispatch": 10
         },
         "enrich": {
           "expertsFollowed": 3,
@@ -54,6 +55,7 @@
         },
         "twitter": {
           "handlesDeepVetted": 0,
+          "handlesPerDispatch": 5,
           "postsPerDeepVet": 50
         }
       },

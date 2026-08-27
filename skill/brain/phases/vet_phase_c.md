@@ -40,7 +40,7 @@ The file also saves requests: whatever the pages already showed about a handle �
 
    It used to run twice: the cheap pass over everyone, then a deep pass over whichever came back `unknown`. What made that necessary was not knowing who was `unknown` until the cheap verdict came back, and that reason is gone — the ranking exists before Vet starts, so the deep set is picked from what each handle contributed rather than from a verdict you have to buy first. On Twitter the heuristic floor never returns `legit` anyway, so the profile pass was mostly confirming what was already assumed. The cost is a few deep reads spent on handles that turn out to be `spammer` or `promoter`; that is a handful of calls against a whole extra pass over every handle.
 
-4. **Dispatch one Handle Vetter per batch of handles.** Up to `vet.handlesPerDispatch` of them, **all from one source**, judged one after another inside the agent. `preflight.mjs` prints the number this run uses.
+4. **Dispatch one Handle Vetter per batch of handles.** Up to `vet.handlesPerDispatch` of them, **all from one source**, judged one after another inside the agent — except on Twitter, which uses its own `twitter.handlesPerDispatch` because a deep vet reads that source's posts and the same count carries far more material. `preflight.mjs` prints both numbers this run uses.
 
    **Form the batches from what survives step 2**, never from the raw list — a resumed run would otherwise hand an agent five handles it has nothing to do with. Both filters need a view of the whole list, which is why they are yours.
 

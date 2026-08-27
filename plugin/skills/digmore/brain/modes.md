@@ -71,7 +71,7 @@ The configurations it prints, and what each bounds:
 | `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize` |
 | `subagents` | `repairAttempts` |
 
-**A configuration is named for the phase that spends it**, which is why the expert step's two sit under `enrich`. **Synthesize and Audit have no group at all**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase.
+**A configuration is named for the phase that spends it**, which is why the expert step's two sit under `enrich`. **One is spent in two phases: `extract.fetchesPerBranch` also caps the pages one Player Profiler may open in Enrichment.** Same quantity — how many pages an agent opens before it works with what it has — and a second key holding the same value is one that drifts out of step. **Synthesize and Audit have no group at all**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase.
 
 **The two `*PerDispatch` configurations are batch sizes, and neither reduces in fast mode.** They set how many items one Page Analyst or one Handle Vetter works through in sequence, so a run spends fewer sub-agent dispatches without reading anything less. Fast mode already cuts how many items there are; cutting the batch as well would put the dispatch count back up, which is the opposite of what the mode is for. Neither is a concurrency limit — that is the harness's, and it is how many agents run at once.
 

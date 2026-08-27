@@ -24,7 +24,13 @@ Plan's angles replace the generic set:
 
 Search queries are tactic-anchored, not capability-anchored.
 
-**What `--fast` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: Reddit and Hacker News, nothing else. Twitter and forums are skipped, because a tactic needs a worked example per occurrence and those two return the least of it per URL. Every other reduction in that file applies here unchanged. With no API key this leaves Hacker News alone — too thin a base for a teardown, and the summary says so at the top.
+**What `--fast` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: **every source except forums**. Every other reduction in that file applies here unchanged.
+
+- **Forums is the one that goes.** No script vets it, so its handles get no verdict at any depth; it carries no upvote or view counts, so it fills neither the Channels table nor Distribution metrics; and finding it costs two WebSearches — one for the forums, one inside them — before a page is read. That is the worst ratio of worked examples to minutes in the run, which is what a 10–15 minute budget is spending.
+- **The open web still finds the forum mentions.** A forum page websearch surfaces is read like any other page and its claims reach the Channels table, so a fast teardown still says where a brand is being discussed. What it cannot say is who is discussing it: a websearch citation carries no handle by construction, so those quotes score `no-handle` and are judged on page quality alone.
+- **Twitter runs, and its post text comes with it.** The Page Analyst fetches every tweet body by id (`../brain/subagents/page_analyst_agent/twitter.md`), which is what a worked example quotes, and `twitter.handlesDeepVetted` has no bearing on it. What fast does still cost here is the vetting: at `0`, a Twitter handle is judged from its profile alone and reaches `promoter_network.csv` unvetted — the tactic is evidenced, the person behind it is not. Known cost of a fast teardown; say it in the summary rather than working around it.
+
+With no API key this leaves Hacker News and the open web — still thin for a teardown, and the summary says so at the top.
 
 Three phases carry command-specific weight:
 

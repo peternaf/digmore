@@ -8,15 +8,15 @@
 | **Input rule files** | `subagents/handle_vetter_agent/index.md` · that agent's `<source>.md` · `vetting.md` · `output.md` |
 | **Input data files** | none on Reddit, Hacker News or Twitter — the script returns everything on stdout. **On forums, the cached pages each row's `documents` array names** |
 | **Runs** | per handle, one script call — `api.mjs reddit user`, `hackernews.mjs vet`, or `api.mjs twitter vet --posts <n>` — then reads the recent activity it returned and judges topical relevance, and on Twitter the voice where the response asks for it. One handle finished before the next is started. **On forums no script and no network**: it reads the cached pages named in `documents` and judges from those alone |
-| **Settings that control it** | `vet.handleCapPerSource` — **the orchestrator's**, counted from outside; it decides who is dispatched and this agent never sees it. `vet.handlesPerDispatch` — the orchestrator's too: it sizes the batch this agent is handed. `twitter.handlesDeepVetted` and `twitter.postsPerDeepVet` — **also the orchestrator's**: it turns them into the per-handle `--posts <n>`. `hackernews.deadSampleSize` — the script's, applied inside the call. This agent enforces none of them |
+| **Settings that control it** | `vet.handleCapPerSource` — **the orchestrator's**, counted from outside; it decides who is dispatched and this agent never sees it. `vet.handlesPerDispatch` — the orchestrator's too: it sizes the batch this agent is handed, and `twitter.handlesPerDispatch` replaces it on that source. `twitter.handlesDeepVetted` and `twitter.postsPerDeepVet` — **also the orchestrator's**: it turns them into the per-handle `--posts <n>`. `hackernews.deadSampleSize` — the script's, applied inside the call. This agent enforces none of them |
 | **Held in its context** | **one person at a time** — their recent comments or sampled posts, read to judge topical relevance and, on Twitter, the voice. Judged and let go before the next handle starts, so two people's material is never held at once. None of it leaves |
 | **Returns to main context** | **an array, one short object per handle** — `handle`, `source`, `verdict`, `signals`, `reason`, `topical_relevance`, `last_active`, `stated_identifiers`. **No shape, deliberately**: the return is not the artifact, and the gate is on `<source>-handles.json`, checked once per batch — which is now the same batch |
 | **Writes to disk** | nothing by hand, and no `_returns/` copy. The script writes one cache file per handle per source; the orchestrator writes the verdicts and the `experts.csv` rows |
 | **Logs** | `cache/_progress/handle-vetter-<source>-<n>.log`, one per batch — `handle <n> of <n>: <handle>` · `vetting <handle> on <source>` · `checking <n> recent posts for the dead flag` (Hacker News) · `reading <n> cached tweets` (only when `needs_llm_judgment` is set) · `reading <n> cached pages for <handle>` (forums) |
 | **How it reports failure** | a profile that could not be read is `unknown` with the reason, never `throwaway` — **on that handle's entry, and the batch carries on**. On forums, a `documents` entry that is not on disk is named in that handle's `reason` and the verdict is taken from what is |
-| **One dispatch per** | **one batch of up to `vet.handlesPerDispatch` handles, all from one source** |
-| **Run instances** | ⌈`vet.handleCapPerSource` ÷ `vet.handlesPerDispatch`⌉ per source, across the four sources that carry handles |
-| **`--fast`** | the same shape, at a smaller `vet.handleCapPerSource`. **`vet.handlesPerDispatch` is the same in both modes** — fast already cuts how many handles there are. `twitter.handlesDeepVetted` is `0`, so every Twitter handle arrives at `--posts 0` and no voice judgment runs |
+| **One dispatch per** | **one batch of up to `vet.handlesPerDispatch` handles, all from one source** — `twitter.handlesPerDispatch` on Twitter, which is lower |
+| **Run instances** | ⌈`vet.handleCapPerSource` ÷ that source's batch size⌉ per source, across the four sources that carry handles |
+| **`--fast`** | the same shape, at a smaller `vet.handleCapPerSource`. **Both batch sizes are the same in both modes** — fast already cuts how many handles there are. `twitter.handlesDeepVetted` is `0`, so every Twitter handle arrives at `--posts 0` and no voice judgment runs |
 | **Concurrency** | every batch of a source at once, up to the harness limit `preflight.mjs` reported, on every source. Nothing throttles either end, and there are no waves: the cap decides who is dispatched before the phase starts |
 | **Model tier** | placeholder, unused for now |
 
@@ -139,7 +139,7 @@ matching username, a similar writing style or the same avatar produces three dif
 one person, confidently. That holds within a batch as much as across one: two handles arriving in the
 same dispatch are two people until something states otherwise.
 
-**Writing down what the profile prints is yours, and it is transcription rather than identity work.**
+**Writing down what the profile prints is yours. You are copying, not concluding.**
 You are reading the profile anyway, so anything it states outright goes in `stated_identifiers`: a
 real name, a personal site, a GitHub, another account. A bio reading `twitter.com/janedoe` is written
 down. A hunch is not. **Read it off the page or leave it empty** — nothing that had to be worked out
