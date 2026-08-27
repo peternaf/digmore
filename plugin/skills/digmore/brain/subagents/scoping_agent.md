@@ -18,7 +18,7 @@
 | **Run instances** | 1 |
 | **`--fast`** | 1 — `plan.minAngles` and `plan.maxAngles` both drop, and there is less looking behind them |
 | **Concurrency** | n/a — single |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: the orchestrator has settled which topic this is and what the user asked for. What
 you return decides what the whole run goes and reads, and shapes how the answer gets presented.

@@ -18,7 +18,7 @@
 | **Run instances** | one per source that pulled data in Extract; one per source that gained expert material in Enrichment |
 | **`--fast`** | the same in both modes — the reduction is in how much each one reads, not how many run |
 | **Concurrency** | one per source, all of them at once. Not a scraping limit: each reads a different directory off disk and fetches nothing, so they contend with nothing |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: the **Page Analysts** have finished. Every document from your source is on disk, each
 one stripped and each one already mined for claims. You read the whole pile at once — the only agent

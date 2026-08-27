@@ -18,7 +18,7 @@
 | **Run instances** | the first draft, plus **at most three redrafts, each bounded to one pass** |
 | **`--fast`** | the same in both modes |
 | **Concurrency** | n/a — single |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 ## What this agent does
 

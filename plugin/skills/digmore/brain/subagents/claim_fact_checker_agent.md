@@ -18,7 +18,7 @@
 | **Run instances** | one per paragraph that carries a claim marker |
 | **`--fast`** | unchanged. **Every claim is checked in both modes** |
 | **Concurrency** | the harness limit. Nothing is rate-limited: every dispatch reads local files |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 ## What this agent does
 

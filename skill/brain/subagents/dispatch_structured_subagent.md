@@ -81,6 +81,9 @@ like judged ones.
 `fetching.md` goes with them on the two agents that fetch, and `output.md` is already in the standing
 block above.
 
+**Pass the agent's `Model` from `brain/index.md` §Sub-agents as the dispatch's `model`** — `inherit`,
+which is most of them, means pass none.
+
 ## A dispatch never restates what the agent's own file says
 
 The job slot says **what work, over which item, with which per-dispatch values**, and stops. How to

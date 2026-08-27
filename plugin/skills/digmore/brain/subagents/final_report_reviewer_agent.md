@@ -18,7 +18,7 @@
 | **Run instances** | 1, plus one re-review where a repair ran |
 | **`--fast`** | the same in both modes — it runs in both |
 | **Concurrency** | n/a — single |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 ## What this agent does
 

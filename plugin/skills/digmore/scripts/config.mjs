@@ -88,7 +88,7 @@ export const RECENCY_WINDOW_YEARS = 2;
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
-  extract: { fetchesPerBranch: 20, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
+  extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
   vet: { handleCapPerSource: 50, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 10, urlsPerExpert: 10 },
   twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50, handlesPerDispatch: 5 },

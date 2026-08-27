@@ -18,7 +18,7 @@
 | **Run instances** | angles × available sources in Extract, plus one per followed expert in Enrichment — `enrich.expertsFollowed` |
 | **`--fast`** | `plan.maxAngles` × sources in Extract, plus one per `enrich.expertsFollowed`, both at their reduced values |
 | **Concurrency** | all at once, capped only by the harness limit `preflight.mjs` reported |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: **Plan** produced the angle you were given, along with the vocabulary its own people
 use. The list you leave on disk is what the **Page Analyst** works through, a few URLs per dispatch.

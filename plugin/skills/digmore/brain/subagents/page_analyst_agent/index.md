@@ -18,7 +18,7 @@
 | **Run instances** | branches × ⌈`extract.fetchesPerBranch` ÷ `extract.urlsPerDispatch`⌉ in Extract, plus the same division over `enrich.expertsFollowed × enrich.urlsPerExpert` in Enrichment, and fewer in practice since the dedupe drops the expert pages Extract already read |
 | **`--fast`** | the same shape at the reduced `extract.fetchesPerBranch` and the reduced `enrich.*`. **`extract.urlsPerDispatch` is the same in both modes** — fast's branch budget is already about one batch, so cutting it would raise the dispatch count. Twitter contributes nothing to the Enrichment pass, because `twitter.handlesDeepVetted` is `0` and no handle's posts were cached |
 | **Concurrency** | one batch per branch at a time, every branch at once, up to the harness limit `preflight.mjs` reported. Nothing here is rate-limited per host, so that limit is the only bound on width — do not invent a lower concurrency, and do not hold one branch for another |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: the **Branch Searcher** found these URLs and ranked them. What you write to disk is
 what the **Source Analyst** reads across the whole source, and what the **Claim Fact Checker** goes

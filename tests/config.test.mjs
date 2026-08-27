@@ -62,7 +62,7 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.deepEqual(Object.keys(fast).sort(),
     ['enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
   assert.equal(plan.maxAngles, 6);
-  assert.equal(extract.fetchesPerBranch, 20);
+  assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
   assert.equal(extract.urlsPerDispatch, 5);
   assert.equal(vet.handleCapPerSource, 50);
@@ -141,7 +141,7 @@ test('a file from an older version gains the new parameters, keeping what the us
   const healed = settings();
   assert.equal(healed.apiKey, 'sk-kept', 'the key survives');
   assert.equal(healed.vet.handleCapPerSource, 7, 'a tuned configuration survives');
-  assert.equal(healed.extract.fetchesPerBranch, 20, 'a missing configuration is filled in');
+  assert.equal(healed.extract.fetchesPerBranch, 10, 'a missing configuration is filled in');
   assert.ok('fast' in healed, 'and so is the whole fast block');
 });
 
@@ -258,7 +258,7 @@ test('an unknown verb is an error', () => {
 test('the configurations default as documented', () => {
   run('show');
   const config = settings();
-  assert.equal(config.extract.fetchesPerBranch, 20);
+  assert.equal(config.extract.fetchesPerBranch, 10);
   assert.equal(config.vet.handleCapPerSource, 50);
   assert.equal(config.plan.scopingSearches, 10);
   assert.equal(config.enrich.urlsPerExpert, 10);
@@ -282,7 +282,7 @@ test('a user-set configuration survives a write', () => {
 test('show reports the configurations, so a run can read them without the key', () => {
   const { out } = run('show');
   const reported = JSON.parse(out);
-  assert.equal(reported.extract.fetchesPerBranch, 20);
+  assert.equal(reported.extract.fetchesPerBranch, 10);
   assert.equal(reported.vet.handleCapPerSource, 50);
   assert.ok(!('apiKey' in reported), 'the key itself is still never printed');
 });
@@ -295,9 +295,9 @@ for (const bad of [0, -5, '20', 1.5, null]) {
     writeSettings(JSON.stringify({ extract: { fetchesPerBranch: bad }, vet: { handleCapPerSource: bad } }));
     const { code, out } = run('show');
     assert.equal(code, 0, 'a bad configuration is not a malformed file');
-    assert.equal(JSON.parse(out).extract.fetchesPerBranch, 20);
+    assert.equal(JSON.parse(out).extract.fetchesPerBranch, 10);
     assert.equal(JSON.parse(out).vet.handleCapPerSource, 50);
-    assert.equal(settings().extract.fetchesPerBranch, 20, 'and the file is corrected to match');
+    assert.equal(settings().extract.fetchesPerBranch, 10, 'and the file is corrected to match');
   });
 }
 

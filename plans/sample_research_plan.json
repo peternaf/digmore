@@ -14,7 +14,7 @@
       "mode": "manual, full",
       "configurations": {
         "extract": {
-          "fetchesPerBranch": 20,
+          "fetchesPerBranch": 10,
           "maxPagesPerDocument": 5,
           "urlsPerDispatch": 5
         },

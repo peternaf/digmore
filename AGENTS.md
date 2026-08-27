@@ -72,7 +72,7 @@ in this order, so two agents can be compared without reading either in full.
 | Run instances | how many of that unit a full run dispatches |
 | `--fast` | **name the configuration, never the number** — `preflight.mjs` prints what this run applies, and a number written here is one the user may have changed. A default beside the name is illustration only. Say where a `0` skips the step entirely, and say `the same in both modes` where nothing reduces |
 | Concurrency | how many at once, **and why that number** — the harness limit, or a scraping limit against one host |
-| Model tier | placeholder, unused for now |
+| Model tier | a pointer to the roster in `brain/index.md` §Sub-agents, never the value. The orchestrator is the only one that can act on a tier, and it reads that table already — putting the value here would make it open eleven agent files for eleven words. How to pick one is below |
 
 Three rules hold it together:
 
@@ -84,6 +84,18 @@ Three rules hold it together:
   rather than "clean".
 - **Motivation goes beside the thing it motivates.** Why an output must keep its shape belongs in
   *Writes to disk*, next to the requirement — not in a separate paragraph about who reads it later.
+
+**Picking the model tier — speed against judgement.** A faster model finishes sooner and is worth
+less of an answer; a slower one is the reverse. Move an agent down a tier when its judgement is
+mechanical — following a schema, extracting what a page says, sorting a list — or when something
+downstream checks its work, and keep the slower tier where the agent's judgement *is* the product
+and nothing after it would catch a worse call.
+
+**Ask what the agent spends its time on before expecting the swap to be faster.** An agent that
+reads a lot and writes a lot with no network in between finishes visibly sooner on a faster tier.
+One whose wall-clock sits inside a fetch or an API call barely moves, because the model was never
+what it was waiting for — there the cheaper tier buys cost, not speed, and the row should say so
+rather than promise a speedup the run will not show.
 
 ## Plans & Specs
 

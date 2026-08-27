@@ -54,19 +54,25 @@ different one.
 **Every one of them opens with a summary table**, defined in `AGENTS.md` §"Writing a sub-agent file":
 one field per row, in a fixed order, so two agents can be compared without reading either in full.
 
-| Agent | Phase | Directory |
-|---|---|---|
-| Scoping agent | Plan | `subagents/scoping_agent.md` |
-| Branch Searcher | Extract · Search | `subagents/branch_searcher_agent/` — one file per source |
-| Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — one file per source |
-| Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source |
-| Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums |
-| Player Profiler | Enrichment | `subagents/player_profiler_agent.md` |
-| Raw report writer | Synthesize · Audit | `subagents/raw_report_writer_agent.md` |
-| Final report writer | Synthesize · Audit | `subagents/final_report_writer_agent.md` |
-| Final report reviewer | Audit | `subagents/final_report_reviewer_agent.md` |
-| Final report copy editor | Audit | `subagents/final_report_copy_editor_agent.md` |
-| Claim Fact Checker | Audit | `subagents/claim_fact_checker_agent.md` |
+**`Model` is which model the dispatch names**, and it is here rather than in the agent's own file
+because you are the only one who can act on it — an agent cannot pick its own model from inside
+itself, and you already read this table. `inherit` is the session's model, and means the dispatch
+passes no model at all. Each agent's `Model tier` row points back here rather than repeating the
+value.
+
+| Agent | Phase | Directory | Model |
+|---|---|---|---|
+| Scoping agent | Plan | `subagents/scoping_agent.md` | `inherit` |
+| Branch Searcher | Extract · Search | `subagents/branch_searcher_agent/` — one file per source | `sonnet` |
+| Page Analyst | Extract · Read | `subagents/page_analyst_agent/` — one file per source | `sonnet` |
+| Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source | `inherit` |
+| Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums | `inherit` |
+| Player Profiler | Enrichment | `subagents/player_profiler_agent.md` | `inherit` |
+| Raw report writer | Synthesize · Audit | `subagents/raw_report_writer_agent.md` | `inherit` |
+| Final report writer | Synthesize · Audit | `subagents/final_report_writer_agent.md` | `inherit` |
+| Final report reviewer | Audit | `subagents/final_report_reviewer_agent.md` | `sonnet` |
+| Final report copy editor | Audit | `subagents/final_report_copy_editor_agent.md` | `sonnet` |
+| Claim Fact Checker | Audit | `subagents/claim_fact_checker_agent.md` | `inherit` |
 
 **The first six have a directory and one file per source; the last five are a single file each**,
 because nothing about what they do differs by source — they work from what the run has already

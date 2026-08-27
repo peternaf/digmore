@@ -18,7 +18,7 @@
 | **Run instances** | one per selected row. A run whose declared sections need no players dispatches none |
 | **`--fast`** | the same in both modes |
 | **Concurrency** | **`min(20, the harness limit)`**, and the orchestrator refills it as each row returns rather than in groups. It was a hard 5 — a scraping limit, not a capacity one, because every dispatch hits SimilarWeb and running wider risks a captcha there. The 20 is deliberate and reversible: a captcha now shows up as a run full of identical `similarweb-blocked` reasons in `monthly_visits`, so the evidence for walking it back is in the output rather than absent |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: the run has already decided this company is one of its subjects. **You fill its whole
 row** — every cell of it — and hand the cells back. The orchestrator writes them into the row it

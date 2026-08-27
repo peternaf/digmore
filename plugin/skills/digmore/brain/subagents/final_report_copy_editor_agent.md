@@ -18,7 +18,7 @@
 | **Run instances** | 1 |
 | **`--fast`** | the same in both modes — one pass over one document, and nothing reduces it |
 | **Concurrency** | n/a — single |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 ## Two stages, and the order is the whole design
 

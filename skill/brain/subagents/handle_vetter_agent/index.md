@@ -18,7 +18,7 @@
 | **Run instances** | ⌈`vet.handleCapPerSource` ÷ that source's batch size⌉ per source, across the four sources that carry handles |
 | **`--fast`** | the same shape, at a smaller `vet.handleCapPerSource`. **Both batch sizes are the same in both modes** — fast already cuts how many handles there are. `twitter.handlesDeepVetted` is `0`, so every Twitter handle arrives at `--posts 0` and no voice judgment runs |
 | **Concurrency** | every batch of a source at once, up to the harness limit `preflight.mjs` reported, on every source. Nothing throttles either end, and there are no waves: the cap decides who is dispatched before the phase starts |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: Extract surfaced far more handles than a run can check — thousands on a busy topic.
 The Source Analyst ranked them into `full_source_analysis/<source>-handles.json`, by the importance of

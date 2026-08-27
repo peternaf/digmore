@@ -18,7 +18,7 @@
 | **Run instances** | 1, plus **one** repair dispatch when the reviewer finds a closable gap. One pass only, never a loop |
 | **`--fast`** | the same in both modes |
 | **Concurrency** | n/a — single |
-| **Model tier** | placeholder, unused for now |
+| **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 It runs long with nothing to show, so its log lines are the only sign it is alive.
 
