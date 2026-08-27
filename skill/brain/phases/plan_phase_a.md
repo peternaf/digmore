@@ -196,7 +196,11 @@ Identity fields, set once and then left alone:
 - `originating_prompt` — the user's free-form invocation at topic creation, kept verbatim.
 
 History, appended to and never rewritten:
-- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, `configurations`, and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the configurations is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the values that applied, not the ones configured** — `--fast` lowers several, and the entry records what the run really used, in the same shape `preflight.mjs` printed them. Record the ones that bounded actual work this run; a group the run never reached does not need an entry.
+- `run_history` — every run appends an entry. Each entry stores `ts`, `kind` (`fresh` / `re-run` / `branch`), `prompt` (verbatim user prose for THIS run, which may differ from `originating_prompt`), `mode`, `configurations`, and `phases_completed`. Storing the per-run prompt lets you see how intent shifted across re-runs; storing the configurations is what makes two runs on one topic comparable, because the numbers that applied are otherwise gone the moment the plan is rewritten. **They are the values that applied, not the ones configured** — `--fast` lowers several, and the entry records what the run really used, in the same shape `preflight.mjs` printed them.
+
+**The entry is appended here, in Plan, not at the end of the run**, and every field but `phases_completed` is filled in now — `preflight.mjs` has already printed the configurations, so they are known before a single request goes out. Only `phases_completed` waits, because it is the one thing the end of the run knows and Plan does not.
+
+**An entry written at the end is missing exactly when it is needed.** A run that dies mid-Extract wrote nothing, so a resume has no record of the numbers the cache on disk was built to and falls back to whatever the settings file says today — which is a different cap the moment anyone changes one. `extract_resume.mjs` reads this entry for that reason (`../resuming.md` §"Which configurations a resumed run uses"). An entry with no `phases_completed` is a run that did not finish, which is worth being able to see.
 
 The plan, which belongs to the current run:
 - `scope` — `vocabulary`, `recurring_names`, `deliverables`, `sections`, `angles`, `sources`, `sources_unavailable`, `branches`. The first two come back from the Scoping agent (§2), the section fields are settled in §3 and specified in `../sections.md`, the angles are checked in §4, and the branches are built in §5.
@@ -212,7 +216,7 @@ Two reasons the plan is a file rather than a step in your head:
 - **Resume needs a checkpoint.** Without it, a run killed during Extract cannot tell "planned but not searched" from "half searched", and re-planning produces different angles than the ones the half-finished cache was built against.
 - **The bound is knowable here.** Branches × the run's `extract.fetchesPerBranch` is the upper limit on fetches, decided before a single request goes out. The audit log reports what was actually spent against it.
 
-Written by the orchestrator: identity at the start of Plan, `scope` once the plan is settled, and a `run_history` entry appended at the end of each run.
+Written by the orchestrator: identity and this run's `run_history` entry at the start of Plan, `scope` once the plan is settled, and the entry's `phases_completed` filled in at the end of the run.
 
 ## End of Plan
 

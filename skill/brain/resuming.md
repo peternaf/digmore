@@ -36,13 +36,44 @@ Three rules keep it honest:
   and whether it came from a `done` or an unfinished `start`. Otherwise a skipped four-second Extract
   and a broken one look identical.
 
+## Which configurations a resumed run uses
+
+**The interrupted run's own, from its `run_history` entry — not today's.** A resume finishes a run
+rather than starting one, and the cache on disk was built to the numbers that applied when it
+started. A branch that fetched 14 pages under a cap of 20 is mid-budget; read against a cap of 10 it
+reads as a branch already over, and every tally that mixes the two means nothing. `plan_phase_a.md`
+§`run_history` stores them for exactly this — *"the numbers that applied are otherwise gone the
+moment the plan is rewritten."*
+
+**A re-run is the opposite and takes today's**, because it starts a run of its own. So does a topic
+whose history predates the field, where there is nothing recorded to honour.
+
+**A resume appends no `run_history` entry.** It is finishing the run that entry already describes.
+Appending one would put today's configurations at the end of the history, which is the record every
+reader here takes as the run's own — and the fallback would then be indistinguishable from the
+answer. Only a re-planned run appends, because only that one is a new run.
+
+`extract_resume.mjs` applies this itself and says which source its cap came from. Everywhere else it
+is yours to apply, and the entry is in `research_plan.json` where you already are.
+
 ## Then, inside that phase
 
 - **Plan failure** → an empty or absent `scope` in `research_plan.json`, so nothing was fetched.
   Resume re-plans from scratch; it costs one sub-agent.
-- **Extract failure** → `research_plan.json` holds the branch list; the cache holds whatever was
-  fetched. Resume compares the two and runs only the branches with nothing on disk. It does not
-  re-scope: new angles would not match the cache the half-finished run built.
+- **Extract failure** → **run `extract_resume.mjs worklist --topic <slug>` and dispatch what it hands
+  back.** It reads every `branch-searcher-*` list and every `page-analyst-*` receipt in
+  `cache/_returns/` and answers per branch: pages already fetched, URLs already read, what is left,
+  and which of three states the branch is in — `outstanding` has budget and URLs both, and is the
+  only one that is work; `capped` spent its budget; `exhausted` read everything its searcher found.
+  Batch the `remaining` of each outstanding branch as an unbroken run would
+  (`phases/extract_phase_b.md` §Read). It does not re-scope: new angles would not match the cache the
+  half-finished run built.
+
+  **A branch is not finished or unstarted, which is why this is a script.** It carries a page tally
+  against `extract.fetchesPerBranch` and a set of URLs with receipts, and both are sums across every
+  receipt on disk — arithmetic over files you must not pull into your context to do. Two sessions
+  each wrote their own throwaway version of it into `cache/_misc/`, each with its own hardcoded cap;
+  the second was wrong the moment the configured number changed. **Never write your own.**
 - **Vet failure** → **re-run `handle_vetting.mjs prepare` for each source and dispatch what it hands
   back.** It excludes three kinds of handle by itself: the ones already carrying a verdict, the ones
   auto-promoted from `experts.csv`, and the ones that already have a file in

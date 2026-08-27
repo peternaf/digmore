@@ -58,7 +58,7 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 
 | File | Written by |
 |---|---|
-| `research_plan.json` | the orchestrator — identity at Plan, `scope` when the plan is settled, a `run_history` entry at the end of the run |
+| `research_plan.json` | the orchestrator — identity and this run's `run_history` entry at Plan, `scope` when the plan is settled, the entry's `phases_completed` at the end of the run |
 | `run_log.log` | the orchestrator, through `scripts/runlog.mjs`, two lines per step as they happen. Appended across runs, never replaced |
 | `experts.csv` | `experts.mjs build`, **once, at the end of Vet**, from the merged `<source>-handles.json` rosters. It used to be written per batch from what the orchestrator was holding; reading the rosters instead means the file is built from what is on disk rather than from what survived a context |
 | `player_candidates.json` | `players.mjs candidates`, once, in Enrichment |
