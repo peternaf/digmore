@@ -67,13 +67,15 @@ The configurations it prints, and what each bounds:
 | `extract` | `fetchesPerBranch`, `maxPagesPerDocument`, `urlsPerDispatch` |
 | `vet` | `handleCapPerSource`, `handlesPerDispatch` |
 | `enrich` | `expertsFollowed`, `urlsPerExpert` |
-| `twitter` | `handlesDeepVetted`, `postsPerDeepVet` |
+| `twitter` | `handlesDeepVetted`, `postsPerDeepVet`, `handlesPerDispatch` |
 | `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize` |
 | `subagents` | `repairAttempts` |
 
 **A configuration is named for the phase that spends it**, which is why the expert step's two sit under `enrich`. **One is spent in two phases: `extract.fetchesPerBranch` also caps the pages one Player Profiler may open in Enrichment.** Same quantity — how many pages an agent opens before it works with what it has — and a second key holding the same value is one that drifts out of step. **Synthesize and Audit have no group at all**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase.
 
-**The two `*PerDispatch` configurations are batch sizes, and neither reduces in fast mode.** They set how many items one Page Analyst or one Handle Vetter works through in sequence, so a run spends fewer sub-agent dispatches without reading anything less. Fast mode already cuts how many items there are; cutting the batch as well would put the dispatch count back up, which is the opposite of what the mode is for. Neither is a concurrency limit — that is the harness's, and it is how many agents run at once.
+**The `*PerDispatch` configurations are batch sizes, and none of them reduces in fast mode.** They set how many items one Page Analyst or one Handle Vetter works through in sequence, so a run spends fewer sub-agent dispatches without reading anything less. Fast mode already cuts how many items there are; cutting the batch as well would put the dispatch count back up, which is the opposite of what the mode is for. None of them is a concurrency limit — that is the harness's, and it is how many agents run at once.
+
+**`twitter.handlesPerDispatch` overrides `vet.handlesPerDispatch` on that source alone**, and it is the only per-source override of a batch size. A Twitter deep vet reads `postsPerDeepVet` posts, so the same handle count carries several times the material a Reddit or forums batch does. It keeps its lower value in fast mode too, where `handlesDeepVetted` is `0` and no posts are read at all.
 
 **A user's own configuration is never loosened by asking for a shallower run.** Fast takes the lower of the two, so someone who set `vet.handleCapPerSource` to 10 gets 10 in both modes. The exception is a fast value of `0`, which is a deliberate skip and wins.
 

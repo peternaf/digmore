@@ -43,7 +43,7 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 
 ## Every marker also goes to the run log
 
-The terminal shows where the run is now; `run_log.md` records where it has been, and it is the only record of where a run spent its time. So each marker you print is written there too, as a pair:
+The terminal shows where the run is now; `run_log.log` records where it has been, and it is the only record of where a run spent its time. So each marker you print is written there too, as a pair:
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" start "[2.1/6] Extract · Search" --topic <slug>

@@ -6,10 +6,15 @@
  *   node runlog.mjs done   "[2.1/6] Extract · Search" --topic <slug> --note "25 branch searchers, 302 URLs"
  *   node runlog.mjs note   "resumed at Vet, from an unfinished start" --topic <slug>
  *
- * It writes digmore/<slug>/run_log.md, at the topic root rather than in cache/, which is
+ * It writes digmore/<slug>/run_log.log, at the topic root rather than in cache/, which is
  * disposable — this is the only record of where a run spent its time, and it is read after the
  * run rather than during it. Nothing reads it while the run is going: the stuck-agent check
  * reads cache/_progress/*.log, which is a different question at a different time.
+ *
+ * `.log` rather than `.md`, and the extension is load-bearing: every line under a run's heading is
+ * fixed-width aligned columns, and a markdown renderer collapses consecutive non-blank lines into
+ * one wrapped paragraph. So `.md` promised a rendering that destroys the only thing making the file
+ * readable. The per-run heading is a plain separator for the same reason.
  *
  * A script rather than prose in the brain, for two reasons the model cannot satisfy itself:
  * the timestamp has to come from a clock, and the elapsed figure is a subtraction. Both are
@@ -23,12 +28,12 @@
  * stdout JSON, stderr errors.
  */
 
-import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, readdirSync, statSync, existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, topicDir } from './players.mjs';
 
-export const RUN_LOG_NAME = 'run_log.md';
+export const RUN_LOG_NAME = 'run_log.log';
 
 /** Wide enough for the longest marker the phases print — `[2.1/6]` and its Audit equivalents. */
 const MARKER_WIDTH = 9;
@@ -67,6 +72,45 @@ export function logPath(topicSlug) {
   return join(topicDir(topicSlug), RUN_LOG_NAME);
 }
 
+export const AUDIT_NAME = 'audit.md';
+
+export function auditPath(topicSlug) {
+  return join(topicDir(topicSlug), AUDIT_NAME);
+}
+
+/**
+ * The kinds of finding a run records, and **this list lives here and nowhere else** — adding one is
+ * one edit, and a phase file naming a category this does not have gets an error rather than a line
+ * nobody can sort on.
+ *
+ * They are the categories the phases actually produce, in roughly the order a run produces them.
+ */
+export const FINDING_CATEGORIES = Object.freeze([
+  'dropped-for-budget',
+  'url-duplicate',
+  'budget-overrun',
+  'dropped-receipt',
+  'blocked-page',
+  'webfetch-page',
+  'handle-counts',
+  'vetting-gap',
+  'excluded-player',
+  'source-unavailable',
+  'stuck-agent-killed',
+  'claim-unsourced',
+  'claim-refuted',
+  'claim-dropped-drafting',
+  'statement-deleted',
+  'paragraph-unreadable-evidence',
+  'paragraph-unmarked',
+  'section-not-copy-edited',
+  'subagent-repair',
+  'subagent-drop',
+  'assumption',
+  'known-gap',
+  'unanswered',
+]);
+
 /**
  * The last timestamp in the file, which is what the next elapsed figure is measured from.
  *
@@ -89,6 +133,35 @@ export function lastStampMs(path) {
 function append(path, text) {
   mkdirSync(join(path, '..'), { recursive: true });
   appendFileSync(path, text, 'utf8');
+}
+
+/**
+ * One finding, one line: the time, the category in brackets, then what happened.
+ *
+ * A fixed format, a closed category list and a truncation nobody forgets are the three things a
+ * model re-invents slightly differently every time it writes this file by hand — which is the whole
+ * reason a script owns it. The run log's reason was different and stronger (a timestamp needs a
+ * clock); this one is only about keeping a file sortable across six phases and one long run.
+ *
+ * Newlines in the text become spaces, because a finding that wraps is a finding that stops being
+ * one line and stops being greppable.
+ */
+export function findingLine(category, text, { at = new Date() } = {}) {
+  const flattened = String(text).replace(/\s*\n\s*/g, ' ').trim();
+  return `${stamp(at)}  [${category}] ${flattened}\n`;
+}
+
+/**
+ * Start this run's audit.md, replacing whatever the last run left.
+ *
+ * Called from `header` and nowhere else — the one moment a run has already established is its own
+ * first, and the file has to be empty before the first phase appends to it.
+ */
+export function truncateAudit(topicSlug, at = new Date()) {
+  const path = auditPath(topicSlug);
+  mkdirSync(join(path, '..'), { recursive: true });
+  writeFileSync(path, `# audit — run ${stamp(at)}\n\n`, 'utf8');
+  return path;
 }
 
 /** One heartbeat file per dispatch, named for the label that dispatch was given. */
@@ -168,18 +241,23 @@ export const USAGE = `runlog.mjs — the run log, appended a line at a time.
   runlog.mjs start  "[2.1/6] Extract · Search" --topic <slug>
   runlog.mjs done   "[2.1/6] Extract · Search" --topic <slug> [--note "25 branch searchers, 302 URLs"]
   runlog.mjs note   "resumed at Vet, from an unfinished start" --topic <slug>
+  runlog.mjs finding blocked-page "https://example.com/a — walled by both tools" --topic <slug>
   runlog.mjs beat   "fetching https://example.com/a" --topic <slug> --label page-analyst-websearch-7
   runlog.mjs beats  --topic <slug>
   runlog.mjs stamp
 
-Writes digmore/<slug>/run_log.md, appending. --topic is required on every call, except stamp,
+Writes digmore/<slug>/run_log.log, appending. --topic is required on every call, except stamp,
 which writes nothing and prints the current time for research_plan.json's created_at and ts.
 Only a done carries an elapsed figure, measured from the line above it. The step name is the
 marker reporting.md prints, so the log and the terminal never invent separate vocabularies.
 
 beat is a sub-agent's heartbeat, appended to cache/_progress/<label>.log. beats reads every
 one of those back — the last line and how long ago it moved — which is what the stuck-agent
-check needs.`;
+check needs.
+
+finding appends one tagged line to audit.md, at the moment the run finds it rather than at the
+end. header truncates audit.md, because that file describes one run. --shapes-style listing of
+the categories: an unknown one is refused and the message names them all.`;
 
 export function run(argv, { at = new Date() } = {}) {
   const [verb, ...rest] = argv;
@@ -201,10 +279,33 @@ export function run(argv, { at = new Date() } = {}) {
   if (verb === 'header') {
     // A blank line before it, so consecutive runs are readable as separate blocks. The run's
     // own identity comes from the caller: this script knows the clock, not the plan.
+    //
+    // A plain separator rather than a markdown heading — this is a .log, and `===` scans as a
+    // block boundary in a plain-text reader where `##` only reads as one to a renderer that would
+    // have wrapped every aligned line beneath it.
     const parts = [flags.kind, flags.mode].filter(Boolean).join(' · ');
     const index = flags.run === undefined ? '' : ` · run_history[${flags.run}]`;
-    append(path, `\n## run ${stamp(at)} — ${parts}${index}\n\n`);
+    append(path, `\n=== run ${stamp(at)} — ${parts}${index} ===\n\n`);
+
+    // audit.md describes ONE run, which is what "replace it entirely" used to protect. Truncating
+    // at the run's first moment keeps that and makes everything after it an append — so a run
+    // killed in Vet still leaves the findings it had earned, instead of losing every phase's
+    // record because the file was composed in one go at the very end.
+    truncateAudit(flags.topic, at);
     return { path, wrote: 'header' };
+  }
+
+  if (verb === 'finding') {
+    const category = positional[0];
+    const text = positional[1];
+    if (!category) throw new Error(`finding needs a category — one of ${FINDING_CATEGORIES.join(', ')}`);
+    if (!FINDING_CATEGORIES.includes(category)) {
+      throw new Error(`unknown category: ${category} — expected one of ${FINDING_CATEGORIES.join(', ')}`);
+    }
+    if (!text) throw new Error('finding needs its text as the second argument');
+    const auditFile = auditPath(flags.topic);
+    append(auditFile, findingLine(category, text, { at }));
+    return { path: auditFile, wrote: 'finding', category };
   }
 
   // Every heartbeat in the run comes through here, which is the point of it being a verb rather
@@ -229,7 +330,9 @@ export function run(argv, { at = new Date() } = {}) {
     return { path, wrote: 'note' };
   }
   if (verb !== 'start' && verb !== 'done') {
-    throw new Error(`unknown command: ${verb ?? '(none)'} — expected header, start, done or note`);
+    throw new Error(
+      `unknown command: ${verb ?? '(none)'} — expected header, start, done, note, finding, beat, beats or stamp`,
+    );
   }
 
   // Only a `done` carries an elapsed figure; a `start` has nothing to measure yet.

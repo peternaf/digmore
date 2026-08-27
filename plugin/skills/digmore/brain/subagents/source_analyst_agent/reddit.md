@@ -10,6 +10,7 @@
 | `reddit-thread-<id>.json` | one per thread the run read: the full `Post`, with `comments` |
 | `reddit-thread-<id>-claims.json` | the Page Analyst's extraction from that thread |
 | `reddit-vet-<name>.json` | one per vetted handle, if Vet has already run: the profile, up to 100 recent comments in full, and the verdict together |
+| `handles/` | **not yours, and not material.** Vet's own verdict on each handle, one file each. Skip the directory: a vetting record read as a document puts a judgement about a person into the report as though somebody had said it |
 
 Comments inside a thread arrive flat, with `parent_id` giving the tree — `t3_<id>` is top level,
 `t1_<id>` is a reply.

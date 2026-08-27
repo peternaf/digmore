@@ -6,7 +6,7 @@
 | **Purpose** | Read everything one source produced at once and catch what no single-page reader can see — the recurring tone, the argument running under several threads, the oddity — then write that source's report, its people and its entities |
 | **Input text** | the source name · the output paths · the four things to look for · on the handle-bearing sources, the handles job. **In Enrichment**, the names of the new claims files and nothing else |
 | **Input rule files** | `subagents/source_analyst_agent/index.md` · that agent's `<source>.md` · `output.md` |
-| **Input data files** | every file under `cache/<source>/` — both halves of each pair, the stripped page and its claims. **In Enrichment**, only the new claims files the dispatch names, plus the three files you already wrote |
+| **Input data files** | every file under `cache/<source>/` — both halves of each pair, the stripped page and its claims. **Not the `handles/` subdirectory**, which is Vet's verdicts rather than documents. **In Enrichment**, only the new claims files the dispatch names, plus the three files you already wrote |
 | **Runs** | no scripts, no network. It reads `cache/<source>/` and writes three files under `full_source_analysis/` — everything it needs is already on disk |
 | **Settings that control it** | none it enforces, and none it is told. `extract.fetchesPerBranch`, `extract.maxPagesPerDocument` and `hackernews.commentDepth` shaped what is in the directory before this agent ran; it reads the result, never the number |
 | **Held in its context** | every stripped page and every claims file that source produced — the largest read in the run, and the reason this is a sub-agent at all. None of it leaves |
@@ -42,7 +42,12 @@ Four things to look for:
 
 ## What you read
 
-Everything under `digmore/<slug>/cache/<source>/`. For each document the Page Analyst left a pair:
+Everything under `digmore/<slug>/cache/<source>/` — **the files in it, not the directories under
+it.** `handles/` is Vet's, one small JSON per handle written a phase after you, and on a re-run it
+is already there: it holds verdicts rather than documents, and reading it as material would put a
+person's vetting record into the source's report as though somebody had said it.
+
+For each document the Page Analyst left a pair:
 the stripped page, and the claims it pulled from it. Read both — the claims tell you what was
 already captured, the pages tell you what was not.
 
@@ -171,8 +176,10 @@ otherwise get.
 than writing an empty one: an empty file and a source with no handles look identical, and one of
 them is a failure.
 
-**The shape carries five fields you leave empty** — `verdict`, `topicalRelevance`, `verdictReason`,
-`inExperts` and `statedIdentifiers`. Vet fills them in later. In Extract mode you write this file once
+**The shape carries a block of fields you leave empty** — `verdict`, `topicalRelevance`,
+`verdictReason`, `vettingSignals`, `lastActive`, `inExperts`, and the labelled identifiers
+(`realName`, `github`, `website`, the platform handles, `otherIdentifiers`). Vet fills them in
+later. In Extract mode you write this file once
 and never return to it; Enrichment mode is the one exception, and it only adds rows.
 
 ### `<source>-players.json` — every entity this source named
@@ -264,7 +271,8 @@ What you append, per file:
 **Three rules on the append:**
 
 1. **Never touch a verdict.** By now Vet has written `verdict`, `topicalRelevance`, `verdictReason`,
-   `inExperts` and `statedIdentifiers` into `<source>-handles.json`. Add rows; rewrite none.
+   `vettingSignals`, `lastActive`, `inExperts` and the labelled identifiers into
+   `<source>-handles.json`. Add rows; rewrite none.
 2. **A new handle arrives with no verdict, and that is accepted.** Vet has finished, and nothing goes
    back for it. Those handles are `unvetted` and their claims are quoted with a caveat.
 3. **Do not re-rank.** The array order was Vet's input and Vet is over. Append new rows at the end.

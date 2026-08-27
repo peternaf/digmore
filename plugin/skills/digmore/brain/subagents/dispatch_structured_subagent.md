@@ -61,6 +61,48 @@ the second silently overwrites the first. Nothing reads a scratch file, so nothi
 reports that.
 ```
 
+## Send the agent its own files
+
+**Every dispatch names the path to the agent's own `<agent>.md`, and to its `<source>.md` where it
+has one.** `brain/index.md` §Sub-agents says an agent is sent its own file and the file for the
+source it was given and nothing else; this is the instruction that principle never got.
+
+**A sub-agent has what its prompt gives it and nothing else.** A path in the prompt is what makes a
+file openable — without one there is no way to reach it, and **no error when it is not reached.** So
+every *Input rule files* row in every agent's file describes something that happens only if the
+dispatch carried those paths.
+
+**Vet is where it costs most, and Vet is where it was missing.** That phase deliberately holds none
+of its own judgement — the verdict vocabulary, the topical-relevance read, the per-source signals and
+the Twitter voice rubric all live in `handle_vetter_agent/`. A vetter dispatched without those paths
+is judging thirty-odd ranges of handles against nothing, and hands back verdicts that look exactly
+like judged ones.
+
+`fetching.md` goes with them on the two agents that fetch, and `output.md` is already in the standing
+block above.
+
+## A dispatch never restates what the agent's own file says
+
+The job slot says **what work, over which item, with which per-dispatch values**, and stops. How to
+judge, which command to run, what a field means, how a page is fetched — all of that is in the files
+the agent opens, and repeating it in the prompt buys nothing and costs you the words on every
+dispatch.
+
+**And when a rule has to reach the agent, it goes in the agent's file — not into the prompt that
+carries it.** A rule pasted into a dispatch exists only for as long as someone remembers to paste it,
+and it is paid for every time. `AGENTS.md`'s one-place rule already governs the repo; this is the
+same rule at run time.
+
+**Three things stay pasted, and they are the whole list:**
+
+| Pasted | Why it is the exception |
+|---|---|
+| the standing block above | its rules failed *before* precisely because they lived in files agents never read. Naming a path is a stronger position than that was, but it is untested, and these are the rules whose omission is silent |
+| the format spec | an agent pointed at a file instead of given the spec defaults to the shortest plausible content, and nothing catches that |
+| any configuration number | an agent cannot follow a pointer to what `preflight.mjs` printed, so it is given the value |
+
+Everything else is a path.
+
 ## Name every dispatch after the work, not after a counter
 
 The harness shows a running agent by the name you give it, and that name is the only thing you see
@@ -109,42 +151,57 @@ Three routes, all of them qualifying:
 | The agent | Route | Example |
 |---|---|---|
 | returns the shape, writes a copy | both | most of them |
-| returns `done`, writes the shape | file only | Branch Searcher, Page Analyst |
-| returns the shape, writes nothing | message only | Handle Vetter |
+| returns `done`, writes the shape | file only | Branch Searcher, Page Analyst, Handle Vetter |
 
-**Both narrower tests break, and each breaks a different agent.** "Returns a shape" drops the two
-that reply `done`, leaving them told to write a file with no schema and no path. "Writes a shape"
-drops the Handle Vetter, which writes no copy on purpose. Either way an agent is asked for JSON and
-never shown its shape.
+**Say it by route-independence even so.** "Returns a shape" drops the three that reply `done`,
+leaving them told to write a file with no schema and no path. "Writes a shape" happens to drop
+nobody today — the Handle Vetter was the one agent that returned its shape and wrote no file, and it
+now writes one per handle — but the next agent that returns without writing would fall through the
+same gap, and the test costs nothing to state the durable way round.
 
 Where an agent returns `done`, its own entry says so and the first line below changes to match: write
 the JSON, return the word, nothing else. Everything after it is unchanged.
 
 ```
-Return exactly this JSON and nothing else, and write the same JSON to
-digmore/<slug>/cache/_returns/<your-label>.json:
+Your return is the shape <SHAPE NAME>. Print it before you start, and follow it exactly:
 
-<THE SHAPE — verbatim, from `validate.mjs --shape <name>`.>
+  node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" --shape <SHAPE NAME>
+
+Return exactly that JSON and nothing else, and write the same JSON to
+digmore/<slug>/cache/_returns/<your-label>.json.
 
 <THE FORMAT SPEC — only where the job produces formatted output. The column rules, cell
 format and worked example from the command's reference file, verbatim. A sub-agent
-pointed at a file instead of given the spec defaults to the shortest plausible content.>
+pointed at a file instead of given the spec defaults to the shortest plausible content,
+and nothing downstream catches that — which is why this one is pasted and the shape is
+not.>
 ```
 
 | Slot | Where it comes from |
 |---|---|
 | The job | The phase file dispatching it — one item, named. |
-| The shape | **Print it, do not open the file:** `node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" --shape <name>`. Paste the whole entry; its `description` says what the shape is for. `--shapes` lists the names. |
+| The shape name | A key in `scripts/subagent_returns.json`. **Name it; do not paste it.** `validate.mjs --shapes` lists them. |
 | The format spec | The command's reference file, and only for agents that render a section of the summary. |
 
-**A `_returns/` file is written because `validate.mjs` reads a file, not a message.** For the two
-agents that return `done` it is not a copy at all — it is the only place their output exists, which is
-what makes the one-word return honest rather than lossy.
+**The agent prints its own shape, and that is worth roughly 250 dispatches of schema.** An entry runs
+300 to 500 tokens, and the repeated agents carry it over and over — `page-analyst` around 108 times
+once its URLs are batched, `player-profile` ~47, `handle-vetting` ~40, `claim-fact-checker` ~30,
+`branch-searcher` 27. Pasted, every one of those lands in **your** transcript and stays there for the
+rest of the run; printed by the agent, it costs the agent one command and costs you nothing.
 
-**The one deliberate exception is the Handle Vetter**: it fans out a batch at a time, its return is
-short and its verdicts have to reach the orchestrator to be written into `<source>-handles.json`,
-which is where the gate is — so it writes no copy and is checked over stdin instead,
-`validate.mjs source-handles -`.
+**It is safe here and nowhere else, because omitting it is the one thing that gets caught.** A pasted
+*rule* an agent skips fails silently — no heartbeat file, a scratch file at a name another agent also
+picks, prose in the return. A skipped `--shape` produces the wrong shape, and `validate.mjs` says so
+on the next line, with one repair and then a recorded drop. Nothing new has to be built to detect it.
+
+**A `_returns/` file is written because `validate.mjs` reads a file, not a message.** For the agents
+that return `done` it is not a copy at all — it is the only place their output exists, which is what
+makes the one-word return honest rather than lossy.
+
+**The Handle Vetter writes somewhere else, and that is the only variation.** Its output is one file
+per handle under `cache/<source>/handles/`, not one per dispatch under `_returns/`, because a range
+of handles produces a verdict each and a resumed run needs to know which of them finished. It
+validates each file itself; nothing is checked over stdin anywhere in the run.
 
 ## Then check what comes back
 
@@ -168,7 +225,8 @@ sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong �
 to repair, so treat it as a failed return.
 
 **What it checks:** the keys that must be there, the JSON type of each one, allowed enum values, array
-and number bounds, and the conditional requirements a shape declares. **What it does not check:**
+and number bounds, the conditional requirements a shape declares, and — where a shape names a key it
+is unique on — that no two entries share it, compared lowercased and trimmed. **What it does not check:**
 whether a quote is real, whether a URL resolves, whether a price is a price. A payload that passes is
 well-formed, not true.
 
@@ -183,8 +241,15 @@ On exit 1, re-prompt **the same sub-agent** once. The repair prompt carries thre
 nothing else:
 
 1. the checker's exact errors,
-2. the shape it should have matched,
+2. the shape it should have matched — **pasted here, in full**,
 3. its own previous output.
+
+**The repair is the one prompt that still pastes the shape, and the asymmetry is deliberate.** An
+ordinary dispatch names it and the agent prints it; here that would reproduce exactly the failure
+being repaired, because one way to arrive at the wrong shape is to have skipped the print command in
+the first place. This is also the last step before a recorded drop — `subagents.repairAttempts` is 1,
+so the item is lost rather than retried. A repair is rare, so pasting costs almost nothing and buys
+out the one path that ends in losing work.
 
 And it carries these two instructions, in these words:
 

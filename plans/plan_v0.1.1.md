@@ -304,26 +304,26 @@ searchers ~60k more.
 
 ## What a dispatch costs your context — §What a dispatch costs your context
 
-- [ ] `dispatch_structured_subagent.md` §"When a dispatch produces a shape" — the dispatch names the
+- [x] `dispatch_structured_subagent.md` §"When a dispatch produces a shape" — the dispatch names the
       shape and tells the agent to run `validate.mjs --shape <name>` itself; the orchestrator stops
       pasting the entry. The slot table's *"Print it, do not open the file… Paste the whole entry"*
       is the line that changes.
-- [ ] `dispatch_structured_subagent.md` — the format spec stays pasted, and says why beside it: an
+- [x] `dispatch_structured_subagent.md` — the format spec stays pasted, and says why beside it: an
       agent pointed at a file defaults to the shortest plausible content, and nothing catches that.
-- [ ] `dispatch_structured_subagent.md` — new rule: a dispatch never restates what the agent's own
+- [x] `dispatch_structured_subagent.md` — new rule: a dispatch never restates what the agent's own
       file says. The job slot is the work, the item and the per-dispatch values. A rule that has to
       reach the agent goes in the agent's file, not in the prompt.
-- [ ] `dispatch_structured_subagent.md` — name the three exceptions that stay pasted: the standing
+- [x] `dispatch_structured_subagent.md` — name the three exceptions that stay pasted: the standing
       block, the format spec, and configuration numbers.
-- [ ] `final_report_copy_editor_agent.md` — its *Input text* row carries the only statement of the
+- [x] `final_report_copy_editor_agent.md` — its *Input text* row carries the only statement of the
       no-restatement rule today; it becomes an instance of the shared rule rather than the source.
-- [ ] `dispatch_structured_subagent.md` §"The repair pass" — the repair keeps pasting the shape; say
+- [x] `dispatch_structured_subagent.md` §"The repair pass" — the repair keeps pasting the shape; say
       why beside it. The ordinary dispatch never carries it.
-- [ ] `dispatch_structured_subagent.md` — new line: every dispatch sends the agent its own
+- [x] `dispatch_structured_subagent.md` — new line: every dispatch sends the agent its own
       `<agent>.md`, and its `<source>.md` where it has one.
-- [ ] `vet_phase_c.md` step 4 — the only phase that never says to send the agent its files; its two
+- [x] `vet_phase_c.md` step 4 — the only phase that never says to send the agent its files; its two
       mentions are passive. Point at the rule above.
-- [ ] `extract_phase_b.md`, `synthesize_phase_e.md`, `enrich_phase_d.md`, `audit_phase_f.md` — their
+- [x] `extract_phase_b.md`, `synthesize_phase_e.md`, `enrich_phase_d.md`, `audit_phase_f.md` — their
       own statements of it become instances of the shared rule.
 
 ## Vetting — the handles never reach the orchestrator · §Vet's context is the input, not the return
@@ -337,79 +337,96 @@ rewritten here anyway, and `phases/index.md` is carrying six unrelated jobs; the
 189 and about to grow with the work-list and per-handle files. One new brain file, referenced from
 the phase-to-file map. Not worth a pass of its own — worth doing in this one.
 
+**DONE.** The new file is `brain/resuming.md` — it took the salvage paths, the cache-is-gone rule
+and the out-of-web-searches rule, since all three are read on a resumed run and on no other.
+`phases/index.md` keeps a four-line pointer, `brain/index.md`'s map gains a row, and
+`audit_phase_f.md` and `enrich_phase_d.md`'s two pointers into the old section now name it.
+
+**Three files the vetting package touched that no line above named**, each a consequence rather
+than a new decision:
+
+- [x] `phases/index.md` — the `experts.csv` who-writes-what row, which is the third file of the
+      `experts.csv` fix. `vetting.md` and `sections.md` are the other two and are not this package's.
+- [x] `synthesize_phase_e.md`, `raw_report_writer_agent.md` ×2, `gtm-teardown.md`,
+      `handle_vetter_agent/forums.md` — `statedIdentifiers` becomes the labelled fields wherever the
+      identity join is described. **`vetting.md` §"Identity is stated, never inferred" is the one
+      remaining mention and belongs to whoever holds that file.**
+- [x] `source_analyst_agent/` — the four handle-bearing per-source files each get a `handles/` row in
+      their on-disk table, beside the `index.md` rule.
+
 **The Handle Vetter**
 
-- [ ] `handle_vetter_agent/index.md` — the dispatch carries a **range**, the source and the research
+- [x] `handle_vetter_agent/index.md` — the dispatch carries a **range**, the source and the research
       question. No handle names, no rows. *Input text*, *Input data files*.
-- [ ] It calls `handle_vetting.mjs` for its own handles, each arriving with its `--posts`.
-- [ ] It writes one file per handle to `cache/<source>/handles/<handle>.json` as each finishes.
-- [ ] Identifiers are **labelled** — `realName`, `github`, `website`, the platform handles,
+- [x] It calls `handle_vetting.mjs` for its own handles, each arriving with its `--posts`.
+- [x] It writes one file per handle to `cache/<source>/handles/<handle>.json` as each finishes.
+- [x] Identifiers are **labelled** — `realName`, `github`, `website`, the platform handles,
       `otherIdentifiers` — not a bag of strings. **`statedIdentifiers` is deleted, not renamed.**
       §What the labelled identifiers change
-- [ ] Every field in the file is camelCase, matching `source-handles`. **The vetting scripts keep
+- [x] Every field in the file is camelCase, matching `source-handles`. **The vetting scripts keep
       snake_case** and are untouched; the agent translates, and its own file says so.
-- [ ] `lastActive` is a **move, not a rename** — `hackernews.mjs` writes it as `signals.last_active`,
+- [x] `lastActive` is a **move, not a rename** — `hackernews.mjs` writes it as `signals.last_active`,
       and it becomes a top-level field.
-- [ ] It writes `vettingSignals`. Field names match `<source>-handles.json`'s, so the merge is a copy.
-- [ ] It validates its own file, repairs once, revalidates, and returns a failure on a second failure.
-- [ ] It returns `done`. Summary table: *Returns* → `done`, shape → *Writes to disk*, the "No shape,
+- [x] It writes `vettingSignals`. Field names match `<source>-handles.json`'s, so the merge is a copy.
+- [x] It validates its own file, repairs once, revalidates, and returns a failure on a second failure.
+- [x] It returns `done`. Summary table: *Returns* → `done`, shape → *Writes to disk*, the "No shape,
       deliberately" justification out of the table.
-- [ ] *Settings that control it* gains `subagents.repairAttempts` — **this agent enforces it now**.
+- [x] *Settings that control it* gains `subagents.repairAttempts` — **this agent enforces it now**.
 
 **`handle_vetting.mjs` — new**
 
-- [ ] **Prepare** (once per source): read the ranked file, take the cap, match `experts.csv` by
+- [x] **Prepare** (once per source): read the ranked file, take the cap, match `experts.csv` by
       platform column, write the matches in as `legit`, drop the auto-promoted / already-verdicted /
       already-filed, decide Twitter depth, freeze the remainder to
       `cache/<source>/vetting-worklist.json`, return the count.
-- [ ] **Serve a range** (once per vetter): the handles at those positions, with everything a vetter
+- [x] **Serve a range** (once per vetter): the handles at those positions, with everything a vetter
       needs.
-- [ ] **Aggregate** (once per source, after its vetters have all *stopped*): validate each handle
+- [x] **Aggregate** (once per source, after its vetters have all *stopped*): validate each handle
       file, discard the malformed, merge the rest into `<source>-handles.json` by `handle`, never
       rebuild it, report the gap.
-- [ ] It imports `experts.mjs`'s matching rather than re-implementing it.
+- [x] It imports `experts.mjs`'s matching rather than re-implementing it.
 
 **`utils.mjs` — new**
 
-- [ ] Extract the sanitisation inside `filenameOnlyFromUrl` into `safeFilename()`.
-- [ ] `filenameOnlyFromUrl` calls it; new `handleFilename()` calls it on the **lowercased** handle.
-- [ ] Do **not** move `assertWorkspaceRoot` or `parseArgs` — separate cleanup.
+- [x] Extract the sanitisation inside `filenameOnlyFromUrl` into `safeFilename()`.
+- [x] `filenameOnlyFromUrl` calls it; new `handleFilename()` calls it on the **lowercased** handle.
+- [x] Do **not** move `assertWorkspaceRoot` or `parseArgs` — separate cleanup.
 
 **`experts.mjs`**
 
-- [ ] New verb, run **once after every source is vetted**: read the merged handles files, take the
+- [x] New verb, run **once after every source is vetted**: read the merged handles files, take the
       `legit`-and-on-topic rows, fold each through the existing `merge`.
-- [ ] One bad row is recorded and skipped, never aborting the rest.
+- [x] One bad row is recorded and skipped, never aborting the rest.
 
 **Schemas**
 
-- [ ] New `handle-vetting` shape, every field typed.
-- [ ] `source-handles`: `signals` → `pageSignals`; add `vettingSignals`; add `lastActive`.
-- [ ] `statedIdentifiers` becomes the labelled fields plus `otherIdentifiers`; #7's
+- [x] New `handle-vetting` shape, every field typed.
+- [x] `source-handles`: `signals` → `pageSignals`; add `vettingSignals`; add `lastActive`.
+- [x] `statedIdentifiers` becomes the labelled fields plus `otherIdentifiers`; #7's
       `promoter_network.csv` join moves with it.
 
 **Phase and brain files**
 
-- [ ] `vet_phase_c.md` steps 1–6 rewritten around the script; the orchestrator writes neither file;
+- [x] `vet_phase_c.md` steps 1–6 rewritten around the script; the orchestrator writes neither file;
       the separate validation step goes.
-- [ ] `vet_phase_c.md` step 2 — drop "or written earlier in this run"; only the inherited case remains.
-- [ ] Vet's end condition becomes "every source aggregated".
-- [ ] `phases/index.md` — `cache/<source>/handles/` and the work-list file join the layout tree;
+- [x] `vet_phase_c.md` step 2 — drop "or written earlier in this run"; only the inherited case remains.
+- [x] Vet's end condition becomes "every source aggregated".
+- [x] `phases/index.md` — `cache/<source>/handles/` and the work-list file join the layout tree;
       `<source>-handles.json`'s Vet writer becomes the script, **at two moments**.
-- [ ] `source_analyst_agent/` per-source files — ignore the `handles/` subdirectory.
-- [ ] `dispatch_structured_subagent.md` — the Handle Vetter stops being the stdin exception; it now
+- [x] `source_analyst_agent/` per-source files — ignore the `handles/` subdirectory.
+- [x] `dispatch_structured_subagent.md` — the Handle Vetter stops being the stdin exception; it now
       writes a file like everyone else, so the paragraph naming it as the one deliberate exception goes.
 
 **Tests**
 
-- [ ] The new shape · the three renames · `safeFilename` and `handleFilename` · ranges over a frozen
+- [x] The new shape · the three renames · `safeFilename` and `handleFilename` · ranges over a frozen
       list · aggregation · malformed-file discard · gap reporting · auto-promotion from `experts.csv`.
 
 ## `validate.mjs` — `uniqueBy` · §`uniqueBy`
 
-- [ ] New `uniqueBy` keyword in the array branch, comparing normalised values, naming both offending
+- [x] New `uniqueBy` keyword in the array branch, comparing normalised values, naming both offending
       indexes.
-- [ ] Applied to `claim-index` (`claimId`), `source-handles` (`handle`), `source-players` (name),
+- [x] Applied to `claim-index` (`claimId`), `source-handles` (`handle`), `source-players` (name),
       `page-analyst` (`url`). **Not `handle-vetting`** — one handle per file, no array to check.
 
 **Independent of the other packages.** Nothing here waits on them and nothing here blocks them.
@@ -419,25 +436,25 @@ the phase-to-file map. Not worth a pass of its own — worth doing in this one.
 **After vetting.** It imports the handles-file reader from `handle_vetting.mjs`, which that package
 creates.
 
-- [ ] **Select**: filter to `legit` and on-topic, keep each file's order, round-robin, stop at
+- [x] **Select**: filter to `legit` and on-topic, keep each file's order, round-robin, stop at
       `enrich.expertsFollowed`. Returns the handles and their cache paths.
-- [ ] **Dedupe**: drop URLs Extract already read; keep one copy of a URL two experts found, tie broken
+- [x] **Dedupe**: drop URLs Extract already read; keep one copy of a URL two experts found, tie broken
       by round-robin order.
-- [ ] Imports the handles reader from `handle_vetting.mjs` and the URL→filename rules from
+- [x] Imports the handles reader from `handle_vetting.mjs` and the URL→filename rules from
       `fetch.mjs`, `api.mjs`, `hackernews.mjs`.
-- [ ] `enrich_phase_d.md` — both steps become script calls.
+- [x] `enrich_phase_d.md` — both steps become script calls.
 
 ## The orchestrator's own writes — §The orchestrator's own writes have no rules
 
-- [ ] `synthesize_phase_e.md` and `audit_phase_f.md` — the temp-file rule where the orchestrator
+- [x] `synthesize_phase_e.md` and `audit_phase_f.md` — the temp-file rule where the orchestrator
       actually writes scratch: inside the topic, `cache/_misc/`, name prefixed with the step. It is
       in `phases/index.md` alone today, which is read at the start of a run and 30 hours behind by
       Audit.
-- [ ] `audit_phase_f.md` §Record — the orchestrator changes an existing file with the edit tool; a
+- [x] `audit_phase_f.md` §Record — the orchestrator changes an existing file with the edit tool; a
       heredoc always quotes its delimiter; never `node -e` with the document inline.
-- [ ] Say the whole-file rewrite is the expensive option, not the safe one — the harness reads before
+- [x] Say the whole-file rewrite is the expensive option, not the safe one — the harness reads before
       it overwrites, and the summary is 145 KB.
-- [ ] The `.tmp`-then-rename rule is unchanged; only the document's text stops passing through the
+- [x] The `.tmp`-then-rename rule is unchanged; only the document's text stops passing through the
       shell.
 
 ## `audit.md` is appended as the run goes · §`audit.md` is appended as the run goes
@@ -446,32 +463,32 @@ creates.
 those files are rewritten by the packages above — do it first and the rewrites drop the calls.
 Assumes `runlog.mjs`'s stamped heartbeats are already in.
 
-- [ ] `runlog.mjs` — new `finding <category> "<text>" --topic <slug>` verb, appending one tagged line
+- [x] `runlog.mjs` — new `finding <category> "<text>" --topic <slug>` verb, appending one tagged line
       to `audit.md`. The category list lives in this script and nowhere else.
-- [ ] `runlog.mjs header` truncates `audit.md` at the start of a run — the run-start hook already
+- [x] `runlog.mjs header` truncates `audit.md` at the start of a run — the run-start hook already
       fires there, and it is what "replace it entirely" becomes.
-- [ ] `audit_phase_f.md` — the fifteen headed sections go; `[6.8/6]` appends **Unanswered** only, which
+- [x] `audit_phase_f.md` — the fifteen headed sections go; `[6.8/6]` appends **Unanswered** only, which
       is the one thing that cannot be known before the report is finished.
-- [ ] `audit_phase_f.md` — the fact check appends each deleted statement and its reason at the moment
+- [x] `audit_phase_f.md` — the fact check appends each deleted statement and its reason at the moment
       of deletion, not at the end.
-- [ ] Every *"record it in `audit.md`"* across the phases becomes a `runlog.mjs finding` call:
+- [x] Every *"record it in `audit.md`"* across the phases becomes a `runlog.mjs finding` call:
       `extract_phase_b.md` (dropped-for-budget, URL duplicates, budget overrun, dropped receipts,
       blocked and WebFetch pages), `vet_phase_c.md` (per-source handle counts, the aggregation's gap
       report), `enrich_phase_d.md` (excluded players), `phases/index.md` (the stuck-agent kill).
-- [ ] `phases/index.md` — the who-writes-what row for `audit.md` says appended through `runlog.mjs`,
+- [x] `phases/index.md` — the who-writes-what row for `audit.md` says appended through `runlog.mjs`,
       truncated at run start, no longer written once in Audit.
-- [ ] Tests — the append, the category tags, truncation at `header`, and that a run stopped mid-way
+- [x] Tests — the append, the category tags, truncation at `header`, and that a run stopped mid-way
       leaves a readable file.
 
 ## `run_log.md` becomes `run_log.log` — §The run log
 
-- [ ] `runlog.mjs` — the path it builds, and its docstring.
-- [ ] The `##` run heading becomes a plain separator — `=== run <ts> — <kind> · <mode> · run_history[n] ===`.
-- [ ] `phases/index.md` — the layout tree, the who-writes-what row, and the salvage path that opens it
+- [x] `runlog.mjs` — the path it builds, and its docstring.
+- [x] The `##` run heading becomes a plain separator — `=== run <ts> — <kind> · <mode> · run_history[n] ===`.
+- [x] `phases/index.md` — the layout tree, the who-writes-what row, and the salvage path that opens it
       by name. That last one is the only load-bearing reference; the rest are the model's map.
-- [ ] `audit_phase_f.md` ×2, `reporting.md` ×1 — passing mentions.
-- [ ] `tests/runlog.test.mjs`.
-- [ ] Nothing to do for existing topics — a resumed run reads the missing file as no log and does a
+- [x] `audit_phase_f.md` ×2, `reporting.md` ×1 — passing mentions.
+- [x] `tests/runlog.test.mjs`.
+- [x] Nothing to do for existing topics — a resumed run reads the missing file as no log and does a
       full scan, which `phases/index.md` already covers.
 
 ## Verification gates — manual, once

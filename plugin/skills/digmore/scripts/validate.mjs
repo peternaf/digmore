@@ -108,6 +108,19 @@ function quote(value) {
  * Collect every problem rather than stopping at the first: the repair pass gets one
  * attempt, so it has to be told everything that is wrong in one go.
  */
+/**
+ * The comparison `uniqueBy` makes — lowercased and trimmed, the same normalisation `experts.mjs`
+ * uses to union two rows. `u/Foo` and `u/foo` are one person and two strings, and a check that
+ * missed that would pass exactly the duplicate the run is most likely to produce.
+ *
+ * A non-string key compares by value, so a numeric id still works. `undefined` means the field is
+ * absent, which is the required check's business rather than this one's.
+ */
+function normaliseKey(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'string' ? value.trim().toLowerCase() : value;
+}
+
 export function validateValue(schema, value, path = '', errors = []) {
   const at = path || '(root)';
 
@@ -153,6 +166,25 @@ export function validateValue(schema, value, path = '', errors = []) {
     }
     if (schema.maxItems !== undefined && value.length > schema.maxItems) {
       errors.push({ path: at, message: `takes at most ${schema.maxItems} items, got ${value.length}` });
+    }
+    if (schema.uniqueBy) {
+      // `uniqueItems` is the wrong instrument for this: it means the whole item must be unique, so
+      // two rows for u/foo differing in any field — a different documentCount, a different
+      // verdictReason — both pass. What these shapes are specified as is one entry per THING.
+      const seenAt = new Map();
+      value.forEach((item, index) => {
+        const key = normaliseKey(item?.[schema.uniqueBy]);
+        if (key === undefined) return; // absence is the required check's business, not this one
+        if (seenAt.has(key)) {
+          // Both indexes, because "there is a duplicate somewhere" is not a repairable message.
+          errors.push({
+            path: `${path}[${index}].${schema.uniqueBy}`,
+            message: `duplicate ${schema.uniqueBy} ${quote(item[schema.uniqueBy])} — already at index ${seenAt.get(key)}`,
+          });
+        } else {
+          seenAt.set(key, index);
+        }
+      });
     }
     if (schema.items) {
       value.forEach((item, index) => validateValue(schema.items, item, `${path}[${index}]`, errors));

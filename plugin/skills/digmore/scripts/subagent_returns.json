@@ -112,6 +112,7 @@
   "page-analyst": {
     "description": "Returned by a Page Analyst, in Extract and again in Enrichment. An ARRAY, one receipt per URL in the dispatch's batch — the agent reads up to extract.urlsPerDispatch of them in sequence. A receipt is not the extraction: the claims go to <name>-claims.json and are read from there by whoever needs them. Only what the orchestrator acts on comes back — everything else about the page is in the file, and the file is found by reading cache/<source>/ rather than by being handed a path. No maxItems: the batch size is a configuration the user owns, and the check that matters is one receipt per URL sent, which only the orchestrator can make because it built the list.",
     "type": "array",
+    "uniqueBy": "url",
     "items": {
       "type": "object",
       "required": [
@@ -404,6 +405,7 @@
       },
       "handles": {
         "type": "array",
+        "uniqueBy": "handle",
         "description": "Ordered: highest topImportance first, then documentCount descending. A handle that produced no claim ranks below every handle that produced one, however often it appeared — there is nothing of theirs to quote, so a verdict on them changes nothing.",
         "items": {
           "type": "object",
@@ -446,12 +448,12 @@
               },
               "description": "The cached files this handle appears in, relative to the topic directory. You know them already — you read every file in the directory to build this list — and nowhere else can recover them: the cache is named per URL and says nothing about who posted. The Handle Vetter needs it on forums, where there is no vetting script and the pages are the only evidence, and its one alternative is to open every file in the directory and search for its own handle."
             },
-            "signals": {
+            "pageSignals": {
               "type": "object",
               "additionalProperties": {
                 "type": "string"
               },
-              "description": "Anything the pages already showed that vetting would otherwise pay to fetch: forum post counts, badges, trust levels, accepted-answer marks, whether they are the thread author. Free here, since the pages are already read."
+              "description": "Anything the pages already showed that vetting would otherwise pay to fetch: forum post counts, badges, trust levels, accepted-answer marks, whether they are the thread author. Free here, since the pages are already read. Named apart from vettingSignals below, which is what the heuristic actually fired on: this is the Source Analyst's, that is the Handle Vetter's, and they were one word until two different things were found sharing it."
             },
             "lastSeen": {
               "type": "string",
@@ -467,7 +469,7 @@
                 "spammer",
                 "throwaway"
               ],
-              "description": "Added by the orchestrator at the end of Vet, never by the Source Analyst. The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script cached. Absent means this handle fell below the cap and was never vetted, which is different from being vetted and rejected."
+              "description": "Written by handle_vetting.mjs, never by the Source Analyst — at two moments inside Vet: the experts.csv auto-promotions before any dispatch, and the merge of the per-handle files after. The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script cached. Absent means this handle fell below the cap and was never vetted, which is different from being vetted and rejected."
             },
             "topicalRelevance": {
               "type": "string",
@@ -476,25 +478,154 @@
                 "medium",
                 "low"
               ],
-              "description": "Added at the end of Vet. The Handle Vetter's reading of how much of this topic they actually work on."
+              "description": "Merged in by handle_vetting.mjs. The Handle Vetter's reading of how much of this topic they actually work on."
             },
             "verdictReason": {
               "type": "string",
-              "description": "Added at the end of Vet. Why the verdict came out that way, in one line. This is the only record of a rejection — experts.csv holds legit people only, so without it a promoter verdict is computed and thrown away, and the next run pays to compute it again."
+              "description": "Merged in by handle_vetting.mjs. Why the verdict came out that way, in one line — and on an auto-promotion, that it came from experts.csv. This is the only record of a rejection: experts.csv holds legit people only, so without it a promoter verdict is computed and thrown away, and the next run pays to compute it again."
             },
             "inExperts": {
               "type": "boolean",
-              "description": "Added at the end of Vet. Whether this handle became a row in experts.csv."
+              "description": "Whether this handle became a row in experts.csv. Set by experts.mjs when it builds that file from the merged handles files, once every source has been aggregated — so it is the last field written in the phase."
             },
-            "statedIdentifiers": {
+            "vettingSignals": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Merged in by handle_vetting.mjs from the Handle Vetter's file. The numbers the verdict rested on — the karma, the account age, the host repeated twelve times — so a reader can disagree with it. verdictReason says what was concluded; this says what it was concluded from, and without it a human questioning a verdict has the sentence and not the evidence. Empty on an auto-promotion from experts.csv, because no heuristic ran."
+            },
+            "lastActive": {
+              "type": "string",
+              "format": "date",
+              "description": "Merged in by handle_vetting.mjs. The person's real most recent post or comment anywhere, never the date they were vetted — and a different field from lastSeen above, which is the last date they appear in THIS run's cached material. experts.csv's last_active column is copied from here; before this it was passed from the orchestrator's memory, so a script reading the merged file instead would have lost the column entirely."
+            },
+            "realName": {
+              "type": "string",
+              "description": "IDENTIFIER — merged in by handle_vetting.mjs from the Handle Vetter's file, and only ever what the PROFILE ITSELF PRINTS, verbatim. Transcription, never inference: a matching username, a similar writing style or the same avatar is a hunch and does not belong in any of these fields. Two handles are joined when one profile named the other, and never because they look alike."
+            },
+            "github": {
+              "type": "string",
+              "description": "IDENTIFIER. The GitHub handle the profile states."
+            },
+            "website": {
+              "type": "string",
+              "description": "IDENTIFIER. The personal site the profile states."
+            },
+            "reddit": {
+              "type": "string",
+              "description": "IDENTIFIER. A Reddit handle the profile states, where this row is not itself Reddit's."
+            },
+            "hn": {
+              "type": "string",
+              "description": "IDENTIFIER. A Hacker News handle the profile states, where this row is not itself Hacker News's."
+            },
+            "twitter": {
+              "type": "string",
+              "description": "IDENTIFIER. A Twitter handle the profile states, where this row is not itself Twitter's."
+            },
+            "otherIdentifiers": {
               "type": "array",
               "items": {
                 "type": "string"
               },
-              "description": "Added at the end of Vet, from the Handle Vetter's return. Every other identifier the PROFILE ITSELF PRINTS, verbatim: a real name, a personal site, a GitHub, another account. Transcription, never inference — a matching username, a similar writing style or the same avatar is a hunch and does not belong here. This is the only store there is: experts.csv takes legit people alone, so without it a promoter's linked accounts are read and thrown away, and the Raw report writer cannot tell that u/foo, hn/foo and @foo are one person when it builds promoter_network.csv. Two handles are joined when one profile named the other, and never because they look alike."
+              "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labelled fields exist because experts.mjs infers nothing: every column arrives as a flag, so a labelled field is a copy and an unlabelled bag is an interpretation somebody downstream has to make with less information than the agent that read the profile had. This array is the remainder, and a person whose links all land here is a person experts.csv cannot match on. These fields replace an earlier single statedIdentifiers array of strings, which three agents typed three different ways and which put 26 wrong rows into one run's handles files. They are also the only store there is: experts.csv takes legit people alone, so without them a promoter's linked accounts are read and thrown away, and the Raw report writer cannot tell that u/foo, hn/foo and @foo are one person when it builds promoter_network.csv."
             }
           }
         }
+      }
+    }
+  },
+  "handle-vetting": {
+    "description": "Written by the Handle Vetter to cache/<source>/handles/<handle>.json, ONE FILE PER HANDLE, as each handle is finished rather than at the end of the batch. Validated as a file rather than as a return: this agent returns the word `done`, and the file is the artifact. It is checked twice — the agent validates its own file and repairs once before moving on, and handle_vetting.mjs validates each again as it aggregates, discarding the malformed before anything reaches <source>-handles.json. That is what replaced a post-write gate on the shared file, which caught a bad row only once it was already in it. The file existing means that handle has been vetted, which is also the resume check. Its field names are camelCase to match <source>-handles.json, so the merge is a copy; the vetting scripts speak snake_case and are not touched — the agent reads their output and writes these names.",
+    "type": "object",
+    "required": [
+      "handle",
+      "source",
+      "verdict",
+      "verdictReason"
+    ],
+    "properties": {
+      "handle": {
+        "type": "string",
+        "description": "As the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form. This is the key the aggregation joins on, so it must match the roster row exactly — the filename is lowercased for the filesystem's sake, and this field is not."
+      },
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums"
+        ],
+        "description": "The four sources that carry handles. The open web and the user's own documents have authors rather than accounts, so neither dispatches this agent."
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "legit",
+          "unknown",
+          "promoter",
+          "spammer",
+          "throwaway"
+        ],
+        "description": "The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script returned. A verdict other than legit changes how a quote is used, not whether it survives: unknown is kept and marked 'unvetted', promoter is kept and labelled as a promotional signal, and only spammer and throwaway are dropped. A profile that could NOT BE READ is unknown, never throwaway — that is a gap in what the run could see rather than a judgement about the person."
+      },
+      "verdictReason": {
+        "type": "string",
+        "description": "Why the verdict came out that way, in one line. On a throwaway it carries which of the three reasons it was — 'too-small' (new AND tiny, every condition together), 'no-account' (the profile was read and there is nobody behind it: deleted, suspended, private), or 'shadowbanned' (Hacker News only). One verdict word covers three unlike situations because in every one of them the material is dropped and no deeper read is spent; the distinction lives here rather than in a sixth verdict nothing downstream would act on."
+      },
+      "topicalRelevance": {
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ],
+        "description": "How much of this topic the person actually works on — this agent's own read, because the script cannot judge it and does not know the topic. high: something they work on or return to. medium: they touch it credibly but it is not their subject. low: one or two on-topic posts and no more. Below low — no recent on-topic activity at all — demotes the verdict to unknown, and is why this field is absent on a throwaway: that verdict ends the dispatch before the read happens."
+      },
+      "vettingSignals": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The numbers the verdict rested on — the karma, the account age, the follower count, the host repeated twelve times — so a reader can disagree with it. verdictReason says what was concluded; this says what it was concluded from. A real run had two verdicts overturned after somebody checked what the links actually were, which is the case this exists for."
+      },
+      "lastActive": {
+        "type": "string",
+        "format": "date",
+        "description": "The person's real most recent post or comment, YYYY-MM-DD — never the date they were vetted. It arrives NESTED inside the script's own signals, as signals.last_active, so writing it here is a move rather than a rename."
+      },
+      "realName": {
+        "type": "string",
+        "description": "IDENTIFIER — only ever what the PROFILE ITSELF PRINTS, verbatim. Transcription, never inference: a matching username, a similar writing style or the same avatar is a hunch and belongs in none of these fields. Read it off the page or leave it empty. Deciding that two handles are one person is not this agent's job and not anyone's — experts.mjs unions two rows only on exact equality of a real name or a handle column, and refuses where a row matches two existing rows by different handles."
+      },
+      "github": {
+        "type": "string",
+        "description": "IDENTIFIER. The GitHub handle the profile states."
+      },
+      "website": {
+        "type": "string",
+        "description": "IDENTIFIER. The personal site the profile states."
+      },
+      "reddit": {
+        "type": "string",
+        "description": "IDENTIFIER. A Reddit handle the profile states, where this row is not itself Reddit's."
+      },
+      "hn": {
+        "type": "string",
+        "description": "IDENTIFIER. A Hacker News handle the profile states, where this row is not itself Hacker News's."
+      },
+      "twitter": {
+        "type": "string",
+        "description": "IDENTIFIER. A Twitter handle the profile states, where this row is not itself Twitter's."
+      },
+      "otherIdentifiers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labels are the point: experts.mjs infers nothing, so a labelled field becomes a column by copying while an unlabelled bag becomes one by interpretation, made downstream with less information than the agent that read the profile had."
       }
     }
   },
@@ -519,6 +650,7 @@
       },
       "players": {
         "type": "array",
+        "uniqueBy": "name",
         "description": "Every company, project, product or service this source's material named. Not pre-filtered: the inclusion floor is applied across all six sources at once, so an entity named twice here and three times elsewhere clears it while neither source could have known.",
         "items": {
           "type": "object",
@@ -790,6 +922,7 @@
     "properties": {
       "claims": {
         "type": "array",
+        "uniqueBy": "claimId",
         "items": {
           "type": "object",
           "required": [

@@ -321,7 +321,7 @@ const reddit = {
   async thread(ctx, [idOrPermalink], flags) {
     if (!idOrPermalink) throw new ApiError('reddit thread needs an id or permalink', EXIT.USAGE);
     const threadId = postId(idOrPermalink);
-    return cached(ctx, `reddit-thread-${threadId}.json`, () =>
+    return cached(ctx, THREAD_CACHE_NAME(threadId), () =>
       request(ctx.config, `/v1/reddit/thread/${encodeURIComponent(threadId)}`, {
         limit: flags.limit ?? 500,
       }),
@@ -391,7 +391,7 @@ const twitter = {
     const found = {};
     const missing = [];
     for (const tweetId of tweetIds) {
-      const cachedTweet = readCache(ctx.dir, `twitter-tweet-${tweetId}.json`);
+      const cachedTweet = readCache(ctx.dir, TWEET_CACHE_NAME(tweetId));
       if (cachedTweet === undefined) missing.push(tweetId);
       else found[tweetId] = cachedTweet;
     }
@@ -403,7 +403,7 @@ const twitter = {
       for (const tweet of asResults(payload)) {
         const tweetId = String(tweet.id ?? '');
         if (!tweetId) continue;
-        writeCache(ctx.dir, `twitter-tweet-${tweetId}.json`, tweet);
+        writeCache(ctx.dir, TWEET_CACHE_NAME(tweetId), tweet);
         found[tweetId] = tweet;
       }
     }
@@ -522,6 +522,24 @@ function asResults(payload) {
  * a real permalink carries a title slug after the id, and often a comment id after that,
  * so the last segment is usually neither the post nor an id at all.
  */
+/**
+ * The cache filenames for the two document kinds this script fetches, defined here because this is
+ * the script that writes them.
+ *
+ * `expert_selection.mjs` derives the same names from a URL to decide whether Extract already read a
+ * page. A second copy of either pattern there is a copy that stops matching the first time one
+ * moves — and that failure looks like an expert whose every page is new, so the run pays to read
+ * what it already has claims from.
+ */
+export const THREAD_CACHE_NAME = (threadId) => `reddit-thread-${threadId}.json`;
+export const TWEET_CACHE_NAME = (tweetId) => `twitter-tweet-${tweetId}.json`;
+
+/** The tweet id inside an x.com or twitter.com URL — `/status/<id>` — or undefined if there is none. */
+export function tweetIdFromUrl(url) {
+  const match = /\/status(?:es)?\/(\d+)/.exec(String(url));
+  return match ? match[1] : undefined;
+}
+
 export function postId(value) {
   const text = String(value);
   const match = /comments\/([a-z0-9]+)/i.exec(text);

@@ -16,7 +16,7 @@ Nothing before this phase ever decided who the run's subjects were. That is what
 
 **If `cache/` is gone, stop here.** Everything below reads it. A cleared cache leaves the topic root
 intact, so a run that works against an empty directory looks complete having found nothing — say so
-and offer to start the research over (`index.md` §"When the cache is gone").
+and offer to start the research over (`../resuming.md` §"When the cache is gone").
 
 ## The expert step — `[4.1/6]` to `[4.3/6]`
 
@@ -28,12 +28,24 @@ both the candidate count below and the raw report in the phase after count what 
 later and its claims land after the count and after the report, in a directory nothing reads again —
 they would reach no report at all.
 
-### Who gets followed
+### Who gets followed — a script decides this, not you
 
-`enrich.expertsFollowed` of them, and `preflight.mjs` prints the number that applies. Take only
-handles whose verdict is `legit` **and** who are on-topic, in each source's `<source>-handles.json`
-order — that order is what each handle contributed, and it is already correct. Round-robin across the
-sources so one busy source does not spend the whole budget, and stop at the configuration.
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/expert_selection.mjs" select \
+  --topic <slug> [--fast]
+```
+
+Back comes the handles the run follows, each with its source, its branch label and the path to its
+vetting cache. **That list is the whole of what you keep** — you never open a roster here.
+
+The rule it applies: `legit` **and** on-topic only, in each source's `<source>-handles.json` order —
+that order is what each handle contributed, and it was settled a phase ago — round-robining across
+the sources so one busy source cannot spend the whole budget, stopping at `enrich.expertsFollowed`.
+
+**A script rather than you, for two reasons.** Four rosters read to choose ten handles is ~190 rows
+of `pageSignals`, `documents` and `vettingSignals` read and thrown away, in the one context that has
+to survive the run. And a model round-robining four lists by hand returns a different ten on a
+re-run, which would make *which experts the run follows* unreproducible.
 
 ### `[4.1/6]` Expert search — one Branch Searcher per expert
 
@@ -49,15 +61,31 @@ What each source has to offer differs, and the agent's own file says so: Reddit 
 cached comments in full, Twitter has posts only for handles that got the deep pass, forums cached
 nothing at all, and websearch and local have no handles and so no experts.
 
-### Dedupe before dispatching a single reader
+### Dedupe before dispatching a single reader — the same script
 
-Against the other experts' lists **and against what Extract already read**. An expert surfaced
-*because* they said something the run read, so their cached comments will include the very documents
-already extracted. Without this the run spends its whole expert budget re-reading pages it already
-has claims from.
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/expert_selection.mjs" dedupe \
+  --topic <slug> [--fast]
+```
 
-Same rule as `extract_phase_b.md` §"Dedupe the URLs before dispatching a single reader" — normalise
-before comparing, and here also compare against the cache on disk.
+It reads each expert's URL list from `cache/_returns/branch-searcher-expert-<handle>.json` — the
+searchers returned `done` and wrote them there, so **no URL list enters your context either** — and
+hands back the pages worth a reader, with counts for what it dropped.
+
+Two overlaps, and only one of them is a choice:
+
+| Case | What happens |
+|---|---|
+| the same URL in two experts' lists | keep one copy, dispatch one reader, charge the fetch to whichever expert came first in `select`'s order |
+| **a URL Extract already read** | **dropped entirely** — no reader, no budget charged. The page and its claims are on disk and already in that source's report |
+
+**The tie is broken by round-robin order, never by relevance.** In Extract every score inside a
+branch comes from one searcher, so "highest wins" compares like with like. Here each expert has its
+own searcher scoring independently against the research question, so 0.8 from one and 0.7 from
+another is a coin flip wearing a ranking.
+
+Its `alreadyRead` and `duplicates` counts go in as one `runlog.mjs finding url-duplicate`. `listsMissing` names any expert whose
+searcher wrote no file — a dispatch that failed, not an expert with nothing to say.
 
 ### `[4.2/6]` Expert read — one Page Analyst per batch of surviving pages
 
@@ -183,7 +211,7 @@ Three bounds on that judgement:
 
 1. **You may cut from the candidate list. You may never add below the floor.** A company that did
    not reach five documents did not earn a row, whatever you know about it from elsewhere.
-2. **Every exclusion is recorded in `audit.md`**, naming the entity and the reason. A candidate that
+2. **Every exclusion is recorded — `runlog.mjs finding excluded-player`, one call each**, naming the entity and the reason. A candidate that
    qualified and was left out is a decision the run made, and a reader is entitled to see it.
 3. **Say what you did**, in one line, before moving on: how many candidates qualified, how many
    became rows.
@@ -211,8 +239,10 @@ through its dispatch.
 
 ## `[4.5/6]` Profile — one sub-agent per row
 
-Dispatch **one Player Profiler per row**, per `../subagents/dispatch_structured_subagent.md`. Its own
-file is `../subagents/player_profiler_agent.md`, and it is also sent `../fetching.md`.
+Dispatch **one Player Profiler per row**, per `../subagents/dispatch_structured_subagent.md` — which
+is also where the rule that the dispatch **names the path to the agent's own file** lives,
+§"Send the agent its own files". Here those are `../subagents/player_profiler_agent.md`,
+`../fetching.md`, and the command's reference file.
 
 Each dispatch carries one player's name, the topic, the columns this run's `players.csv` holds, and
 **the path to `player_candidates.json`**. The agent finds its own entry there, follows the claim
@@ -240,7 +270,7 @@ six of its steps. `preflight.mjs` prints the number this run uses.
 claim filter are the bound, and unlike a fixed number they scale with what the run actually found.
 
 **When a profile fails**, the agent returns `fetch_failed` rather than writing a cell that hides it.
-In auto mode, re-dispatch each failed row once, then skip it and record the skip in `audit.md`. In
+In auto mode, re-dispatch each failed row once, then skip it and record the skip — `runlog.mjs finding known-gap`. In
 manual mode, collect the failures and ask once — retry, skip, or abort — when the last row has
 returned, not as they arrive. Never one prompt per failed player: that interrupts the run as many
 times as the topic happens to have awkward companies in it, and with rows now dispatched

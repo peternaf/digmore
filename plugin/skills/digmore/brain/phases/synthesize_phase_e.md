@@ -16,6 +16,11 @@ on disk.
 
 Re-read `../output.md` before any dispatch.
 
+**Scratch you write in this phase goes inside the topic** — `digmore/<slug>/cache/_misc/<step>-<what>.md`,
+named for the step that wrote it, never `/tmp`. The rule is in `index.md` §"Where a run writes", which
+you read at the start of the run and are a long way from by now; `audit_phase_f.md` §"How you write"
+carries it too, along with the rule about getting text into a file without a shell parsing it.
+
 ## `[5.1/6]` The raw report
 
 ### First, join the verdicts — a script
@@ -43,8 +48,10 @@ argument, which a reader learns from; unsourced is a defect in us.
 
 ### Then dispatch ONE Raw report writer
 
-Per `../subagents/dispatch_structured_subagent.md`. Its own file is
-`../subagents/raw_report_writer_agent.md`. It returns the `raw-report-writer` shape.
+Per `../subagents/dispatch_structured_subagent.md`, which is also where the rule that the dispatch
+**names the path to the agent's own file** lives — §"Send the agent its own files". Here that file is
+`../subagents/raw_report_writer_agent.md`. It returns the `raw-report-writer` shape; name the shape
+rather than pasting it, and the agent prints its own.
 
 **Task text:** the topic, the research question, and the spec for every enumerable section this run
 declared — `row_is`, fields, sort and render, from `research_plan.json.scope.sections`.
@@ -56,7 +63,7 @@ they could be applied differently.
 
 **Data files:** every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. On `gtm`
 runs only, also the four `<source>-handles.json`, which `promoter_network.csv` needs for its
-`person_verdict` column and for the `statedIdentifiers` its identity join rests on.
+`person_verdict` column and for the labelled identifiers its identity join rests on.
 
 **It writes, in this order:** each declared enumerable section's CSV, then `<slug>-raw-report.md` and
 `claim_index.json` together at the end. The order is the partial-progress path — **either of those two

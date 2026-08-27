@@ -9,6 +9,7 @@
 | `twitter-tweet-<id>.json` | one per tweet the run quoted — the real body, not the search preview |
 | `twitter-tweet-<id>-claims.json` | the Page Analyst's extraction from it |
 | `twitter-vet-<handle>.json` | one per vetted handle, if Vet has already run: the profile, the sampled posts and the verdict together. `posts_sampled` says how many posts it holds — `0` on a handle that got the profile alone, and on every handle in a `--fast` run |
+| `handles/` | **not yours, and not material.** Vet's own verdict on each handle, one file each. Skip the directory: a vetting record read as a document puts a judgement about a person into the report as though somebody had said it |
 
 **This source is thinner than the others by design.** Discovery is WebSearch, which cannot see tweet
 text, so only tweets the run decided to quote were ever fetched in full. What is on disk is a

@@ -34,7 +34,8 @@ Any of these, plus on-topic activity, is enough for `legit`.
 only thing left is what the person says about themselves — a signature or profile line naming their
 site, their GitHub, or an account on another source. Where that named account is already in
 `experts.csv` with a `legit` verdict, that carries; say which source it came from, and put the stated
-link in `stated_identifiers`.
+link in the labelled field that fits it — `website`, `github`, `reddit`, `hn`, `twitter`, or
+`otherIdentifiers` for anything else (`../index.md` §"One verdict per handle, one source per batch").
 
 **A matching display name is not that link.** The same name on a forum and on Reddit is not evidence
 of one person, and treating it as such is exactly the inference `../index.md` §"One handle, one

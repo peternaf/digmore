@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | Audit `[6.4/6]`, between the review and the fact check |
 | **Purpose** | Read the summary as someone who was not in the run and mark what they could not follow, then go and learn what those sentences were meant to say and fix them — saying each thing once, and reporting what changed |
-| **Input text** | the two stages below, in order, with the flag file's path · the dedup instruction in full, including the section order · `output.md` named as the standard to edit against, **its rules not restated** |
+| **Input text** | the two stages below, in order, with the flag file's path · the dedup instruction in full, **which is the one part of this job `output.md` does not contain** · `output.md` named as the standard to edit against, its rules not restated, per `dispatch_structured_subagent.md` §"A dispatch never restates what the agent's own file says" |
 | **Input rule files** | `output.md`. **For every other agent this is a style reminder; here it is the job description** — it holds the banned-phrase list stage 1 flags against, the prose standard that defines a violation, and the boundary that keeps this agent off quoted source text |
 | **Input data files** | **stage 1** — the draft summary, alone. **stage 2** — the aggregate raw report and every finished CSV the summary renders an enumerable section from. Named in the dispatch, **but not to be opened until the flag file is written** |
 | **Runs** | no scripts, no network. It reads the draft, then the raw report and the CSVs, and rewrites the summary — into a temp file, renamed over the original |

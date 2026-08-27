@@ -312,3 +312,113 @@ test('a nine-column file from before topical_relevance still loads', async () =>
   await add('--real-name', 'Ada', '--topical-relevance', 'medium');
   assert.match(csv(), /topical_relevance/, 'the file is upgraded in place on the next write');
 });
+
+// ---------------------------------------------------------------- build, from the merged rosters
+
+function writeRoster(source, handles) {
+  const dir = join(sandbox.cwd, 'digmore', 'demo', 'full_source_analysis');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${source}-handles.json`), JSON.stringify({ source, handles }));
+}
+
+function roster(source) {
+  return JSON.parse(
+    readFileSync(join(sandbox.cwd, 'digmore', 'demo', 'full_source_analysis', `${source}-handles.json`), 'utf8'),
+  );
+}
+
+test('build takes the legit rows off the rosters and leaves everyone else out', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'high', lastActive: '2026-03-01' },
+    { handle: 'u/spam', verdict: 'spammer' },
+    { handle: 'u/quiet', verdict: 'unknown' },
+    { handle: 'u/nobody' },
+  ]);
+
+  const { code, out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(code, 0);
+  assert.equal(JSON.parse(out).added, 1);
+
+  const rows = experts.load(csvPath());
+  assert.equal(rows.length, 1, 'only legit becomes a row');
+  assert.equal(rows[0].real_name, 'Ada Lovelace');
+  assert.equal(rows[0].reddit, 'ada', 'the prefix comes off — the column already says reddit');
+  assert.equal(rows[0].sources, 'reddit');
+  assert.equal(rows[0].last_active, '2026-03-01');
+  assert.equal(rows[0].topical_relevance, 'high');
+});
+
+test('build copies the labelled identifiers into their own columns', async () => {
+  writeRoster('hackernews', [
+    { handle: 'hn/ada', verdict: 'legit', realName: 'Ada', github: 'adagh', website: 'ada.dev', twitter: 'adax' },
+  ]);
+  await sandbox.run('experts.mjs', 'build', 'demo');
+
+  const [row] = experts.load(csvPath());
+  assert.equal(row.hn, 'ada', "the handle's own column is where we actually met them");
+  assert.equal(row.github, 'adagh');
+  assert.equal(row.website, 'ada.dev');
+  assert.equal(row.twitter, 'adax', 'a platform handle the profile stated');
+});
+
+test('build unions one person across two rosters rather than writing two rows', async () => {
+  writeRoster('reddit', [{ handle: 'u/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'low' }]);
+  writeRoster('hackernews', [{ handle: 'hn/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'high' }]);
+
+  const { out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(JSON.parse(out).rows, 1);
+
+  const [row] = experts.load(csvPath());
+  assert.equal(row.reddit, 'ada');
+  assert.equal(row.hn, 'ada');
+  assert.equal(row.sources, 'reddit|hackernews');
+  assert.equal(row.topical_relevance, 'high', 'the strongest reading across sources wins');
+});
+
+test('build writes inExperts back onto the roster', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada' },
+    { handle: 'u/quiet', verdict: 'unknown' },
+  ]);
+  await sandbox.run('experts.mjs', 'build', 'demo');
+
+  const handles = roster('reddit').handles;
+  assert.equal(handles[0].inExperts, true);
+  assert.equal(handles[1].inExperts, undefined, 'nobody claims a row they did not get');
+});
+
+test('one unusable row is recorded and skipped, and the rest still land', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada' },
+    { handle: '', verdict: 'legit' }, // no name, no handle: could never be matched again
+    { handle: 'u/bob', verdict: 'legit', realName: 'Bob' },
+  ]);
+
+  const { code, out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(code, 0, 'one bad row never aborts the rest — that cost 48 verdicts once');
+  const result = JSON.parse(out);
+  assert.equal(result.skipped.length, 1);
+  assert.equal(result.rows, 2);
+});
+
+test('build says which rosters it read and which were not there', async () => {
+  writeRoster('reddit', [{ handle: 'u/ada', verdict: 'legit', realName: 'Ada' }]);
+  const { out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  const result = JSON.parse(out);
+  assert.deepEqual(result.sourcesRead, ['reddit']);
+  assert.deepEqual(result.sourcesMissing, ['hackernews', 'twitter', 'forums']);
+});
+
+test('findExpertByHandle matches the bare name and the prefixed handle alike', () => {
+  const rows = [experts.row({ real_name: 'Ada', reddit: 'ada' })];
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'u/ada'));
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'ada'));
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'U/ADA'), 'normalised, as the merge is');
+  assert.equal(experts.findExpertByHandle(rows, 'hn', 'hn/ada'), undefined, 'the wrong column matches nobody');
+});
+
+test('forums has no column, so nothing can auto-promote from it', () => {
+  assert.equal(experts.expertColumnFor('forums'), undefined);
+  assert.equal(experts.expertColumnFor('reddit'), 'reddit');
+  assert.equal(experts.expertColumnFor('hackernews'), 'hn');
+});

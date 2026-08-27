@@ -749,9 +749,30 @@ test('throwaway is a verdict on the roster', async () => {
 
 // Transcribed from what a profile printed, never inferred. It is the only store there is —
 // experts.csv takes legit people alone — so a promoter's linked accounts live here or nowhere.
-test('statedIdentifiers is optional and takes a list of strings', async () => {
+// Every identifier field is optional — a profile that states nothing is the common case — and
+// each is typed, which is what the single statedIdentifiers array was not: it arrived as a
+// string, an array and an object from three agents, and 26 rows reached one run's roster wrong.
+test('the roster identifiers are optional, labelled and typed', async () => {
   const payload = roster();
-  payload.handles[0].statedIdentifiers = ['github.com/someone', 'someone.dev'];
+  Object.assign(payload.handles[0], {
+    realName: 'Someone',
+    github: 'someone',
+    website: 'someone.dev',
+    otherIdentifiers: ['mastodon.social/@someone'],
+  });
+  assert.equal((await check('source-handles', payload)).code, 0);
+
+  const wrongType = roster();
+  wrongType.handles[0].github = ['someone'];
+  const result = await check('source-handles', wrongType);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['handles[0].github']);
+});
+
+test('vettingSignals and lastActive land on the roster from the vetting record', async () => {
+  const payload = roster();
+  payload.handles[0].vettingSignals = { karma: '41200', accountAgeDays: '3800' };
+  payload.handles[0].lastActive = '2026-08-20';
   assert.equal((await check('source-handles', payload)).code, 0);
 });
 
@@ -821,4 +842,163 @@ test('no arguments exits 2 with the usage line', async () => {
   } finally {
     await sandbox.cleanup();
   }
+});
+
+// ------------------------------------------------------------------ one handle's vetting record
+
+const vetting = (extra = {}) => ({
+  handle: 'u/someone',
+  source: 'reddit',
+  verdict: 'legit',
+  verdictReason: 'ten years of on-topic comments, no promotional pattern',
+  ...extra,
+});
+
+test('a minimal vetting record passes — the judgement and its reason', async () => {
+  assert.equal((await check('handle-vetting', vetting())).code, 0);
+});
+
+// verdictReason is the only record of a rejection: experts.csv keeps legit people alone, so a
+// promoter verdict with no reason is computed, used to drop a quote, and thrown away.
+test('the reason is required, on every verdict', async () => {
+  const payload = vetting({ verdict: 'promoter' });
+  delete payload.verdictReason;
+  const result = await check('handle-vetting', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['verdictReason']);
+});
+
+test('the verdict vocabulary is the five, and nothing else', async () => {
+  assert.equal((await check('handle-vetting', vetting({ verdict: 'throwaway' }))).code, 0);
+  const result = await check('handle-vetting', vetting({ verdict: 'suspicious' }));
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['verdict']);
+});
+
+test('a source with no accounts cannot have a vetting record', async () => {
+  const result = await check('handle-vetting', vetting({ source: 'websearch' }));
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['source']);
+});
+
+// throwaway ends the dispatch before the topical-relevance read happens, so a record without
+// one is the normal shape of that answer rather than an incomplete one.
+test('topicalRelevance may be absent, and is checked when present', async () => {
+  assert.equal((await check('handle-vetting', vetting({ verdict: 'throwaway' }))).code, 0);
+  const result = await check('handle-vetting', vetting({ topicalRelevance: 'very' }));
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['topicalRelevance']);
+});
+
+// The whole point of labelling them: experts.mjs fills a column by copying rather than by
+// interpreting a bag of strings, which is what arrived as three different types from three agents.
+test('the identifiers are labelled fields, and otherIdentifiers is the remainder', async () => {
+  const result = await check('handle-vetting', vetting({
+    realName: 'Ada Lovelace',
+    github: 'ada',
+    website: 'ada.dev',
+    twitter: 'adax',
+    otherIdentifiers: ['mastodon.social/@ada'],
+  }));
+  assert.equal(result.code, 0);
+});
+
+test('an unlabelled bag of identifiers is not a field any more', async () => {
+  const result = await check('handle-vetting', vetting({ realName: ['Ada Lovelace'] }));
+  assert.equal(result.code, 1, 'realName is one string, not a list');
+  assert.deepEqual(paths(result), ['realName']);
+});
+
+// The field names are camelCase so the merge into <source>-handles.json is a copy. The vetting
+// scripts speak snake_case and are untouched; the agent does that translation.
+test('the roster carries the same names the vetting record does', () => {
+  const record = Object.keys(schemasJson['handle-vetting'].properties);
+  const row = schemasJson['source-handles'].properties.handles.items.properties;
+  for (const field of record) {
+    if (field === 'source') continue; // the roster says it once, at the top
+    assert.ok(row[field], `${field} has nowhere to merge into on the roster`);
+  }
+});
+
+test('the roster keeps pageSignals and vettingSignals apart', async () => {
+  const row = schemasJson['source-handles'].properties.handles.items.properties;
+  assert.ok(row.pageSignals, "what the pages showed, and the Source Analyst's");
+  assert.ok(row.vettingSignals, "what the heuristic fired on, and the Handle Vetter's");
+  assert.equal(row.signals, undefined, 'one word for two different things is what this replaced');
+  assert.equal(row.statedIdentifiers, undefined, 'replaced by the labelled fields');
+});
+
+// ------------------------------------------------------------------ uniqueBy
+
+// uniqueItems would be the wrong instrument: in JSON Schema it means the whole ITEM must be
+// unique, so two rows for u/foo differing in any field — a different documentCount, a different
+// verdictReason — would both pass. These shapes are specified as one entry per thing.
+test('a roster with one handle twice is caught, and both indexes are named', async () => {
+  const payload = roster();
+  payload.handles.push({ ...payload.handles[0] });
+  const result = await check('source-handles', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['handles[2].handle']);
+  assert.match(result.out + result.err, /already at index 0/);
+});
+
+test('a duplicate differing in every other field is still a duplicate', async () => {
+  const payload = roster();
+  payload.handles.push({ ...payload.handles[0], claimCount: 99, documentCount: 7 });
+  assert.equal((await check('source-handles', payload)).code, 1);
+});
+
+// u/Foo and u/foo are one person and two strings — the same normalisation experts.mjs unions on.
+test('the comparison is normalised, so case and space do not hide a duplicate', async () => {
+  const payload = roster();
+  payload.handles.push({ ...payload.handles[0], handle: '  U/SOMEONE ' });
+  assert.equal((await check('source-handles', payload)).code, 1);
+});
+
+// This one is load-bearing: the fact check joins on claimId, so a duplicate lands a verdict on
+// the wrong claim — and claim_index.json is the one file in Synthesize that gets a real check.
+test('two claims sharing a claimId are caught', async () => {
+  const payload = claimIndex();
+  payload.claims.push({ ...payload.claims[0], claim: 'a different statement entirely' });
+  const result = await check('claim-index', payload);
+  assert.equal(result.code, 1);
+  assert.ok(paths(result).some((path) => path.endsWith('claimId')));
+});
+
+test('two receipts for one URL are caught — one receipt per URL sent', async () => {
+  const result = await check('page-analyst', [receipt(), receipt()]);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['[1].url']);
+});
+
+// One entity's evidence would split across two rows, and neither would reach the five-document
+// floor — so the run loses a player without anything saying so.
+test('two rows for one player are caught', async () => {
+  const player = {
+    name: 'Mux',
+    documentCount: 3,
+    claimCount: 4,
+    topImportance: 'central',
+    relevance: 'named as the incumbent people are migrating off',
+    claims: [{ file: 'cache/reddit/reddit-thread-1a2b-claims.json', index: 0 }],
+  };
+  const result = await check('source-players', { source: 'reddit', players: [player, { ...player }] });
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['players[1].name']);
+});
+
+// One handle per file, so there is no array of handles to check. Adding it there would be a
+// keyword with nothing to compare.
+test('handle-vetting carries no uniqueBy, because one file is one handle', () => {
+  assert.equal(schemasJson['handle-vetting'].uniqueBy, undefined);
+});
+
+test('a distinct list still passes, and an absent key is the required check\'s business', async () => {
+  assert.equal((await check('source-handles', roster())).code, 0);
+
+  const payload = roster();
+  delete payload.handles[0].handle;
+  const result = await check('source-handles', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['handles[0].handle'], 'reported as missing, never as a duplicate');
 });

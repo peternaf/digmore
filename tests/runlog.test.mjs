@@ -23,6 +23,9 @@ import {
   lastStampMs,
   stepLine,
   run,
+  auditPath,
+  findingLine,
+  FINDING_CATEGORIES,
 } from '../skill/scripts/runlog.mjs';
 
 let sandbox;
@@ -80,9 +83,9 @@ test('an impossible duration produces no figure at all', () => {
 // where a run spent its time, and it is read after the run rather than during it.
 test('the log sits at the topic root, not under cache', () => {
   const path = logPath('demo');
-  assert.equal(path, join(sandbox.cwd, 'digmore', 'demo', 'run_log.md'));
+  assert.equal(path, join(sandbox.cwd, 'digmore', 'demo', 'run_log.log'));
   assert.ok(!path.includes(`${join('digmore', 'demo', 'cache')}`), 'never inside the disposable half');
-  assert.equal(RUN_LOG_NAME, 'run_log.md');
+  assert.equal(RUN_LOG_NAME, 'run_log.log');
 });
 
 // ---------------------------------------------------------------- one line
@@ -136,13 +139,13 @@ test('header opens a block naming the run', () => {
   const result = run(['header', '--topic', 'demo', '--kind', 'fresh', '--mode', 'manual, full', '--run', '0'], { at: START });
   assert.equal(result.wrote, 'header');
   assert.equal(result.path, logFile());
-  assert.equal(read(), '\n## run 2026-08-21T09:14:02Z — fresh · manual, full · run_history[0]\n\n');
+  assert.equal(read(), '\n=== run 2026-08-21T09:14:02Z — fresh · manual, full · run_history[0] ===\n\n');
 });
 
 // The run's identity comes from the caller: this script knows the clock, not the plan.
 test('header omits what it was not given rather than inventing it', () => {
   run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
-  assert.equal(read(), '\n## run 2026-08-21T09:14:02Z — fresh\n\n');
+  assert.equal(read(), '\n=== run 2026-08-21T09:14:02Z — fresh ===\n\n');
 });
 
 // The start goes in before the work, not held back until the step finishes: a run that dies in
@@ -208,7 +211,7 @@ test('a second run appends below the first, never replacing it', () => {
   run(['header', '--topic', 'demo', '--kind', 're-run'], { at: at('2026-08-22T10:00:00Z') });
   const second = read();
   assert.ok(second.startsWith(first), 'the first run is still there, byte for byte');
-  assert.match(second, /## run 2026-08-22T10:00:00Z — re-run/);
+  assert.match(second, /=== run 2026-08-22T10:00:00Z — re-run/);
 });
 
 // ---------------------------------------------------------------- reading it back
@@ -220,13 +223,13 @@ test('lastStampMs finds the last timestamped line, ignoring the header and the b
 });
 
 test('an absent log has no last stamp, which is not an error', () => {
-  assert.equal(lastStampMs(join(sandbox.cwd, 'digmore', 'nothing', 'run_log.md')), undefined);
+  assert.equal(lastStampMs(join(sandbox.cwd, 'digmore', 'nothing', 'run_log.log')), undefined);
 });
 
 // A hand-edited or partly-written file must not produce a wrong figure — it produces none.
 test('a log with no parseable line has no last stamp', () => {
   mkdirSync(join(sandbox.cwd, 'digmore', 'demo'), { recursive: true });
-  writeFileSync(logFile(), '## run — someone typed this by hand\nnot a timestamp\n');
+  writeFileSync(logFile(), '=== run — someone typed this by hand ===\nnot a timestamp\n');
   assert.equal(lastStampMs(logFile()), undefined);
 });
 
@@ -287,7 +290,7 @@ test('the cli writes the same file and reports the path on stdout', async () => 
   assert.equal(done.code, 0);
 
   const text = read();
-  assert.match(text, /## run \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — fresh · manual, full/);
+  assert.match(text, /=== run \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ — fresh · manual, full ===/);
   assert.match(text, /\[2\.1\/6\] {2}Extract · Search · start/);
   assert.match(text, /Extract · Search · done — 25 branch searchers\s+\+\d+s/);
 });
@@ -296,4 +299,107 @@ test('the cli exits 1 with the reason on stderr', async () => {
   const { code, err } = await sandbox.run('runlog.mjs', 'start', '[1/6] Plan');
   assert.equal(code, 1);
   assert.match(err, /--topic/);
+});
+
+// ---------------------------------------------------------------- findings in audit.md
+
+const auditFile = (slug = 'demo') => auditPath(slug);
+const readAudit = (slug = 'demo') => readFileSync(auditFile(slug), 'utf8');
+
+test('a finding is one stamped line, tagged with its category', () => {
+  assert.equal(
+    findingLine('blocked-page', 'https://example.com/a — walled by both tools', { at: START }),
+    '2026-08-21T09:14:02Z  [blocked-page] https://example.com/a — walled by both tools\n',
+  );
+});
+
+// A finding that wraps stops being one line and stops being greppable.
+test('a multi-line finding is flattened to one line', () => {
+  const line = findingLine('statement-deleted', 'first\n  second\n\nthird', { at: START });
+  assert.equal(line.split('\n').length, 2, 'the text plus its terminator');
+  assert.match(line, /first second third\n$/);
+});
+
+test('finding appends to audit.md, not to the run log', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  const result = run(['finding', 'excluded-player', 'Acme — cut as out of scope', '--topic', 'demo'], { at: START });
+
+  assert.equal(result.wrote, 'finding');
+  assert.equal(result.path, auditFile());
+  assert.match(readAudit(), /\[excluded-player\] Acme — cut as out of scope\n$/);
+  assert.ok(!read().includes('excluded-player'), 'the run log is where time went, not what was found');
+});
+
+// Nine or more call sites across six phases used to mean "hold this until [6.8/6]", and a run
+// killed while composing the file lost every finding rather than only the last step.
+test('findings accumulate as the run goes, in the order they happened', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  run(['finding', 'blocked-page', 'one', '--topic', 'demo'], { at: START });
+  run(['finding', 'handle-counts', 'two', '--topic', 'demo'], { at: at('2026-08-21T10:00:00Z') });
+  run(['finding', 'unanswered', 'three', '--topic', 'demo'], { at: at('2026-08-21T11:00:00Z') });
+
+  const tagged = readAudit().trim().split('\n').filter((line) => line.includes('['));
+  assert.deepEqual(
+    tagged.map((line) => /\[([a-z-]+)\]/.exec(line)[1]),
+    ['blocked-page', 'handle-counts', 'unanswered'],
+  );
+});
+
+// The file describes ONE run, which is what "replace it entirely" used to protect. Truncating at
+// the run's first moment keeps that and makes everything after it an append.
+test('header truncates audit.md, so a run starts with its own record', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  run(['finding', 'blocked-page', 'from the first run', '--topic', 'demo'], { at: START });
+
+  run(['header', '--topic', 'demo', '--kind', 're-run'], { at: at('2026-08-22T10:00:00Z') });
+  const text = readAudit();
+  assert.ok(!text.includes('from the first run'), 'last run’s findings are gone');
+  assert.match(text, /^# audit — run 2026-08-22T10:00:00Z\n/);
+});
+
+// The run log is the opposite: it is the record of what the topic has cost over its life.
+test('header truncates audit.md and appends to the run log, in the same call', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  run(['header', '--topic', 'demo', '--kind', 're-run'], { at: at('2026-08-22T10:00:00Z') });
+
+  assert.equal((read().match(/=== run /g) ?? []).length, 2, 'the log keeps both runs');
+  assert.equal((readAudit().match(/# audit — run /g) ?? []).length, 1, 'audit.md keeps one');
+});
+
+// A run stopped mid-way leaves a readable file — which is the whole point of appending as it goes.
+test('a run killed between findings leaves the ones it had earned', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  run(['finding', 'dropped-for-budget', 'https://example.com/a', '--topic', 'demo'], { at: START });
+  run(['finding', 'url-duplicate', 'https://example.com/b — found by 3 branches', '--topic', 'demo'], { at: START });
+
+  const text = readAudit();
+  assert.match(text, /^# audit — run /, 'it still opens with its heading');
+  assert.equal(text.trim().split('\n').filter((line) => line.startsWith('2026')).length, 2);
+});
+
+// The category list lives in the script and nowhere else, so a phase cannot invent a tag nobody
+// can sort on — and the error names them all rather than saying "unknown".
+test('an unknown category is refused, and the message lists the real ones', () => {
+  assert.throws(
+    () => run(['finding', 'made-up', 'x', '--topic', 'demo'], { at: START }),
+    /unknown category: made-up/,
+  );
+  assert.throws(() => run(['finding', 'made-up', 'x', '--topic', 'demo'], { at: START }), /blocked-page/);
+  assert.ok(!existsSync(auditFile()), 'and nothing is written');
+});
+
+test('finding needs both a category and its text', () => {
+  assert.throws(() => run(['finding', '--topic', 'demo'], { at: START }), /needs a category/);
+  assert.throws(() => run(['finding', 'blocked-page', '--topic', 'demo'], { at: START }), /needs its text/);
+});
+
+test('every category is a lowercase kebab-case tag, and the list has no duplicates', () => {
+  for (const category of FINDING_CATEGORIES) {
+    assert.match(category, /^[a-z]+(-[a-z]+)*$/, category);
+  }
+  assert.equal(new Set(FINDING_CATEGORIES).size, FINDING_CATEGORIES.length);
+});
+
+test('audit.md sits at the topic root, beside the run log', () => {
+  assert.equal(auditPath('demo'), join(sandbox.cwd, 'digmore', 'demo', 'audit.md'));
 });

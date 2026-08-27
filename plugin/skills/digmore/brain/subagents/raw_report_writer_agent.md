@@ -6,7 +6,7 @@
 | **Purpose** | Build the enumerable sections this run declared, then merge the six per-source reports into one aggregate raw report — the single evidence record everything after it reads |
 | **Input text** | the topic · the research question · the spec for every enumerable section this run declared — `row_is`, fields, sort and render, from `research_plan.json.scope.sections`. **On the repair pass**, the gap list instead: what the reviewer found missing or wrong |
 | **Input rule files** | `output.md` · `sections.md` · `page_quality.md`, **for the rank order alone**. **Not `vetting.md`** — the verdict rules are the script's, and an agent sent them would be a second place they could be applied differently |
-| **Input data files** | every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. **On `gtm` runs only**, also the four `<source>-handles.json`, which `promoter_network.csv` needs for `person_verdict` and for the `statedIdentifiers` its identity join rests on |
+| **Input data files** | every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. **On `gtm` runs only**, also the four `<source>-handles.json`, which `promoter_network.csv` needs for `person_verdict` and for the labelled identifiers its identity join rests on |
 | **Runs** | `validate.mjs claim-index` on the index it writes, and nothing else. No network. It re-reads the CSVs it wrote against `sections.md`'s cell rules — a prose check, not a gate |
 | **Settings that control it** | none. Everything that bounded the evidence was spent before this agent ran |
 | **Held in its context** | every surviving claim in the run at once, from the six joined reports, plus `players.csv`. **It is the only actor that ever holds the whole claim set**, and the split from the Final report writer exists so that nothing else has to |
@@ -116,9 +116,10 @@ column comes from material you already hold: `person_verdict` from the handles f
 `reference/gtm-teardown.md`'s.
 
 **The identity join is the weak part, and it is honest about it.** A row needs to know that `u/foo`,
-`hn/foo` and `@foo` are one human, and the only thing that establishes that is `statedIdentifiers` —
-what each profile literally printed. **Join two handles when one profile named the other, and never
-because they look like the same person.** A guess here produces a promoter network that is confidently
+`hn/foo` and `@foo` are one human, and the only thing that establishes that is what each profile
+literally printed — carried on the roster row as **labelled fields**: `realName`, `github`,
+`website`, `reddit`, `hn`, `twitter`, and `otherIdentifiers` for the rest. **Join two handles when
+one profile named the other, and never because they look like the same person.** A guess here produces a promoter network that is confidently
 wrong about who someone is. What it costs: someone who never links their accounts stays two or three
 rows, and their mention count is split across them instead of summed — one person promoting across
 three platforms is exactly what a teardown exists to catch. Record it in the receipt as a known-gap

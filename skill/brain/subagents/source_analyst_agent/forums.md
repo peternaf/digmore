@@ -8,6 +8,7 @@
 |---|---|
 | `<name>.md` | one per thread the run read: the stripped markdown, every page merged, nesting kept |
 | `<name>-claims.json` | the Page Analyst's extraction from it |
+| `handles/` | **not yours, and not material.** Vet's verdict on each handle, one file each, written a phase after you — and already there on a re-run. Skip the directory: a vetting record read as a document puts a judgement about a person into the report as though somebody had said it |
 
 `<name>` is the URL slugged, host first, so you can see at a glance which forums the run reached.
 

@@ -110,9 +110,9 @@ export async function fetchStory(itemId, options = {}) {
   // Cached tree first. The depth it is flattened to is a configuration the user can change, so
   // the raw tree is what gets stored and the flattening is redone on every read.
   const data =
-    readCacheJson(options.cacheDir, `hackernews-item-${itemId}.json`) ??
+    readCacheJson(options.cacheDir, STORY_CACHE_NAME(itemId)) ??
     (await client.getJson(`${algolia}/items/${itemId}`));
-  writeCacheFile(options.cacheDir, `hackernews-item-${itemId}.json`, JSON.stringify(data, null, 2));
+  writeCacheFile(options.cacheDir, STORY_CACHE_NAME(itemId), JSON.stringify(data, null, 2));
 
   const id = Number(data.id ?? itemId);
   const comments = [];
@@ -524,6 +524,21 @@ function readCacheJson(dir, name) {
  * one request chain per handle and no more.
  */
 export const VET_CACHE_NAME = (name) => `hackernews-vet-${name}.json`;
+
+/**
+ * The cache filename for one story, defined here because this is the script that writes it.
+ *
+ * `expert_selection.mjs` derives the same name from a URL to decide whether Extract already read a
+ * page, and a second copy of the pattern there is a copy that stops matching the first time either
+ * moves — which would look like an expert whose every page was new.
+ */
+export const STORY_CACHE_NAME = (itemId) => `hackernews-item-${itemId}.json`;
+
+/** The story id inside a Hacker News URL — `item?id=<N>` — or undefined if there is none. */
+export function storyIdFromUrl(url) {
+  const match = /[?&]id=(\d+)/.exec(String(url));
+  return match ? match[1] : undefined;
+}
 
 function readCachedUser(name, options) {
   return readCacheJson(options.cacheDir, VET_CACHE_NAME(name));

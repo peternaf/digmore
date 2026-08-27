@@ -132,9 +132,14 @@ A fan-out writing to one shared file is what a lock would have been for, and the
 
 Two handles are one person when a profile **says so** — a bio pointing elsewhere, a handle naming
 their own site, the same real name printed in two places. The Handle Vetter transcribes what a profile
-prints into `stated_identifiers`; `experts.mjs` unions rows on exact overlap. Nothing anywhere works
-out that `u/foo`, `hn/foo` and `@foo` are the same human from a matching username, a similar writing
-style or the same avatar.
+prints into its own labelled field — `realName`, `github`, `website`, the platform handles, and
+`otherIdentifiers` for the rest — and `experts.mjs` unions rows on exact overlap. Nothing anywhere
+works out that `u/foo`, `hn/foo` and `@foo` are the same human from a matching username, a similar
+writing style or the same avatar.
+
+**Labelled, rather than one bag of strings, because `experts.mjs` infers nothing.** Every column of
+this file arrives as a flag, so a labelled field becomes a column by copying while a bag becomes one
+by interpretation — made downstream, with less information than the agent that read the profile had.
 
 **What that costs, accepted rather than fixed:** someone who links nothing stays two or three rows.
 

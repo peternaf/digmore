@@ -8,6 +8,7 @@
 |---|---|
 | `hackernews-item-<N>.json` | one per story the run read: the story, and its comment tree |
 | `hackernews-item-<N>-claims.json` | the Page Analyst's extraction from that story |
+| `handles/` | **not yours, and not material.** Vet's own verdict on each handle, one file each. Skip the directory: a vetting record read as a document puts a judgement about a person into the report as though somebody had said it |
 
 `hackernews-vet-<name>.json` files appear here too if Vet ran before you did — one per handle,
 carrying that person's profile, their recent comments in full and the verdict. They are the Handle

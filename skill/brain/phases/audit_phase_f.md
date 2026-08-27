@@ -12,8 +12,8 @@ do run because they are the longest silence in the phase: rebuilding the raw rep
 summary, with nothing printed, reads as a run that has hung.
 
 **Re-enter at the sub-step, not at the top.** This phase holds up to six dispatch groups and rewrites
-the deliverable three times, so re-running it whole is not cheap. `run_log.md` names where it died
-(`index.md` §"Salvage paths on phase failure").
+the deliverable three times, so re-running it whole is not cheap. `run_log.log` names where it died
+(`../resuming.md`).
 
 | | Step | Who |
 |---|---|---|
@@ -28,8 +28,11 @@ the deliverable three times, so re-running it whole is not cheap. `run_log.md` n
 
 ## `[6.1/6]` Review
 
-Dispatch ONE Final report reviewer, per `../subagents/dispatch_structured_subagent.md`. Its own file
-is `../subagents/final_report_reviewer_agent.md`. It returns the `final-report-reviewer` shape.
+Dispatch ONE Final report reviewer, per `../subagents/dispatch_structured_subagent.md` — which is
+also where the rule that every dispatch in this phase **names the path to the agent's own file**
+lives, §"Send the agent its own files". Here that file is
+`../subagents/final_report_reviewer_agent.md`. It returns the `final-report-reviewer` shape; name the
+shape rather than pasting it, and the agent prints its own.
 
 **Task text — three lists, and one question asked of every item on them:**
 
@@ -145,7 +148,7 @@ short paragraphs, and the cost of a narrow one is a fabrication nobody sees.
 carries no marker, because a row is not a claim. Sweeping those in would fire on every row of every
 `landscape` run.
 
-**One pass**; anything still unmarked is recorded in `audit.md` and left alone.
+**One pass**; anything still unmarked is recorded — `runlog.mjs finding paragraph-unmarked`, one call each — and left alone.
 
 **It cannot run earlier or later.** A sweep before the copy edit would be invalidated by it — the copy
 editor is what breaks a marker, rewriting paragraphs and deleting duplicates — and a sweep after the
@@ -195,6 +198,26 @@ definition, and the guarantee is about claims the reader can see.
   removed as *we could not check this* and recorded apart from the statements the check found
   unsupported. A defect in us is never written down as a defect in the report.
 
+**Append each one as it comes back, not at the end of the phase**, in the two categories that keep
+them apart:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding statement-deleted \
+  "¶<n>: \"<the sentence as the report had it>\" — <what the page actually said>" --topic <slug>
+
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding \
+  paragraph-unreadable-evidence "¶<n>: <which pages were not on disk>" --topic <slug>
+```
+
+**The reason names what the page actually said** — "the pricing page gives $0.01/min, the sentence
+says $0.005" — which is what makes the line checkable. **The paragraph number is yours to stamp on**,
+because you built that dispatch and the agent does not know its own position; from it a reader finds
+the marker, the claims and every `cachedPage` behind them, all still in `claim_index.json`, which is
+never edited after it is written.
+
+Anything still unmarked after `[6.5/6]` goes in as `paragraph-unmarked` at that step, for the same
+reason: it reached the reader unchecked, and nothing else in the run records that.
+
 **Where most of the cache is absent**, stop rather than deleting everything it could not confirm: that
 would ship an empty report that looks like a run which found nothing (`index.md` §"When the cache is
 gone").
@@ -212,8 +235,38 @@ section around the gap, which keeps one writer on the file.
 
 **This redraft is never copy edited, and that is accepted.** The copy editor runs before the fact check
 by necessity, because the fact check needs a claim set that has stopped changing. So these sections are
-the least edited prose in the report. It goes in `audit.md` and **not** in Issues — telling the user a
+the least edited prose in the report. It goes in as `runlog.mjs finding section-not-copy-edited` and **not** in Issues — telling the user a
 passage was not copy edited invites them to distrust text that is probably fine.
+
+## How you write, in this phase
+
+**Two rules, and they are here rather than only in `index.md` because that file was read thirty-odd
+hours ago.** Both come from one step of one real run — this one.
+
+**Scratch goes inside the topic.** `digmore/<slug>/cache/_misc/<step>-<what>.md`, named for the step
+that wrote it. Never `/tmp`: a run did exactly that here, and Windows is the only reason anybody
+noticed — Node resolved it to `C:\tmp`, the read failed, and the file was moved back inside. On macOS
+it would have written there silently, and run material would have sat outside the topic subtree with
+nothing reporting it.
+
+**Getting text into a file is about which parser it crosses**, not about which tool is nicer:
+
+- **Changing an existing file → the edit tool.** Only the changed region crosses, and no shell reads
+  the content.
+- **A heredoc always quotes its delimiter** — `<<'EOF'`. That quote is the whole difference between
+  the footer being written and being run: an unquoted one made the shell execute the backticked
+  filenames in the text, and it was one quote away from silently altering a 145 KB deliverable while
+  the run reported success. The footer is full of backticked filenames and the summary is full of `$`
+  and backticks, so this is the ordinary case rather than an unlucky one.
+- **Never `node -e` with document text inline.** Shell, then JavaScript, both parsing prose.
+
+**Rewriting the whole file is the expensive option, not the safe one.** The summary is 145 KB and the
+harness reads a file before overwriting it, so a full rewrite pays for it twice. "Use the file tool"
+is the obvious-sounding rule here and it is the wrong one.
+
+**None of this touches the temp-file-then-rename rule**, which is unchanged: the summary is still
+written as `.tmp` and renamed over the original, and the rename is a shell command either way. What
+changes is that the document's text no longer passes through the shell to get there.
 
 ## `[6.8/6]` Record
 
@@ -221,58 +274,34 @@ passage was not copy edited invites them to distrust text that is probably fine.
 agent has finished with the file — and it is **not** a deliverable: everything in it is your own
 bookkeeping, so listed in `scope.deliverables` it would be a section the writer is told to produce and
 cannot fill, and one the reviewer reports missing on every run. Temp file, renamed over the original,
-like every other write to that file.
+like every other write to that file — and appended with the edit tool, per the two rules above.
 
-**Then write `audit.md`.** Replace it entirely rather than appending — it describes this run.
-
-It is the run's record across all six phases, so it carries what the earlier ones gave you as well as
-this phase's findings:
+**Then append Unanswered, and nothing else.** `audit.md` is already complete: every other finding was
+written to it by `runlog.mjs finding` at the moment the run made it, and `runlog.mjs header`
+truncated last run's file before Plan started.
 
 - **Unanswered** — what the request, the planned sections or the planned angles asked for that the
   report does not deliver. One line each: what was asked, what is there instead, and why it was not
   closed. Empty is the expected state; an entry here is the run telling the user it fell short of its
   own brief.
-- **Statements deleted as unsupported** — the sentence as the report had it, why the evidence did not
-  carry it, and the paragraph it came from. The reason names what the page actually said, which is
-  what makes the line checkable; from the paragraph number a reader finds the marker, the claims and
-  every `cachedPage` behind them, all still in `claim_index.json`, which is never edited after it is
-  written.
-- **Paragraphs removed because their evidence could not be read** — kept apart from the statements
-  above on purpose: those failed a check, these were never checked, and filing them together would
-  report our own lost cache as a fault in the report.
-- **Paragraphs the writer could not mark** — whatever is still unmarked after `[6.5/6]`. They reached
-  the reader unchecked, and nothing else records that.
-- **Claims deleted for having no source at all** — from both of the Raw report writer's receipts, its
-  Synthesize pass and its repair pass, which are the only things that carry them since the claims
-  themselves are gone.
-- **Claims refuted** — the claim, the claim that beat it, and why that one was stronger. Read off
-  `claim_index.json`, where `refutedBy` and `refutedReason` were written onto the loser.
-- **Claims dropped while drafting** — from the Final report writer's receipt. They appear nowhere in
-  the report.
-- **Sections rewritten after the copy edit** — deliberately here and not in Issues.
-- **Excluded players** — from Enrichment, each with its reason.
-- **Per-source handle counts** — from Vet: how many handles each file held, how many were vetted, and
-  that the rest were below the cut.
-- **Dropped-for-budget URLs** — from Extract, per branch, plus any document the budget cut short
-  mid-pagination.
-- **Pages the run could not read** and **pages taken with WebFetch** — from the Page Analysts'
-  receipts. A blocked page leaves no file, and a WebFetch page may be missing a tail nobody can see.
-- **URL duplicates** — URLs several branches independently surfaced.
-- **Unavailable sources** — named plainly. A source that was never queried is not a source that came
-  back empty.
-- **Sub-agent output repairs and drops** — how many payloads failed their shape check, how many passed
-  after the one repair, and every item dropped because it still failed.
-- **Sub-agent dispatches** — how many this run, split by agent kind. A run's real cost is only knowable
-  after the fact.
-- **Assumptions made without the user** — anything decided on their behalf in auto mode, or under
-  uncertainty in either mode. No questions here; see `../reporting.md`.
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding unanswered \
+  "<what was asked> — <what is there instead>, <why it was not closed>" --topic <slug>
+```
+
+**It is the only thing that cannot be written before the end**, which is why it is the only thing
+left here. Everything else is known at the moment it happens — a blocked page in Extract, a handle
+count in Vet, an excluded player in Enrichment, a deleted statement in the fact check — and each was
+appended there. This step used to compose fifteen headed sections in one go from six phases of notes
+held in your head, and a run killed during it lost every one of them.
 
 **What "verified" means is not in this file.** It is the same in every run, it follows from the design
 rather than from anything this run did, and it is stated once in the README. A disclaimer repeated
 every run costs the reader confidence to describe a failure they cannot act on.
 
 **Then close the run:** append this run's entry to `research_plan.json.run_history`, write the closing
-pair to `run_log.md`, and print the four terminal sections in `../reporting.md`.
+pair to `run_log.log`, and print the four terminal sections in `../reporting.md`.
 
 ## End of Audit
 

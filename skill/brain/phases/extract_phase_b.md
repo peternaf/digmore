@@ -4,7 +4,7 @@ Where the run does its bulk work: search every branch, read what it finds, then 
 
 The branches come from `research_plan.json`, written by the phase before this one (`plan_phase_a.md`). Read it rather than re-deriving the plan — on a resumed run, re-deriving produces different angles from the ones the existing cache was built against.
 
-Read `../output.md` before any sub-agent dispatch. Each agent has its own directory holding its instructions and a file per source it works with — `../subagents/branch_searcher_agent/`, `../subagents/page_analyst_agent/`, `../subagents/source_analyst_agent/`. Send the agent its `index.md` and the source file it needs.
+Read `../output.md` before any sub-agent dispatch. Three agents work here, each with its own directory holding its instructions and a file per source — `../subagents/branch_searcher_agent/`, `../subagents/page_analyst_agent/`, `../subagents/source_analyst_agent/`. Every dispatch names the paths to the agent's `index.md` and the `<source>.md` it needs, per `../subagents/dispatch_structured_subagent.md` §"Send the agent its own files".
 
 ## Search
 
@@ -19,7 +19,7 @@ When it happens:
 
    > This run hit Claude Code's concurrent-subagent limit (<the number preflight reported>) and fanned out in batches instead. To let it run wider, raise `CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS` in `~/.claude/settings.json` and start a new session.
 
-3. Record it in `audit.md` alongside the other caps, so the summary's Run footer can name it.
+3. Record it — `runlog.mjs finding budget-overrun` — alongside the other caps, so the summary's Run footer can name it.
 
 Which sources are in play was settled in Plan and is listed in `research_plan.json`. The `local` source issues no query — its searchers read the handed-over material through each angle instead (`../subagents/branch_searcher_agent/local.md`).
 
@@ -80,7 +80,7 @@ five copies of one thread to weigh as five.
    through `old.reddit.com` and `www.reddit.com`. Those are one URL.
 2. **Keep the highest `relevance` of the copies**, and remember every branch that found it. One
    Page Analyst is dispatched, and its fetch counts against the branch whose copy ranked highest.
-3. **Record the duplicates in `audit.md` under "URL duplicates"**, with the branches that shared
+3. **Record the duplicates — `runlog.mjs finding url-duplicate`**, one call each, with the branches that shared
    each one. A page several branches independently surfaced is a signal about the topic, and it is
    lost the moment the copies are dropped silently.
 
@@ -129,17 +129,17 @@ Sequential is not a performance preference: an agent that fans out here hangs, a
 
 **Why the receipts moved out of the message too.** A sampled return ran 1,255 tokens where the schema needed 150, and all 85 sampled returns carried prose outside the JSON. The receipts were never large; the message around them was.
 
-**What you take from each file:** the `pagesRead` totals for the branch, and `audit.md`'s page-level records — the URLs that came back `blocked`, the ones WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
+**What you take from each file:** the `pagesRead` totals for the branch, and the page-level records — one `runlog.mjs finding blocked-page` per URL that came back `blocked`, one `runlog.mjs finding webfetch-page` per URL WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
 **The claims do not come back into your context, and you do not read the claims files.** Several hundred documents are read in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead.
 
 **A page's own standing is not on its receipt.** Undated, second-hand, sold by the party describing the problem, partial coverage — that is `pageNote` on the claims file, read by the Source Analyst and the Raw report writer. You never weigh a citation, so it would arrive here with nobody to act on it.
 
-**Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs in `audit.md` rather than reading their absence as a reason to skip them. A missing file is the same finding.
+**Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs — `runlog.mjs finding dropped-receipt`, one call each — rather than reading their absence as a reason to skip them. A missing file is the same finding.
 
 **One `blocked` URL does not fail a batch.** `outcome` is per URL, so four good reads never arrive behind one wall, and a batch that comes back all-`blocked` is four receipts saying so rather than a dispatch that failed.
 
-**A receipt that fails its check is dropped on its own, never the batch.** The agent wrote each page and its claims to disk before returning, so a dropped receipt costs that branch's fetch tally and that URL's `audit.md` line — not the evidence, which the Source Analyst still reads. Record it in `audit.md` naming the URL: an under-counted branch otherwise reads as a branch with budget left. The one-repair-then-drop rule in `../subagents/dispatch_structured_subagent.md` is otherwise unchanged.
+**A receipt that fails its check is dropped on its own, never the batch.** The agent wrote each page and its claims to disk before returning, so a dropped receipt costs that branch's fetch tally and that URL's `audit.md` line — not the evidence, which the Source Analyst still reads. Record it — `runlog.mjs finding dropped-receipt` — naming the URL: an under-counted branch otherwise reads as a branch with budget left. The one-repair-then-drop rule in `../subagents/dispatch_structured_subagent.md` is otherwise unchanged.
 
 ## Incremental persistence
 
@@ -153,12 +153,12 @@ Raw data writes to `digmore/<topic-slug>/cache/<source>/` incrementally — one 
 
 **You enforce it between waves, which is the only moment you can.** Add each batch's `pagesRead` to its branch's total as the receipts arrive, and send that branch another batch only while its total is under the cap. **Pages are fetches**, so the spending is not knowable in advance — a branch's URLs each paginate as far as their documents go — and a wave is the point where what was actually spent becomes visible. Dispatching a branch's URLs all at once, as this step used to, meant the receipts that would have stopped it arrived after the spending: the cap could be overrun several times over and nothing would notice.
 
-**The overshoot that remains is one batch.** The last wave commits `extract.urlsPerDispatch` URLs before you see any of them, so a branch can end up to `extract.urlsPerDispatch × extract.maxPagesPerDocument` over in the worst case, where every document in that batch paginates to its limit. Record the overrun in `audit.md` beside "dropped-for-budget"; do not try to trim it by sending part of a batch.
+**The overshoot that remains is one batch.** The last wave commits `extract.urlsPerDispatch` URLs before you see any of them, so a branch can end up to `extract.urlsPerDispatch × extract.maxPagesPerDocument` over in the worst case, where every document in that batch paginates to its limit. Record the overrun — `runlog.mjs finding budget-overrun` — and do not try to trim it by sending part of a batch.
 
 **The candidate cut is the searcher's, and it has already happened.** Each branch's list arrives at
 most `extract.fetchesPerBranch` long, sorted, because the agent holding the scores made the cut before
 writing. Do not re-cut it. Its file carries `droppedCount` and `lowestSurvivingScore`, and those two
-go in `audit.md` under "dropped-for-budget", naming the branch — a branch that dropped forty
+go in as one `runlog.mjs finding dropped-for-budget` per branch, naming it — a branch that dropped forty
 candidates whose best scored just under the line is a different finding from one that dropped forty
 no-hopers, and the survivors cannot tell you which.
 
@@ -222,7 +222,7 @@ One repair attempt on exit 1, then a recorded drop, per `../subagents/dispatch_s
 - **A players file that still fails** is a source whose entities never reach Enrichment: the run's
   subject list will be short by whatever that source alone would have contributed.
 
-Record any of them in `audit.md` and name it in the run's Issues.
+Record any of them — `runlog.mjs finding known-gap` — and name it in the run's Issues.
 
 ### When a Source Analyst fails
 

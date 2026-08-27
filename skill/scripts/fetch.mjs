@@ -22,13 +22,14 @@
  * scripts import. See AGENTS.md, "New network code must not identify the user".
  */
 
-import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import { mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+
+import { FILENAME_ONLY_MAX, safeFilename } from './utils.mjs';
 
 export const REQUEST_TIMEOUT_MS = 60000;
 
@@ -151,13 +152,11 @@ export function parseArgs(argv) {
 }
 
 /**
- * How long a filename may get before it is truncated and hashed.
- *
- * Windows caps a path at 260 characters, and the filename is only its last part: the rest
- * is the working directory plus digmore/<slug>/cache/<source>/. 120 leaves roughly half the
- * budget for those, and the extension.
+ * Re-exported so a caller already importing this module for `filenameOnlyFromUrl` needs no
+ * second import for the cap that bounds it. `utils.mjs` defines it, beside the `safeFilename`
+ * that applies it.
  */
-export const FILENAME_ONLY_MAX = 120;
+export { FILENAME_ONLY_MAX };
 
 /**
  * The cache filename for a URL, without extension. One URL, one filename, every time.
@@ -168,11 +167,11 @@ export const FILENAME_ONLY_MAX = 120;
  * and change between runs. The title belongs in the extracted page's first heading, where
  * it makes the directory readable without making the name unstable.
  *
- * Host first so a directory listing groups by site, then the path and query with every
- * character a filesystem might object to collapsed to an underscore.
- *
- * A name past FILENAME_ONLY_MAX is cut and given `_<md5(url)[:8]>`, so a long URL stays
- * unique while a short one stays clean. The hash is over the whole URL, never the truncation.
+ * Host first so a directory listing groups by site, then the path and query — and
+ * `safeFilename` collapses every character a filesystem might object to, caps the length,
+ * and hashes the overflow. **The hash is over the whole URL**, which is why the original is
+ * passed alongside the built name: two URLs sharing their first 120 sanitised characters
+ * would otherwise share a filename.
  */
 export function filenameOnlyFromUrl(url) {
   let parsed;
@@ -183,14 +182,7 @@ export function filenameOnlyFromUrl(url) {
   }
 
   const tail = `${decodeURIComponent(parsed.pathname)}${decodeURIComponent(parsed.search)}`;
-  const filenameOnly = `${parsed.hostname}${tail}`
-    .replace(/[^A-Za-z0-9._-]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-  if (filenameOnly.length <= FILENAME_ONLY_MAX) return filenameOnly;
-  const digest = createHash('md5').update(url, 'utf8').digest('hex').slice(0, 8);
-  return `${filenameOnly.slice(0, FILENAME_ONLY_MAX).replace(/_+$/, '')}_${digest}`;
+  return safeFilename(`${parsed.hostname}${tail}`, url);
 }
 
 /**
