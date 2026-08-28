@@ -331,6 +331,7 @@ test('the run prints every configuration it will apply, under its own heading', 
     'enrich.expertsFollowed', 'enrich.urlsPerExpert',
     'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet', 'twitter.handlesPerDispatch',
     'hackernews.commentDepth', 'hackernews.recentCommentsSampled', 'hackernews.deadSampleSize',
+    'audit.paragraphsPerDispatch',
     'subagents.repairAttempts',
   ]) {
     assert.ok(out.includes(key), `the report does not name ${key}`);
