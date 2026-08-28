@@ -241,6 +241,7 @@ export const USAGE = `runlog.mjs — the run log, appended a line at a time.
   runlog.mjs done   "[2.1/6] Extract · Search" --topic <slug> [--note "25 branch searchers, 302 URLs"]
   runlog.mjs note   "resumed at Vet, from an unfinished start" --topic <slug>
   runlog.mjs finding blocked-page "https://example.com/a — walled by both tools" --topic <slug>
+  runlog.mjs finding blocked-page "…/a — walled" "…/b — 403" "…/c — timed out" --topic <slug>
   runlog.mjs beat   "fetching https://example.com/a" --topic <slug> --label page-analyst-websearch-7
   runlog.mjs beats  --topic <slug>
   runlog.mjs stamp
@@ -254,9 +255,12 @@ beat is a sub-agent's heartbeat, appended to cache/_progress/<label>.log. beats 
 one of those back — the last line and how long ago it moved — which is what the stuck-agent
 check needs.
 
-finding appends one tagged line to audit.md, at the moment the run finds it rather than at the
-end. header truncates audit.md, because that file describes one run. --shapes-style listing of
-the categories: an unknown one is refused and the message names them all.`;
+finding appends tagged lines to audit.md, at the moment the run finds them rather than at the
+end. Every argument after the category is its own line, so a step that found twenty things makes
+one call rather than twenty — the bulk categories fire per item and a process start each is the
+whole of what they cost. header truncates audit.md, because that file describes one run.
+--shapes-style listing of the categories: an unknown one is refused and the message names them
+all.`;
 
 export function run(argv, { at = new Date() } = {}) {
   const [verb, ...rest] = argv;
@@ -296,15 +300,19 @@ export function run(argv, { at = new Date() } = {}) {
 
   if (verb === 'finding') {
     const category = positional[0];
-    const text = positional[1];
+    // Every argument after the category is its own finding, appended in order under one tag.
+    // The bulk categories fire per item — one per deleted statement, per duplicate URL, per
+    // excluded player — and a run measured 28 statements at roughly a second of process start
+    // and hook overhead each. The line format is unchanged; only the number of invocations is.
+    const texts = positional.slice(1);
     if (!category) throw new Error(`finding needs a category — one of ${FINDING_CATEGORIES.join(', ')}`);
     if (!FINDING_CATEGORIES.includes(category)) {
       throw new Error(`unknown category: ${category} — expected one of ${FINDING_CATEGORIES.join(', ')}`);
     }
-    if (!text) throw new Error('finding needs its text as the second argument');
+    if (!texts.length) throw new Error('finding needs its text as the second argument');
     const auditFile = auditPath(flags.topic);
-    append(auditFile, findingLine(category, text, { at }));
-    return { path: auditFile, wrote: 'finding', category };
+    for (const text of texts) append(auditFile, findingLine(category, text, { at }));
+    return { path: auditFile, wrote: 'finding', category, findings: texts.length };
   }
 
   // Every heartbeat in the run comes through here, which is the point of it being a verb rather

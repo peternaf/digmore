@@ -2,9 +2,9 @@
 
 All six phases run in one command invocation, sequentially. Phase boundaries are resumable from on-disk artifacts.
 
-**Each phase file's "End of …" section is a completion test, not a handoff.** Pass it and start the next phase's first step, in the same turn. **The same holds between the sub-steps inside a phase**, which is where a run is most likely to stop: Enrichment's five and Audit's eight each finish on a decision worth reporting, and reporting it is what ends the turn. Plan's agreement gate is the only stop between the command and the four end-of-run sections — `../modes.md` §Manual mode owns that rule.
+**Each phase file's "End of …" section is a completion test, not a handoff.** Pass it and start the next phase's first step, in the same turn. **The same holds between the sub-steps inside a phase**, which is where a run is most likely to stop: Enrichment's five and Audit's eight each finish on a decision worth reporting, and reporting it is what ends the turn. Plan's agreement gate is the only stop between the command and the four end-of-run sections, and in `manual + fast` the draft gate after `[5.2/6]` is a second — `../modes.md` owns both.
 
-**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run and every claim the summary renders has been checked against the text the run stored (`audit_phase_f.md`). No deferral, no skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose.
+**No phase is optional, and that includes Audit.** A topic is not complete until `audit.md` exists for this run and every claim the summary renders has been checked against the text the run stored (`audit_phase_f.md`). No skip, whichever command is running — the audit is what separates a digmore report from a page of confident prose. **The one deferral is the user's own**: `manual + fast` offers them the draft before Audit runs (`../modes.md` §"The draft gate"), and a topic left there is unfinished rather than done, resuming into Audit rather than starting over.
 
 Each step announces itself with one line — `[3/6] Vet` — so the user can see how far along the run is. Format and rules in `../reporting.md`.
 
@@ -47,7 +47,7 @@ digmore/<topic-slug>/
   cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
   cache/audit/worklist.json      # the fact check's paragraphs, frozen and numbered
   cache/audit/unmarked.md        # the prose the writer has to mark, set aside by the same pass
-  cache/audit/<n>.json           # one paragraph's verdict, written as each is finished
+  cache/audit/paragraph-factcheck-<nnn>.json  # one paragraph's verdict, written as each is finished
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
   cache/_misc/<file>             # scratch that belongs to no source
@@ -76,7 +76,7 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `cache/<source>/vetting-worklist.json` | `handle_vetting.mjs prepare`, once per source. Frozen on purpose: a vetter is dispatched a *range*, so a list that shrank as handles were vetted would leave "handles 11 to 20" addressing what used to be 21 to 30 |
 | `cache/<source>/handles/<handle>.json` | one Handle Vetter per file, written as each handle is finished. A per-handle file is what lets several vetters fan out with no shared file between them — nothing to lose rows, nothing to lock |
 | `cache/audit/worklist.json`, `cache/audit/unmarked.md` | `factcheck.mjs prepare`, twice in Audit — once before the marker redraft and once after, because the writer changes the summary and the first list is then stale |
-| `cache/audit/<n>.json` | one Claim Fact Checker per file, written as each paragraph is finished. A per-paragraph file is what lets a batch fan out with nothing shared between them, and it is the record a resumed run reads |
+| `cache/audit/paragraph-factcheck-<nnn>.json` | one Claim Fact Checker per file, written as each paragraph is finished. A per-paragraph file is what lets a batch fan out with nothing shared between them, and it is the record a resumed run reads |
 | `cache/**` (everything else) | whichever sub-agent fetched or produced it, each to its own filename |
 
 **Every finding goes into `audit.md` the moment the run makes it, through one command:**
@@ -84,6 +84,12 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 ```
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding <category> "<what>" --topic <slug>
 ```
+
+**One call takes as many findings as you have**, each argument its own line under the same tag:
+`finding url-duplicate "<one>" "<another>" "<a third>"`. The bulk categories fire per item — one per
+duplicate URL, per excluded player, per deleted statement — and a run measured 28 deleted statements
+at about a second each of process start and hook overhead. **One call per category per step**, not one
+per item; the line format is identical either way.
 
 **The category list lives in that script and nowhere else** — `runlog.mjs --help` names them, and an
 unknown one is refused rather than written, so a phase cannot invent a tag nobody can sort on.
@@ -204,7 +210,7 @@ Every sub-agent notifies on completion, so the signal is a notification that nev
 - **Most agents hold one item**, so a wrong kill loses that one.
 - **The Page Analyst and the Handle Vetter hold a batch** — up to `extract.urlsPerDispatch` URLs, or that source's Handle Vetter batch size. A wrong kill loses the item in flight and the ones not yet reached, never the ones behind it: both agents finish each item completely, writing it to disk, before starting the next.
 
-**Whatever is lost is recorded item by item** — one `runlog.mjs finding dropped-for-budget` call per URL or per handle, never one line naming the dispatch. A batch recorded as a batch is a report that cannot say which pages the run never read. **The heartbeat is what makes that possible**: both agents log a line naming which item of the batch they are starting, and it is the only record of how far the agent got.
+**Whatever is lost is recorded item by item** — a `runlog.mjs finding dropped-for-budget` argument per URL or per handle, one call for the batch, never one line naming the dispatch. A batch recorded as a batch is a report that cannot say which pages the run never read. **The heartbeat is what makes that possible**: both agents log a line naming which item of the batch they are starting, and it is the only record of how far the agent got.
 
 ## When a run is not starting from nothing
 

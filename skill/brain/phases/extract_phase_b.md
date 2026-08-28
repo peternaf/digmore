@@ -80,8 +80,8 @@ five copies of one thread to weigh as five.
    through `old.reddit.com` and `www.reddit.com`. Those are one URL.
 2. **Keep the highest `relevance` of the copies**, and remember every branch that found it. One
    Page Analyst is dispatched, and its fetch counts against the branch whose copy ranked highest.
-3. **Record the duplicates — `runlog.mjs finding url-duplicate`**, one call each, with the branches that shared
-   each one. A page several branches independently surfaced is a signal about the topic, and it is
+3. **Record the duplicates — `runlog.mjs finding url-duplicate`**, all of them in one call, each argument naming a URL and the branches that shared
+   it. A page several branches independently surfaced is a signal about the topic, and it is
    lost the moment the copies are dropped silently.
 
 Only what survives this step is dispatched.
@@ -129,13 +129,13 @@ Sequential is not a performance preference: an agent that fans out here hangs, a
 
 **Why the receipts moved out of the message too.** A sampled return ran 1,255 tokens where the schema needed 150, and all 85 sampled returns carried prose outside the JSON. The receipts were never large; the message around them was.
 
-**What you take from each file:** the `pagesRead` totals for the branch, and the page-level records — one `runlog.mjs finding blocked-page` per URL that came back `blocked`, one `runlog.mjs finding webfetch-page` per URL WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
+**What you take from each file:** the `pagesRead` totals for the branch, and the page-level records — one `runlog.mjs finding blocked-page` call naming every URL that came back `blocked`, one `runlog.mjs finding webfetch-page` naming every URL WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
 **The claims do not come back into your context, and you do not read the claims files.** Several hundred documents are read in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead.
 
 **A page's own standing is not on its receipt.** Undated, second-hand, sold by the party describing the problem, partial coverage — that is `pageNote` on the claims file, read by the Source Analyst and the Raw report writer. You never weigh a citation, so it would arrive here with nobody to act on it.
 
-**Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs — `runlog.mjs finding dropped-receipt`, one call each — rather than reading their absence as a reason to skip them. A missing file is the same finding.
+**Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs — `runlog.mjs finding dropped-receipt`, all of them in one call — rather than reading their absence as a reason to skip them. A missing file is the same finding.
 
 **One `blocked` URL does not fail a batch.** `outcome` is per URL, so four good reads never arrive behind one wall, and a batch that comes back all-`blocked` is four receipts saying so rather than a dispatch that failed.
 

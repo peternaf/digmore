@@ -403,3 +403,30 @@ test('every category is a lowercase kebab-case tag, and the list has no duplicat
 test('audit.md sits at the topic root, beside the run log', () => {
   assert.equal(auditPath('demo'), join(sandbox.cwd, 'digmore', 'demo', 'audit.md'));
 });
+
+// The bulk categories fire per item — one per duplicate URL, per excluded player, per deleted
+// statement. A measured run deleted 28 statements, which at a process start and a hook each is
+// most of what the recording costs. One call takes them all; the lines are identical either way.
+test('one finding call takes several texts, each its own line', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  const result = run(
+    ['finding', 'statement-deleted', 'first one', 'second one', 'third one', '--topic', 'demo'],
+    { at: START },
+  );
+
+  assert.equal(result.findings, 3, 'it says how many it wrote');
+  const tagged = readAudit().trim().split('\n').filter((line) => line.includes('['));
+  assert.deepEqual(tagged.map((line) => line.split('] ')[1]), ['first one', 'second one', 'third one']);
+  assert.ok(tagged.every((line) => line.includes('[statement-deleted]')), 'all under the one tag');
+});
+
+test('a single finding still works, and still reports one', () => {
+  run(['header', '--topic', 'demo', '--kind', 'fresh'], { at: START });
+  const result = run(['finding', 'blocked-page', 'only one', '--topic', 'demo'], { at: START });
+  assert.equal(result.findings, 1);
+  assert.match(readAudit(), /\[blocked-page\] only one/);
+});
+
+test('a category with no text at all is still refused', () => {
+  assert.throws(() => run(['finding', 'blocked-page', '--topic', 'demo'], { at: START }), /needs its text/);
+});

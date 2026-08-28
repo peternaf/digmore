@@ -1500,7 +1500,7 @@
             "paragraph": {
               "type": "integer",
               "minimum": 1,
-              "description": "Its position in the summary, from the frozen work list. The agent names its return file after this — cache/audit/<n>.json — and a resumed run re-dispatches only the numbers with no file, so the numbering has to be the same every time `prepare` runs on an unchanged summary."
+              "description": "Its position in the summary, from the frozen work list. The agent names its return file after this — cache/audit/paragraph-factcheck-<nnn>.json, zero-padded — and a resumed run re-dispatches only the numbers with no file, so the numbering has to be the same every time `prepare` runs on an unchanged summary."
             },
             "section": {
               "type": "string",
@@ -1559,7 +1559,7 @@
     }
   },
   "claim-fact-checker": {
-    "description": "One paragraph's verdict, written by the Claim Fact Checker to cache/audit/<n>.json and validated there — the agent returns the word done. One file per paragraph rather than one per dispatch, so a batch killed at its third keeps the two before it, and so a resumed run can tell which numbers are still outstanding. Returned by a Claim Fact Checker, one per paragraph of the summary that carries a claim marker, in Audit. The unit is the paragraph rather than the claim: everything the paragraph asserts is held against everything the paragraph cites, read as one evidence set. That catches a sentence composed from nothing, which a per-claim check never examined because it carried no id, and it dissolves the stale-marker case rather than needing a rule for it. Only failures come back - nothing downstream reads a pass, and a few hundred entries mostly saying 'fine' is the payload the receipts elsewhere exist to avoid.",
+    "description": "One paragraph's verdict, written by the Claim Fact Checker to cache/audit/paragraph-factcheck-<nnn>.json and validated there — the agent returns the word done. One file per paragraph rather than one per dispatch, so a batch killed at its third keeps the two before it, and so a resumed run can tell which numbers are still outstanding. Returned by a Claim Fact Checker, one per paragraph of the summary that carries a claim marker, in Audit. The unit is the paragraph rather than the claim: everything the paragraph asserts is held against everything the paragraph cites, read as one evidence set. That catches a sentence composed from nothing, which a per-claim check never examined because it carried no id, and it dissolves the stale-marker case rather than needing a rule for it. Only failures come back - nothing downstream reads a pass, and a few hundred entries mostly saying 'fine' is the payload the receipts elsewhere exist to avoid.",
     "type": "object",
     "required": [
       "unsupported",

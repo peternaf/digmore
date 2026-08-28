@@ -98,7 +98,7 @@ is yours to apply, and the entry is in `research_plan.json` where you already ar
 - **Audit failure** → re-enter at the sub-step the log names, not at the top of the phase. It holds
   up to six dispatch groups and rewrites the deliverable three times, so re-running it whole is no
   longer cheap. The fact check resumes per paragraph rather than per dispatch: each agent writes
-  `cache/audit/<n>.json` the moment that paragraph is finished, a resumed run re-runs
+  `cache/audit/paragraph-factcheck-<nnn>.json` the moment that paragraph is finished, a resumed run re-runs
   `factcheck.mjs prepare` on the same summary and gets the same numbering, and only the numbers with
   no file are dispatched again. Nothing needs undoing: `audit.md` is appended a line at a time as findings happen, so a re-entered sub-step adds to it rather than rewriting it, and a finding recorded twice is a duplicate line rather than a lost one.
 

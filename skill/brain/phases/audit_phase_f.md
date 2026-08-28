@@ -218,20 +218,22 @@ claim is out of scope by definition: the guarantee is about claims the reader ca
   removed as *we could not check this* and recorded apart from the statements the check found
   unsupported. A defect in us is never written down as a defect in the report.
 
-**Append each one as it comes back, not at the end of the phase**, in the two categories that keep
-them apart:
+**Append them per batch as each dispatch returns**, in the two categories that keep them apart —
+**one call per category, every statement an argument**, not one call per statement. A measured run
+deleted 28, and a call each is 28 process starts for lines identical either way:
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding statement-deleted \
-  "¶<n>: \"<the sentence as the report had it>\" — <what the page actually said>" --topic <slug>
+  "¶<n>: \"<the sentence as the report had it>\" — <what the page actually said>" \
+  "¶<n>: \"<the next one>\" — <what that page said>" --topic <slug>
 
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding \
   paragraph-unreadable-evidence "¶<n>: <which pages were not on disk>" --topic <slug>
 ```
 
 **The reason names what the page actually said** — "the pricing page gives $0.01/min, the sentence
-says $0.005" — which is what makes the line checkable. **The paragraph number is yours to stamp on**,
-because you built that dispatch and the agent does not know its own position; from it a reader finds
+says $0.005" — which is what makes the line checkable. **The paragraph number comes back on the
+return**, which `serve` gave the agent; from it a reader finds
 the marker, the claims and every `cachedPage` behind them, all still in `claim_index.json`, which is
 never edited after it is written.
 
@@ -242,8 +244,8 @@ reason: it reached the reader unchecked, and nothing else in the run records tha
 would ship an empty report that looks like a run which found nothing (`index.md` §"When the cache is
 gone").
 
-**It resumes per paragraph, not per dispatch.** Each agent writes `cache/audit/<n>.json` the moment
-that paragraph is finished, so a batch killed at its third keeps the two before it. A resumed run
+**It resumes per paragraph, not per dispatch.** Each agent writes
+`cache/audit/paragraph-factcheck-<nnn>.json` the moment that paragraph is finished, so a batch killed at its third keeps the two before it. A resumed run
 re-runs `prepare` on the same summary and gets the same numbering, then dispatches ranges covering
 only the numbers with no file.
 

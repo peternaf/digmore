@@ -20,7 +20,7 @@ Two things trigger a prompt, and both are about **intent** rather than cost:
 1. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
 2. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
 
-**Those two are the only places a run stops, and both are in Plan.** Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
+**Those two are the only places a run stops on its own, and both are in Plan** — the draft gate below is the third and belongs to one mode combination. Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
 
 **A message from the user mid-run is an instruction, not a stop.** Carry it out and keep going in the same turn. What changed goes in one line before the next marker — never a block that sets out the consequences and closes on what comes next, which is the sign-off `reporting.md` forbids and costs the user the same restart as a question would. **Answering someone is not handing back to them**, and this is the case the rule above does not cover: it is written about the run's own boundaries, and nothing finishing is what prompts this one. A real run dropped a source on request, recorded it correctly, then wrote three paragraphs on what the loss cost and ended the turn — the last line of which promised not to stop again.
 
@@ -107,11 +107,41 @@ The summary includes a `fast mode` tag in the Run footer when this mode was used
 - Topics where Twitter is central — a profile alone, with nobody's posts read, is too shallow to drive a teardown.
 - The first time you research a topic where you'll act on the result without re-reading.
 
+## The draft gate — `manual + fast` only
+
+**When the first summary draft is finished, stop and ask.** This is the one stop outside Plan, and it
+exists only where fast and manual meet: fast mode's whole purpose is triage — *"a 10-minute draft,
+iterate"* — and a user deciding whether the topic is worth a full run wants the draft in their hands
+at the moment it exists, not after the phase that takes longest.
+
+Print, after `[5.2/6]` finishes and before any `[6.x/6]` marker:
+
+- that the summary is written, and its path;
+- **what Audit does**, one line each, in order:
+
+  | | |
+  |---|---|
+  | Review | the draft against the plan — every declared section present, nothing answering a question nobody asked |
+  | Repair | where the review found a gap the evidence can close, the raw report is rebuilt around it |
+  | Copy edit | duplicate ideas removed, sentences tightened, every removal reported by `claimId` |
+  | Fact check | every claim the report renders, held against the quotes and pages the run stored; unsupported statements are deleted |
+
+- the question — continue into Audit, or read the summary first.
+
+**Then wait.** Continue and the run goes to the end without stopping again. Stop and the topic is left
+mid-run: `../phases/index.md` says no phase is optional and Audit least of all, and that still holds —
+this defers Audit, it does not skip it. Say so in the same breath, and say that resuming re-enters at
+Audit rather than starting over (`../resuming.md`).
+
+**Neither `--auto` nor a full run has this gate.** `--auto` has no prompts at all, and a full run is
+the one the user already decided was worth the time — offering an exit from its most valuable phase
+would be asking them to re-make a decision they made when they chose the mode.
+
 ## Fast mode in auto + manual
 
 Fast mode is orthogonal to interaction. The same reduction table applies in both:
 
-- `manual + fast`: prompts still fire (clarifying questions). The Twitter confirmation gates do not trigger, because fast lowers the same `twitter.*` configurations the gates are measured against.
+- `manual + fast`: prompts still fire (clarifying questions), **and the draft gate above is this combination's alone**. The Twitter confirmation gates do not trigger, because fast lowers the same `twitter.*` configurations the gates are measured against.
 - `auto + fast`: no prompts, hard caps. Anything that would have prompted is decided by you and recorded as an assumption.
 
 ## When a command changes these

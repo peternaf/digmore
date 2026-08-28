@@ -211,7 +211,7 @@ Three bounds on that judgement:
 
 1. **You may cut from the candidate list. You may never add below the floor.** A company that did
    not reach five documents did not earn a row, whatever you know about it from elsewhere.
-2. **Every exclusion is recorded — `runlog.mjs finding excluded-player`, one call each**, naming the entity and the reason. A candidate that
+2. **Every exclusion is recorded — `runlog.mjs finding excluded-player`, all of them in one call**, each argument naming the entity and the reason. A candidate that
    qualified and was left out is a decision the run made, and a reader is entitled to see it.
 3. **Say what you did**, in one line, before moving on: how many candidates qualified, how many
    became rows.
