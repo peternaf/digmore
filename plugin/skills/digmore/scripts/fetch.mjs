@@ -31,7 +31,19 @@ import { fileURLToPath } from 'node:url';
 
 import { FILENAME_ONLY_MAX, safeFilename } from './utils.mjs';
 
-export const REQUEST_TIMEOUT_MS = 60000;
+/**
+ * How long one page may take before the request is abandoned.
+ *
+ * **Ten seconds.** It was 60, and the open web is the slow source, so the long wait looked like the
+ * cautious choice — but nothing here retries a timeout, so the whole minute was spent to learn one
+ * thing the tenth second already said. The cost lands twice: the agent holding the batch waits out
+ * every second of it, and then falls back to WebFetch anyway.
+ *
+ * A page that has sent nothing in ten seconds is not a page worth the other fifty. What it costs is
+ * a slow-but-live server now failing over to WebFetch, which stores a paraphrase where the source's
+ * own words should be — visible on the receipt, which names the tool that got the page.
+ */
+export const REQUEST_TIMEOUT_MS = 10000;
 
 /**
  * A small pool on purpose: large pools are themselves a fingerprint. These are current

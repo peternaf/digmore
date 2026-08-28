@@ -49,7 +49,17 @@ export const HN_FIREBASE_BASE = 'https://hacker-news.firebaseio.com/v0';
 
 export const VERBS = ['story', 'user', 'vet'];
 
-const REQUEST_TIMEOUT_MS = 30000;
+/**
+ * How long one Algolia or Firebase request may take before it is abandoned.
+ *
+ * **Ten seconds, and a timeout is final** — the backoff loop below retries a 429 and nothing else,
+ * so an aborted request throws straight out. That is deliberate: both hosts answer a healthy
+ * request in about a second, so ten seconds is already an order of magnitude of patience and a
+ * request still running past it is not about to succeed. It was 30s, and the cost was paid twice —
+ * once waiting, and again when the agent holding the batch treated the long silence as something
+ * worth going back to.
+ */
+const REQUEST_TIMEOUT_MS = 10000;
 const CONCURRENCY = 8;
 
 /**

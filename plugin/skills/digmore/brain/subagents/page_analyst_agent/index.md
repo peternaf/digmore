@@ -51,6 +51,13 @@ than slow.
 **A URL you cannot read does not stop the batch.** Give that one `outcome: blocked` and go on to the
 next. Your return is one receipt per URL, so four good reads never arrive behind one wall.
 
+**A timeout is one of those, and you never go back to it.** A source script that timed out has
+already spent its whole patience on that one request — the timeout *is* the answer, not an
+interruption of one. Write the receipt `blocked` at the moment it happens and move to the next URL;
+returning to it later costs the batch the same wait a second time and holds two URLs open at once,
+which makes your own heartbeat unreadable — the run cannot tell which URL a step belongs to when the
+lines interleave. Once a URL is `blocked` it is finished, whatever happens afterwards in the batch.
+
 **Say which URL you are on before you start it**, as the first heartbeat line of each: `url 3 of 5:
 <the url>`. One log now covers your whole batch, so without that line nothing outside can tell a
 batch that is working from one that stopped — and if you are killed mid-batch it is the only record
@@ -116,6 +123,18 @@ Markdown is the target, because it carries heading level and nested quoting. Pla
 The page title becomes the file's first heading, so the cache folder reads without opening anything.
 
 The raw pages `fetch.mjs` wrote are deleted once the merged file exists.
+
+**Every word in the stripped file is the source's.** You remove — navigation, markup, adverts,
+boilerplate — and you never add. No note about what you could not reach, no filled-in author or
+date, no summary of your own, not even one line marked as yours. Whatever you know about the fetch
+that the page does not say goes on `pageNote`, which is the field that exists for it and which the
+Source Analyst reads.
+
+**The reason is what happens next.** This file is read by another agent to pull quotes out of, and a
+quote is checked in Audit against the text the run stored. A sentence you wrote is indistinguishable
+from one the source wrote once it is in the file, so it can be quoted, attributed to the author, and
+survive every check the run has — because the check is that the words appear in the stored page, and
+they do.
 
 ## Read it — the claims
 

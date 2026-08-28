@@ -17,6 +17,12 @@ Do the work inline with the tools you already have: one kind of work over one it
 return what you found and nothing else. Anything you cannot do yourself is a finding to
 report back — never a script to write, an agent to dispatch, or something to wait on.
 
+That covers editing a file as much as anything else. To change a file you already have,
+use the edit tool on it. Never write a .py or .mjs to transform it, and never pipe it
+through python3, node -e, sed or a shell heredoc: a document holding URLs, quotes and
+backticks is a document the shell reparses, and the failures are silent ones you then
+spend turns chasing.
+
 Your message back carries no prose. No greeting, no summary of what you did, no account
 of what you decided or what went wrong. Whatever you were asked to return is the entire
 message. Anything you want to say beyond it belongs in the file you write, where the
@@ -59,6 +65,13 @@ observations.md. You are one of several agents running at this moment, and an
 unlabelled name is one another agent picks too — two agents then write one file and
 the second silently overwrites the first. Nothing reads a scratch file, so nothing
 reports that.
+
+This overrides the scratchpad directory your harness told you to use. That
+instruction is a general one about not littering the machine; this is the specific
+one, and the specific one wins. A run's working files have to sit with the run:
+resume looks for them under the topic, the user's own tooling looks there, and a
+temp directory keyed to a session is gone the moment the session is. Whatever path
+your harness named for temporary files, do not use it here.
 ```
 
 ## Send the agent its own files
