@@ -30,6 +30,9 @@
           "handlesDeepVetted": 10,
           "handlesPerDispatch": 5,
           "postsPerDeepVet": 50
+        },
+        "audit": {
+          "paragraphsPerDispatch": 5
         }
       },
       "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"

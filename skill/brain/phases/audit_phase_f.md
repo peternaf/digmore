@@ -1,17 +1,17 @@
 # Audit
 
-Eight sub-steps, each with its own progress marker — `[6.1/6]` through `[6.8/6]`
+Seven sub-steps, each with its own progress marker — `[6.1/6]` through `[6.7/6]`
 (`../reporting.md`).
 
 **Synthesize wrote the report. This phase checks it and fixes it.** Nothing here fetches: every check
 is against what the run already stored, and every repair goes back to evidence already on disk.
 
-**Four of the eight are conditional** — the repair, the re-review and both redrafts run only when
-something needs them, so `[6.1/6]` followed by `[6.4/6]` is a normal run. They get a marker when they
+**Three of the seven are conditional** — the repair and both redrafts run only when something needs
+them, so `[6.1/6]` followed by `[6.3/6]` is a normal run. They get a marker when they
 do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the
 summary, with nothing printed, reads as a run that has hung.
 
-**Re-enter at the sub-step, not at the top.** This phase holds up to six dispatch groups and rewrites
+**Re-enter at the sub-step, not at the top.** This phase holds up to five dispatch groups and rewrites
 the deliverable three times, so re-running it whole is not cheap. `run_log.log` names where it died
 (`../resuming.md`).
 
@@ -19,12 +19,11 @@ the deliverable three times, so re-running it whole is not cheap. `run_log.log` 
 |---|---|---|
 | `[6.1/6]` | **Review** — the draft against the request, the planned sections, the planned angles, and every claim carrying a source | the Final report reviewer |
 | `[6.2/6]` | **Repair**, only where the reviewer found a closable gap | the Raw report writer, then the Final report writer |
-| `[6.3/6]` | **Re-review**, only where a repair ran, and only over the items it was meant to close | the Final report reviewer |
-| `[6.4/6]` | **Copy edit** — read cold, flag, then fix with the full context | the Final report copy editor |
-| `[6.5/6]` | **Redraft · markers**, only where prose paragraphs came back unmarked | the Final report writer |
-| `[6.6/6]` | **Fact check** — every rendered claim against the cached text it came from | the Claim Fact Checker, one dispatch per paragraph |
-| `[6.7/6]` | **Redraft · claims removed**, only where the fact check found any | the Final report writer |
-| `[6.8/6]` | **Record** — the Run footer, `audit.md`, and the run's own closing | you |
+| `[6.3/6]` | **Copy edit** — read cold, flag, then fix with the full context | the Final report copy editor |
+| `[6.4/6]` | **Redraft · markers**, only where prose paragraphs came back unmarked | the Final report writer |
+| `[6.5/6]` | **Fact check** — every rendered claim against the cached text it came from | the Claim Fact Checker, one dispatch per range of paragraphs |
+| `[6.6/6]` | **Redraft · claims removed**, only where the fact check found any | the Final report writer |
+| `[6.7/6]` | **Record** — the Run footer, `audit.md`, and the run's own closing | you |
 
 ## `[6.1/6]` Review
 
@@ -94,13 +93,7 @@ a new failure surface and a budget nothing bounds. The run says what it did not 
 **One pass, then record and stop.** An unbounded validation-and-repair loop is a defect marker in its
 own right, and one pass is the bound every other repair in this run carries.
 
-## `[6.3/6]` Re-review — only where a repair ran
-
-The same agent, once, **against the items it raised rather than the whole report**. Nothing else
-verifies the repair, so a fix that missed is otherwise indistinguishable from one that worked.
-Whatever is still unanswered is recorded rather than chased.
-
-## `[6.4/6]` Copy edit
+## `[6.3/6]` Copy edit
 
 Dispatch ONE Final report copy editor. Its own file is
 `../subagents/final_report_copy_editor_agent.md`. It returns the `final-report-copy-editor` shape.
@@ -119,14 +112,22 @@ Its return records every removal by `claimId` — the only trace of a citation l
 duplicate — and the two counts. Where flags raised and flags fixed differ, the summary still holds a
 sentence nobody could follow. Keep the return for the record; the agent checked it before handing it back.
 
-## `[6.5/6]` Redraft · markers — the backstop behind the writer's own check
+## `[6.4/6]` Redraft · markers — the backstop behind the writer's own check
 
-**Read the finished summary in full first.** It is safe here — the tail of this phase is a redraft
-dispatch, `audit.md` and the terminal output, so nothing long has to survive it — and the terminal
-Answer block comes free from the same read.
+**A script splits the summary. You never read it here:**
 
-**Then list every prose paragraph carrying no claim marker, and send them all back to the Final report
-writer, once, before any fact-check dispatch is built.**
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/factcheck.mjs" prepare --topic <slug>
+```
+
+Back come three numbers and two paths: `paragraphs`, the marked ones, frozen and numbered into
+`cache/audit/worklist.json` · `unmarked`, the prose carrying no marker, written to
+`cache/audit/unmarked.md` with the section each sits under · `staleIds`, markers naming a claim the
+index does not have.
+
+**Then send the writer the unmarked file, by path, once.** Its own file says what to do with each
+paragraph. **Name the path; do not paste the paragraphs** — that is the whole reason a script wrote
+them out.
 
 **An unmarked paragraph is invisible to the whole rest of the run.** The fact check never receives it,
 because scope is what the markers say is there; and the reviewer passes it whenever it carries a link,
@@ -137,25 +138,30 @@ to see whether that paragraph is true.
 link asks you to guess which paragraphs *should* have been marked, and it misses the worse shape — a
 fabricated paragraph with no link and no marker, which reads as narration and asserts a fact.
 
-**You detect; the writer judges.** Which paragraphs have markers is mechanical, and you already hold
-the whole summary. Whether an unmarked paragraph *needed* one is a judgement about what the prose
-asserts, and only the agent that wrote it can make that. Per paragraph it does one of three things:
-add the marker it forgot, cut prose that has no claim behind it, or confirm the paragraph asserts
-nothing and needs none. **The list is expected to be mostly innocent** — a section opener, a
-transition, a caveats line — and that is fine: the cost of a wide list is one agent reading a few
-short paragraphs, and the cost of a narrow one is a fabrication nobody sees.
+**The script detects; the writer judges.** Which paragraphs have markers is mechanical. Whether an
+unmarked one *needed* a marker is a judgement about what the prose asserts, and only the agent that
+wrote it can make that. Per paragraph it does one of three things: add the marker it forgot, cut prose
+that has no claim behind it, or confirm the paragraph asserts nothing and needs none. **The list is
+expected to be mostly innocent** — a section opener, a transition, a caveats line — and that is fine:
+the cost of a wide list is one agent reading a few short paragraphs, and the cost of a narrow one is a
+fabrication nobody sees.
 
-**Prose paragraphs only.** Every row of an enumerable section is rendered from a finished CSV and
-carries no marker, because a row is not a claim. Sweeping those in would fire on every row of every
-`landscape` run.
+**Prose paragraphs only, and the script applies that.** Headings, table rows and a bullet list with no
+marker anywhere in it are rendered from finished CSVs, and a row is not a claim. Sweeping those in
+would fire on every row of every `landscape` run.
 
-**One pass**; anything still unmarked is recorded — `runlog.mjs finding paragraph-unmarked`, one call each — and left alone.
+**Then run `prepare` again.** The writer has just changed the summary, so the first work list is
+stale — the numbering it froze no longer matches the document. The second run's list is the one the
+fact check works from, and its `paragraphs` count is what you split into ranges.
+
+**One pass**; anything still unmarked after it is recorded — `runlog.mjs finding paragraph-unmarked`,
+one call each — and left alone.
 
 **It cannot run earlier or later.** A sweep before the copy edit would be invalidated by it — the copy
 editor is what breaks a marker, rewriting paragraphs and deleting duplicates — and a sweep after the
 fact check leaves the repaired paragraphs unchecked.
 
-## `[6.6/6]` Fact check
+## `[6.5/6]` Fact check
 
 **Every claim the summary renders is checked against the text the run stored.** No ranking, no
 subset, no cap, and no fetching: the comparison is against `cache/<source>/`, written when Extract
@@ -166,14 +172,16 @@ read this correctly*. Only the second catches a fabricated quote, and fabricatio
 matters. It also costs a file read rather than a request, which is what lets it run over everything
 instead of a top-ranked few.
 
-**How the dispatches are built:**
+**How the dispatches are built:** you split the count `prepare` returned into ranges of
+`audit.paragraphsPerDispatch` — `preflight.mjs` prints the number this run uses — and dispatch one
+Claim Fact Checker per range. **"Paragraphs 11 to 20", and nothing else.** The agent asks
+`factcheck.mjs serve` for its own, and each arrives with its number, its text and, per distinct
+`cachedPage` its claims cite, the verbatim quotes drawn from that page with the claim each was drawn
+for. Two claims citing one page make one entry, not two.
 
-1. Take each paragraph and the ids its marker names. No splitting — which sentence renders which id is
-   the agent's to work out.
-2. A script joins each id to its row in `claim_index.json` for its citations.
-3. **One dispatch per paragraph**, carrying that paragraph whole and, per distinct `cachedPage` its
-   claims cite, the verbatim quotes drawn from that page with the claim each was drawn for. Two claims
-   citing one page make one entry, not two.
+**You hold a count and a range, and never a paragraph.** Composing eighty prompts out of a 116 KB
+document you were carrying is what this replaces — and the paragraph's number, which used to be yours
+to stamp because the agent could not know its own position, now travels from the work list.
 
 **`claimId` and `status` do not cross the seam.** Nothing comes back keyed on an id, so an id in the
 prompt is an accounting unit the agent cannot use; and `status` is the handle verdict, which decides
@@ -183,12 +191,23 @@ caveating and has no bearing on text against text.
 canonical one is only the highest-quality page — not necessarily the one carrying the sentence in this
 paragraph.
 
+**The range is worked sequentially, and the dispatch has to say so.** A batch would otherwise invite
+the fan-out `index.md` §"What a sub-agent is" forbids. Put this in verbatim:
+
+```
+Check these one at a time, in the order given. Finish each paragraph completely — read its
+pages, reach your verdict, write its file — before you start the next one. Do not dispatch
+sub-agents. Do not parallelise. You receive no completion notification for anything you
+start, so whatever you start you wait on forever.
+```
+
 **Concurrency: the harness limit.** Every dispatch reads local files and nothing is rate-limited.
 
 **A stale marker is skipped, not an error.** The copy editor can rewrite a paragraph and drop a
-rendering without saying so, leaving an id with nothing to check. There is nothing to verify and
-nothing to delete. Do not build an error path for it: an unrendered claim is out of scope by
-definition, and the guarantee is about claims the reader can see.
+rendering without saying so, leaving an id with nothing to check — `prepare` counts those as
+`staleIds` and leaves them out. There is nothing to verify and nothing to delete, and an unrendered
+claim is out of scope by definition: the guarantee is about claims the reader can see.
+
 
 **What comes back, and the two are different findings:**
 
@@ -216,18 +235,19 @@ because you built that dispatch and the agent does not know its own position; fr
 the marker, the claims and every `cachedPage` behind them, all still in `claim_index.json`, which is
 never edited after it is written.
 
-Anything still unmarked after `[6.5/6]` goes in as `paragraph-unmarked` at that step, for the same
+Anything still unmarked after `[6.4/6]` goes in as `paragraph-unmarked` at that step, for the same
 reason: it reached the reader unchecked, and nothing else in the run records that.
 
 **Where most of the cache is absent**, stop rather than deleting everything it could not confirm: that
 would ship an empty report that looks like a run which found nothing (`index.md` §"When the cache is
 gone").
 
-**It resumes per paragraph.** Each dispatch writes `cache/_returns/claim-fact-checker-<n>.json` as it
-returns, a resumed run re-reads the same summary so the numbering is identical, and only the
-paragraphs with no return file are re-dispatched.
+**It resumes per paragraph, not per dispatch.** Each agent writes `cache/audit/<n>.json` the moment
+that paragraph is finished, so a batch killed at its third keeps the two before it. A resumed run
+re-runs `prepare` on the same summary and gets the same numbering, then dispatches ranges covering
+only the numbers with no file.
 
-## `[6.7/6]` Redraft · claims removed
+## `[6.6/6]` Redraft · claims removed
 
 One Final report writer dispatch over the sections holding the removed text, **naming the sentences to
 leave out**. Do not cut them yourself: a `competitor` Verdict bullet keeps its conclusion after the
@@ -264,7 +284,13 @@ the run reported success.
 written as `.tmp` and renamed over the original, and the rename is a shell command either way. What
 changes is that the document's text no longer passes through the shell to get there.
 
-## `[6.8/6]` Record
+## `[6.7/6]` Record
+
+**Read the finished summary in full, here and nowhere earlier.** Two things need it and both are in
+this step: the terminal Answer block, and the follow-up ideas drawn from the summary's complaints and
+adjacent-spaces sections. It used to be read at `[6.4/6]` to list the unmarked paragraphs; `factcheck.mjs
+prepare` does that now, so the document enters your context after the fact check rather than being
+carried through it.
 
 **Append the Run footer to the summary**, per `../reporting.md`. It is yours, written last, after every
 agent has finished with the file — and it is **not** a deliverable: everything in it is your own

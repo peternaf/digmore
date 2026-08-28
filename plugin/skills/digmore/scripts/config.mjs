@@ -53,9 +53,9 @@ export const RECENCY_WINDOW_YEARS = 2;
  * sources has 30 branches, so this number multiplies by 30 rather than by 5. It counts
  * pages too — a paginated thread spends one per page, bounded by `maxPagesPerDocument`.
  *
- * `extract.urlsPerDispatch` and `vet.handlesPerDispatch` are batch sizes: how many items
- * one sub-agent works through in sequence, so that a run spends fewer dispatches rather
- * than fewer requests. Neither is a concurrency limit — that is the harness's, and it is
+ * `extract.urlsPerDispatch`, `vet.handlesPerDispatch` and `audit.paragraphsPerDispatch`
+ * are batch sizes: how many items one sub-agent works through in sequence, so that a run
+ * spends fewer dispatches rather than fewer requests. Neither is a concurrency limit — that is the harness's, and it is
  * how many agents run at once. Neither reduces in fast mode either: fast already cuts the
  * item count, and cutting the batch as well would put the dispatch count back up.
  *
@@ -93,6 +93,7 @@ export const CONFIGURATION_DEFAULTS = Object.freeze({
   enrich: { expertsFollowed: 5, urlsPerExpert: 10 },
   twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
+  audit: { paragraphsPerDispatch: 5 },
   subagents: { repairAttempts: 1 },
 });
 
@@ -149,6 +150,7 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'hackernews.commentDepth': 'reply depth kept when a thread is flattened — below this the argument is lost',
   'hackernews.recentCommentsSampled': 'recent comments read when vetting a handle',
   'hackernews.deadSampleSize': "recent submissions checked for the dead flag — 0 skips the shadowban test",
+  'audit.paragraphsPerDispatch': 'paragraphs one Claim Fact Checker judges in sequence',
   'subagents.repairAttempts': 'retries when a sub-agent return fails its shape check',
 });
 

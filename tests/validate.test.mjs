@@ -585,23 +585,18 @@ test('an unsourced deletion names the report it came from', async () => {
   assert.deepEqual(paths(result), ['claimsDeletedUnsourced[0].sourceReport']);
 });
 
-test('the final report writer returns every claim it dropped, with a reason', async () => {
-  const result = await check('final-report-writer', {
-    claimsDropped: [{ claimId: 'claim-009', reason: 'no room in its section' }],
-    sectionsDrafted: 8,
-    findingsWritten: 34,
-  });
-  assert.equal(result.code, 0);
+test('the final report writer no longer accounts for what it left out', async () => {
+  const result = await check('final-report-writer', { sectionsDrafted: 8, findingsWritten: 34 });
+  assert.equal(result.code, 0, 'sections and findings are the whole of the required set');
 });
 
-test('a dropped claim without its reason is refused', async () => {
-  const result = await check('final-report-writer', {
-    claimsDropped: [{ claimId: 'claim-009' }],
-    sectionsDrafted: 8,
-    findingsWritten: 34,
-  });
-  assert.equal(result.code, 1);
-  assert.deepEqual(paths(result), ['claimsDropped[0].reason']);
+// A claim not drafted is still in the raw report and still in claim_index.json, so nothing has
+// disappeared. The list reached no file — the claim-dropped-drafting category was never called —
+// and cost hundreds of entries in the orchestrator's context for the rest of the run.
+test('claimsDropped is gone from the shape, not merely optional', () => {
+  const shape = schemasJson['final-report-writer'];
+  assert.equal(shape.properties.claimsDropped, undefined);
+  assert.ok(!shape.required.includes('claimsDropped'));
 });
 
 // One entry per item across all three lists — what the user asked for, what the plan promised,

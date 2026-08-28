@@ -23,19 +23,18 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 [5.2/6] Synthesize · Draft
 [6.1/6] Audit · Review
 [6.2/6] Audit · Repair
-[6.3/6] Audit · Re-review
-[6.4/6] Audit · Copy edit
-[6.5/6] Audit · Markers
-[6.6/6] Audit · Fact check
-[6.7/6] Audit · Redraft
-[6.8/6] Audit · Record
+[6.3/6] Audit · Copy edit
+[6.4/6] Audit · Markers
+[6.5/6] Audit · Fact check
+[6.6/6] Audit · Redraft
+[6.7/6] Audit · Record
 ```
 
 - **The counter is always out of 6** — Plan, Extract, Vet, Enrichment, Synthesize, Audit. A phase with sub-steps numbers them after the point, so progress inside a phase that runs for an hour is visible without it becoming a seventh phase. The phases that dispatch most of the run's agents all have them; Plan and Vet are each one step and do not.
 - **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line in the terminal.
 - **No end-of-step report.** A step finishing prints nothing at all, and that covers a sub-step as much as a whole phase: the next marker is what says the last step is done, and a digest of what the step found is a "done" line with a table on it. Everything such a digest would carry is already owed somewhere permanent — the counts to `audit.md`, the reading to the report, the run's own problems to Issues — and a terminal that scrolls past is the one place none of it should live. It is also how a run stops: a block that closes on what comes next is a sign-off, and a sign-off ends the turn. `../modes.md` §Manual mode owns that rule.
 - **A marker and its step go in the same turn.** The line says the step is running, so run it. `[4.5/6] Enrichment · Profile · 47 players` printed with no profiling after it is the run announcing work and then handing back, which is the same stop as a report at a step boundary and costs the user the same restart.
-- **A conditional step that did not run prints nothing at all.** Four of Audit's eight are conditional — the repair, the re-review and both redrafts run only when something needs them — so `[6.1/6]` followed by `[6.4/6]` is a normal run rather than a missing step. They get a marker when they do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the summary, with nothing printed, reads as a run that has hung.
+- **A conditional step that did not run prints nothing at all.** Three of Audit's seven are conditional — the repair and both redrafts run only when something needs them — so `[6.1/6]` followed by `[6.3/6]` is a normal run rather than a missing step. They get a marker when they do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the summary, with nothing printed, reads as a run that has hung.
 - **A step working through a queue says how big the queue is, then counts it down.** Only that shape: a number of items, and a pace you do not set. `[3/6] Vet · 50 handles on Hacker News`, then `[3/6] Vet · 18 of 50 vetted`. **The count names what has finished, in words, in the unit the step opened on** — `18 of 50 vetted`, `85 of 325 read`. Never a bare `18/50`, which reads equally as 18 done, 18 in flight or 18 still to come. Never the run's own machinery — `wave 1 of 4`, `17 readers` — which says how the work is arranged rather than how much of it is left. It goes on the marker, and it is the whole message. `[4.5/6]` counts the players it is profiling down the same way, a row at a time as each returns.
 
 - **The count is read, never remembered.** Whatever the step's unit is — receipts, handles, rows — the number that reaches the marker comes from the files on disk at the moment you print it. A tally you carry drifts: completion notifications arrive several to a message, so a turn that handles three of them and adds one leaves the count low for the rest of the step, and a low count reads as work still outstanding.

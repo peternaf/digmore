@@ -1292,30 +1292,10 @@
     "description": "Returned by the Final report writer - once for the draft in Synthesize, and once per redraft in Audit. A receipt, not the findings: the summary is on disk and the orchestrator reads it whole before the fact check. The drop list is what earns the return. This agent decides what does not reach the summary - too thin, contradicted, no room in its section - and the raw report still carries those claims unmarked, so the discard leaves no trace anywhere else. Every other actor records what it discarded; without this, drafting is the one place in the run where evidence disappears silently.",
     "type": "object",
     "required": [
-      "claimsDropped",
       "sectionsDrafted",
       "findingsWritten"
     ],
     "properties": {
-      "claimsDropped": {
-        "type": "array",
-        "description": "Every claim read in the raw report and left out of the summary, with why. Kept as a list rather than a paragraph so it can be counted.",
-        "items": {
-          "type": "object",
-          "required": [
-            "claimId",
-            "reason"
-          ],
-          "properties": {
-            "claimId": {
-              "type": "string"
-            },
-            "reason": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "sectionsDrafted": {
         "type": "integer",
         "minimum": 0
@@ -1481,8 +1461,105 @@
       }
     }
   },
+  "factcheck-paragraph": {
+    "description": "What `factcheck.mjs serve` hands one Claim Fact Checker for its range. The agent is given this so it knows the shape of what it asked for; it returns `claim-fact-checker`, one file per paragraph, which is a different thing. `claimId` and `status` are deliberately absent: nothing comes back keyed on an id, so an id here is an accounting unit the agent cannot use, and `status` is the handle verdict, which decides caveating and has no bearing on text against text.",
+    "type": "object",
+    "required": [
+      "from",
+      "to",
+      "count",
+      "paragraphs"
+    ],
+    "properties": {
+      "from": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "First paragraph of the range, one-based and inclusive."
+      },
+      "to": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Last paragraph asked for. The range may come back short — the last one of a source always does."
+      },
+      "count": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many paragraphs actually came back."
+      },
+      "paragraphs": {
+        "type": "array",
+        "uniqueBy": "paragraph",
+        "items": {
+          "type": "object",
+          "required": [
+            "paragraph",
+            "text",
+            "evidence"
+          ],
+          "properties": {
+            "paragraph": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Its position in the summary, from the frozen work list. The agent names its return file after this — cache/audit/<n>.json — and a resumed run re-dispatches only the numbers with no file, so the numbering has to be the same every time `prepare` runs on an unchanged summary."
+            },
+            "section": {
+              "type": "string",
+              "description": "The heading it sits under, so a reader of the record can find it."
+            },
+            "text": {
+              "type": "string",
+              "description": "The paragraph whole, exactly as the report has it. This is what gets judged — not the claim text in the index, which the writer rephrased and the copy editor may have rewritten again."
+            },
+            "evidence": {
+              "type": "array",
+              "description": "One entry per distinct cached page the paragraph's claims cite. Two claims citing one page make one entry, so the agent opens each file once.",
+              "uniqueBy": "cachedPage",
+              "items": {
+                "type": "object",
+                "required": [
+                  "cachedPage",
+                  "quotes"
+                ],
+                "properties": {
+                  "cachedPage": {
+                    "type": "string",
+                    "description": "The stored page, relative to the topic directory. This is the file to open — nothing here is re-fetched."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Where it came from on the web. Context only; the check is against the stored copy."
+                  },
+                  "quotes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "quote",
+                        "claim"
+                      ],
+                      "properties": {
+                        "quote": {
+                          "type": "string",
+                          "description": "Verbatim, as the run recorded it when the page was read."
+                        },
+                        "claim": {
+                          "type": "string",
+                          "description": "The claim this quote was drawn for. A key to what to look for, never the text being checked."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "claim-fact-checker": {
-    "description": "Returned by a Claim Fact Checker, one per paragraph of the summary that carries a claim marker, in Audit. The unit is the paragraph rather than the claim: everything the paragraph asserts is held against everything the paragraph cites, read as one evidence set. That catches a sentence composed from nothing, which a per-claim check never examined because it carried no id, and it dissolves the stale-marker case rather than needing a rule for it. Only failures come back - nothing downstream reads a pass, and a few hundred entries mostly saying 'fine' is the payload the receipts elsewhere exist to avoid.",
+    "description": "One paragraph's verdict, written by the Claim Fact Checker to cache/audit/<n>.json and validated there — the agent returns the word done. One file per paragraph rather than one per dispatch, so a batch killed at its third keeps the two before it, and so a resumed run can tell which numbers are still outstanding. Returned by a Claim Fact Checker, one per paragraph of the summary that carries a claim marker, in Audit. The unit is the paragraph rather than the claim: everything the paragraph asserts is held against everything the paragraph cites, read as one evidence set. That catches a sentence composed from nothing, which a per-claim check never examined because it carried no id, and it dissolves the stale-marker case rather than needing a rule for it. Only failures come back - nothing downstream reads a pass, and a few hundred entries mostly saying 'fine' is the payload the receipts elsewhere exist to avoid.",
     "type": "object",
     "required": [
       "unsupported",

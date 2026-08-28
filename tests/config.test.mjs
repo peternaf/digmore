@@ -12,7 +12,7 @@ const POSIX = process.platform !== 'win32';
 
 /** Every top-level key the file carries. Grouped by where each configuration applies. */
 const TOP_LEVEL_KEYS = [
-  'apiBaseUrl', 'apiDeclined', 'apiKey',
+  'apiBaseUrl', 'apiDeclined', 'apiKey', 'audit',
   'enrich', 'extract', 'fast', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
 ];
 
@@ -60,7 +60,7 @@ test('the fast block lists every configuration group, not only the ones it reduc
   run('show');
   const { plan, extract, vet, enrich, twitter, hackernews, subagents, fast } = settings();
   assert.deepEqual(Object.keys(fast).sort(),
-    ['enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
+    ['audit', 'enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
   assert.equal(plan.maxAngles, 6);
   assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
@@ -111,13 +111,17 @@ test('a batch size of zero falls back to its default', () => {
 // The group is named for the phase that spends it, and two phases spend nothing: every rendered
 // claim is fact-checked, so there is no checked subset to size and nothing is flagged for the
 // user to chase. A `synthesize` group reappearing here means one of those caps came back.
-test('there is no synthesize group and no audit group', () => {
+// Synthesize still has none. Audit has one, and it is a batch size rather than a depth: it sizes
+// the range one Claim Fact Checker is handed, never how many paragraphs are checked. Every rendered
+// claim is checked in both modes, so there is still no checked subset to configure.
+test('there is no synthesize group, and audit has only a batch size', () => {
   run('show');
   const written = settings();
   assert.ok(!('synthesize' in written), 'its two survivors were renamed to enrich.*');
-  assert.ok(!('audit' in written), 'the fact check has no configuration of its own');
   assert.ok(!('synthesize' in written.fast));
-  assert.ok(!('audit' in written.fast));
+  assert.deepEqual(Object.keys(written.audit), ['paragraphsPerDispatch']);
+  assert.equal(written.fast.audit.paragraphsPerDispatch, written.audit.paragraphsPerDispatch,
+    'a batch size never reduces in fast mode');
 });
 
 test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {

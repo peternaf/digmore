@@ -99,7 +99,6 @@ export const FINDING_CATEGORIES = Object.freeze([
   'stuck-agent-killed',
   'claim-unsourced',
   'claim-refuted',
-  'claim-dropped-drafting',
   'statement-deleted',
   'paragraph-unreadable-evidence',
   'paragraph-unmarked',

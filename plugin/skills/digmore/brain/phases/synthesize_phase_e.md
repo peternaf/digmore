@@ -114,11 +114,15 @@ as one comment at its end: `<!-- claims: 001, 004, 009 -->`. That marker is the 
 report and the evidence behind it, and three things read it — the fact check's scope, the copy
 editor's removals, and the redraft that follows either.
 
-**Read the receipt** and keep its drop list: every claim it read in the raw report
-and chose not to use, with the reason. Nothing else records those. Every other actor writes down what
-it discarded — Enrichment names each excluded player, Vet keeps rejections in `<source>-handles.json`,
-Extract logs dropped-for-budget URLs — and without this, drafting is the one place in the run where
-evidence disappears silently.
+**Read the receipt** for what it says about the draft — the sections it wrote, and anything its own
+closing check could not fix.
+
+**It does not list the claims it left out, deliberately.** It used to, on the argument that drafting
+would otherwise be the one place evidence disappears silently. That argument does not hold: a claim
+not drafted is still in the raw report and still in `claim_index.json`, both of which outlive the run.
+What the list actually cost was hundreds of entries composed by the agent, carried in your context for
+the rest of the run, and read by nobody — it reached no file, and the `claim-dropped-drafting`
+category that would have received it was never called from anywhere.
 
 Its `sectionsWithNoVettedVoice` goes in the run's Issues as well as in `audit.md`.
 

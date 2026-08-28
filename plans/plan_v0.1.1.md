@@ -585,6 +585,60 @@ package touches.
 - [x] The new shape · reference resolution · an unresolvable reference · the two maxima · id numbering
       · append-on-repair continuing the counter.
 
+## The fact check is batched — §The fact check is batched, and a script builds its paragraphs
+
+**Blocks nothing.** Assumes Audit's seven sub-steps, so `[6.4]` is Markers and `[6.5]` is Fact check.
+
+**`factcheck.mjs` — new script**
+
+- [ ] `prepare` — split the summary on blank lines, then split any piece carrying more than one marker
+      at every line break. Write `cache/_misc/factcheck-worklist.json` and
+      `cache/_misc/factcheck-unmarked.md`. Return `paragraphs`, `unmarked`, `staleIds` and both paths.
+- [ ] The unmarked file locates each paragraph — its section and opening line — so the writer can find
+      it rather than search for it.
+- [ ] `serve --from <n> --to <n>` — those paragraphs, each with its number and its quotes grouped one
+      entry per `cachedPage`. Resolves the ids from `claim_index.json` at call time.
+- [ ] A short last range is not an error, as `handle_vetting.mjs serve` already has it.
+- [ ] A stale id — a marker naming a claim the index does not have — is counted and skipped, never an
+      error: the copy editor can drop a rendering without saying so.
+
+**Configuration**
+
+- [ ] `config.mjs` — `audit.paragraphsPerDispatch: 5` in `CONFIGURATION_DEFAULTS` and
+      `CONFIGURATION_NOTES`. Nothing in `FAST_REDUCTIONS`.
+- [ ] `modes.md` — the group table gains an `audit` row, and *"Synthesize and Audit have no group at
+      all"* is reworded: a batch size is not a depth setting, and there is still no checked subset.
+- [ ] `plan_phase_a.md`'s two `run_history` examples and `plans/sample_research_plan.json`.
+- [ ] `tests/config.test.mjs` and `tests/preflight.test.mjs` — the defaults tree and the printed keys.
+
+**Shapes**
+
+- [ ] New `factcheck-paragraph` shape for what `serve` hands back, so the agent is given one.
+- [ ] `claim-fact-checker` is unchanged — same return, same one file per paragraph.
+
+**`audit_phase_f.md`**
+
+- [ ] `[6.4]` — `prepare`, dispatch the writer with the unmarked file's path, then `prepare` again.
+      Drop *"Read the finished summary in full first"*: `prepare` lists the unmarked paragraphs now.
+- [ ] `[6.5]` — split the count into ranges and dispatch one checker per range. Remove the three-step
+      "how the dispatches are built" block and the "paragraph number is yours to stamp on" rule.
+- [ ] `[6.7]` — read the summary here instead, for the Answer block and the follow-up ideas.
+- [ ] Everything after a flag is untouched: the two categories, the deletions, the redraft, the
+      never-copy-edited note, the cache-is-gone stop.
+
+**`claim_fact_checker_agent.md`**
+
+- [ ] Summary rows: *Input text* (a range, not a paragraph), *Runs* (`serve`, then per paragraph),
+      *One dispatch per*, *Run instances*, *Concurrency*, *Settings that control it*.
+- [ ] The sequential instruction, as the Page Analyst and Handle Vetter carry it: one paragraph
+      finished and written before the next is started, never two sets of evidence held at once.
+
+**Tests**
+
+- [ ] The bullet-list split · a normal paragraph split · numbering stable across two `prepare` runs ·
+      citations grouped per `cachedPage` · a stale id counted not thrown · a short last range · the
+      unmarked file carrying its locations.
+
 ## Verification gates — manual, once
 
 - [x] `npm test` passes. 372 pass, 0 fail, 2 skipped by design — the 429-that-never-clears wants

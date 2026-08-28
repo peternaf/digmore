@@ -2,21 +2,21 @@
 
 | Field | |
 |---|---|
-| **Phase** | Audit `[6.6/6]`, after the copy edit and the marker redraft that follows it |
+| **Phase** | Audit `[6.5/6]`, after the copy edit and the marker redraft that follows it |
 | **Purpose** | Confirm that everything one paragraph of the report asserts is supported by the text the run actually read, and name the statements that are not so they can be deleted |
-| **Input text** | **the paragraph, verbatim and whole** — that is what gets judged. Then **one entry per distinct `cachedPage`** its claims cite, each carrying the verbatim quotes drawn from that page and the claim text each was drawn for. Two claims citing one page make one entry, not two |
-| **Input rule files** | `output.md`. **Not `fetching.md`** — this agent does not fetch, and a file explaining how to get a page invites it to go and get one |
-| **Input data files** | the cached files its claims cite, and nothing else. Not the raw report, not `claim_index.json`, not the rest of the summary |
-| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads cached files only |
-| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
-| **Held in its context** | the paragraph, and the cached documents behind the claims in it. Nothing of the text leaves — the verdict is the answer |
-| **Returns to main context** | the `claim-fact-checker` shape — **only what failed**, plus two counts. One entry per unsupported statement, quoting the sentence as the report has it with the reason; `statementsJudged` and `pagesRead`; and `evidenceUnreadable` |
-| **Writes to disk** | `cache/_returns/claim-fact-checker-<n>.json`, where `<n>` is the paragraph's position in the summary. Nothing else |
-| **Logs** | `cache/_progress/claim-fact-checker-<paragraph>.log` — `reading <cached file>`, one per distinct page · `judging <claim-count> claims against <page-count> pages`, the whole evidence set at once |
+| **Input text** | **a range and nothing else** — "paragraphs 11 to 20" — plus the sequential instruction. It asks `factcheck.mjs serve` for its own, and each arrives with its number, its text and its evidence. No paragraph travels through the orchestrator |
+| **Input rule files** | `subagents/claim_fact_checker_agent.md` · `output.md`. **Not `fetching.md`** — this agent does not fetch, and a file explaining how to get a page invites it to go and get one |
+| **Input data files** | none named in the dispatch. `serve` hands it each paragraph and the cached files its claims cite, and it opens those. Not the raw report, not `claim_index.json`, not the rest of the summary |
+| **Runs** | `factcheck.mjs serve` once, for its own range. Then per paragraph it reads that paragraph's cached pages and judges them — no other scripts, no network. One paragraph finished and written before the next is started |
+| **Settings that control it** | `audit.paragraphsPerDispatch` — **the orchestrator's**: it sizes the range this agent is handed, and the agent never sees it. Nothing else. There is no cap on how many paragraphs are checked, in either mode — the unit is one paragraph of the document, which is a property of the document rather than a number anyone sets |
+| **Held in its context** | **one paragraph at a time**, and the cached documents behind the claims in it. Judged, written and let go before the next paragraph starts, so two paragraphs' evidence is never held at once. Nothing of the text leaves — the verdict is the answer |
+| **Returns to main context** | **the word `done`**, or a failure naming the paragraph it could not finish. **Nothing about a verdict comes back** — one `claim-fact-checker` file per paragraph is the artifact, and a range that returned its findings inline would put every deleted sentence through the orchestrator on the way to a file |
+| **Writes to disk** | `cache/audit/<n>.json`, one per paragraph, **written the moment that paragraph is finished** — which is what lets a batch killed at its third keep the two before it, and is the record a resumed run reads. `<n>` comes from `serve`, not from the agent. Nothing else |
+| **Logs** | `cache/_progress/claim-fact-checker-<source-range>.log`, one per batch — `paragraph <n> of <n>: ¶<number>` · `reading <cached file>`, one per distinct page · `judging <claim-count> claims against <page-count> pages` |
 | **How it reports failure** | **one line, and it is the unreadable-evidence stop.** Where none of the paragraph's pages could be read, return no unsupported statements and set `evidenceUnreadable`. That is the whole of it |
-| **One dispatch per** | one paragraph of the summary |
-| **Run instances** | one per paragraph that carries a claim marker |
-| **`--fast`** | unchanged. **Every claim is checked in both modes** |
+| **One dispatch per** | **one range of up to `audit.paragraphsPerDispatch` paragraphs** |
+| **Run instances** | ⌈marked paragraphs ÷ `audit.paragraphsPerDispatch`⌉ — a measured run had 80 paragraphs, so 16 |
+| **`--fast`** | unchanged. **Every claim is checked in both modes**, and the batch size does not reduce either — it reads local files, so being shallow buys nothing worth the guarantee |
 | **Concurrency** | the harness limit. Nothing is rate-limited: every dispatch reads local files |
 | **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 

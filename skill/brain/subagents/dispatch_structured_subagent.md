@@ -265,7 +265,7 @@ your thread and each staying in your transcript.
 
 **You are inside the rule rather than outside it.** `research_plan.json` is the one JSON you write
 yourself, and it is checked the same way — `plan_phase_a.md` after the identity write and after
-`scope`, `audit_phase_f.md` §`[6.8/6]` after `phases_completed`.
+`scope`, `audit_phase_f.md` §`[6.7/6]` after `phases_completed`.
 
 **Scripts are outside it.** `players.mjs candidates`, `handle_vetting.mjs prepare` and `aggregate`,
 `synthesis.mjs join` write JSON and validate none of it: a script's shape is fixed in code and

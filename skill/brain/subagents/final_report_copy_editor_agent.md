@@ -2,7 +2,7 @@
 
 | Field | |
 |---|---|
-| **Phase** | Audit `[6.4/6]`, between the review and the fact check |
+| **Phase** | Audit `[6.3/6]`, between the review and the fact check |
 | **Purpose** | Read the summary as someone who was not in the run and mark what they could not follow, then go and learn what those sentences were meant to say and fix them — saying each thing once, and reporting what changed |
 | **Input text** | the two stages below, in order, with the flag file's path · the dedup instruction in full, **which is the one part of this job `output.md` does not contain** · `output.md` named as the standard to edit against, its rules not restated, per `dispatch_structured_subagent.md` §"A dispatch never restates what the agent's own file says" |
 | **Input rule files** | `output.md`. **For every other agent this is a style reminder; here it is the job description** — it holds the banned-phrase list stage 1 flags against, the prose standard that defines a violation, and the boundary that keeps this agent off quoted source text |

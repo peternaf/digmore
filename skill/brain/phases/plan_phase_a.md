@@ -183,8 +183,8 @@ One file for the topic and the plan. Identity at the top level, history beside i
   "parent_slug": "video-infra-overview",
   "originating_prompt": "research B2B video API providers — pricing tiers and recent moves",
   "run_history": [
-    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "configurations": {"extract": {"fetchesPerBranch": 10, "maxPagesPerDocument": 5, "urlsPerDispatch": 5}, "vet": {"handleCapPerSource": 20, "handlesPerDispatch": 10}, "enrich": {"expertsFollowed": 5, "urlsPerExpert": 10}}, "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"},
-    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "configurations": {"extract": {"fetchesPerBranch": 5, "maxPagesPerDocument": 5, "urlsPerDispatch": 5}, "vet": {"handleCapPerSource": 10, "handlesPerDispatch": 10}, "enrich": {"expertsFollowed": 0, "urlsPerExpert": 3}}, "phases_completed": "plan,extract,vet"}
+    {"ts": "2026-06-10T15:30:00Z", "kind": "fresh", "prompt": "…", "mode": "manual, full", "configurations": {"extract": {"fetchesPerBranch": 10, "maxPagesPerDocument": 5, "urlsPerDispatch": 5}, "vet": {"handleCapPerSource": 20, "handlesPerDispatch": 10}, "enrich": {"expertsFollowed": 5, "urlsPerExpert": 10}, "audit": {"paragraphsPerDispatch": 5}}, "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"},
+    {"ts": "2026-06-12T10:00:00Z", "kind": "re-run", "prompt": "…", "mode": "auto, fast", "configurations": {"extract": {"fetchesPerBranch": 5, "maxPagesPerDocument": 5, "urlsPerDispatch": 5}, "vet": {"handleCapPerSource": 10, "handlesPerDispatch": 10}, "enrich": {"expertsFollowed": 0, "urlsPerExpert": 3}, "audit": {"paragraphsPerDispatch": 5}}, "phases_completed": "plan,extract,vet"}
   ],
   "scope": {
     "vocabulary": ["voice cloning", "streaming latency"],

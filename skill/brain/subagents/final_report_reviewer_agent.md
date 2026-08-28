@@ -2,9 +2,9 @@
 
 | Field | |
 |---|---|
-| **Phase** | Audit `[6.1/6]`, the first step of it — and again at `[6.3/6]` if a repair ran |
+| **Phase** | Audit `[6.1/6]`, the first step of it. **Once only** — it is not re-run after a repair |
 | **Purpose** | Read the draft against the three things the run committed to — what the user asked for, the sections the plan promised, and the angles Plan set out to answer — check that every claim in it carries a source, and name what is missing while there is still time to go and get it |
-| **Input text** | **three lists**: `research_plan.json.originating_prompt` verbatim · `scope.deliverables`, every section in order · `scope.angles`, each label and rationale. Plus the subjects the Raw report writer's filter dropped, with reasons. **At `[6.3/6]`**, only the items it raised the first time |
+| **Input text** | **three lists**: `research_plan.json.originating_prompt` verbatim · `scope.deliverables`, every section in order · `scope.angles`, each label and rationale. Plus the subjects the Raw report writer's filter dropped, with reasons |
 | **Input rule files** | `output.md`, **and deliberately nothing else** |
 | **Input data files** | the draft summary, and nothing else. **Not the raw report**, which would tell it what the run found rather than what it promised |
 | **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It opens the draft summary and writes nothing else |
@@ -15,7 +15,7 @@
 | **Logs** | `cache/_progress/final-report-reviewer.log` — `reading the draft` · `checking <list>`, one per list · `reading for unsourced claims` |
 | **How it reports failure** | **no draft on disk is a stop, not a review of nothing** — say so and return no verdicts. An item it cannot judge comes back `unjudged` with the reason, never as present |
 | **One dispatch per** | the draft |
-| **Run instances** | 1, plus one re-review where a repair ran |
+| **Run instances** | 1 |
 | **`--fast`** | the same in both modes — it runs in both |
 | **Concurrency** | n/a — single |
 | **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
@@ -99,8 +99,3 @@ new failure surface and a budget nothing bounds. The run says what it did not ga
 **So the useful finding is a specific one.** "The pricing angle produced nothing" is actionable
 — the evidence may be in a per-source report and not in the aggregate. "More depth would help" is not.
 
-## The re-review
-
-If a repair ran, you see the draft once more, **against the items you raised and nothing else**.
-Nothing else verifies the repair, so a fix that missed is otherwise indistinguishable from one that
-worked. Whatever is still unanswered after that is recorded rather than chased — one pass, then accept.

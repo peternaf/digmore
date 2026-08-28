@@ -2,7 +2,7 @@
 
 | Field | |
 |---|---|
-| **Phase** | Synthesize `[5.2/6]` for the draft, and again in Audit for each redraft — `[6.2/6]` after a repair, `[6.5/6]` for markers, `[6.7/6]` after the fact check |
+| **Phase** | Synthesize `[5.2/6]` for the draft, and again in Audit for each redraft — `[6.2/6]` after a repair, `[6.4/6]` for markers, `[6.6/6]` after the fact check |
 | **Purpose** | Turn the evidence record and the finished enumerable sections into the executive summary, in the section list Plan settled and in that order — deciding what is corroborated, what is a surprise, and what does not survive |
 | **Input text** | **`scope.deliverables` first — the whole section list, in order, exactly as Plan settled it.** Then the format spec for each of those sections, **inlined verbatim**: from the command's reference file for a predefined one, from `scope.sections` for an invented one. **On a redraft**, only what changed: the sections a repair touched, the paragraphs that came back unmarked, or the sentences the fact check found unsupported |
 | **Input rule files** | `output.md` · `sections.md` · `vetting.md`, for the confidence tag |
@@ -10,7 +10,7 @@
 | **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads the raw report and the CSVs, and writes one document |
 | **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the aggregate raw report and every CSV it renders from. The summary it composes goes to disk; nothing of the evidence comes back with it |
-| **Returns to main context** | the `final-report-writer` shape — **every claim it dropped and why**, plus sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. Not the findings themselves: the summary is on disk |
+| **Returns to main context** | the `final-report-writer` shape — sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. **Not the claims it left out**: a claim not drafted is still in the raw report and still in `claim_index.json`, so nothing has disappeared and listing them cost hundreds of entries nobody read. Not the findings either: the summary is on disk |
 | **Writes to disk** | `<slug>-executive-summary.md`, **written to `<slug>-executive-summary.md.tmp` and renamed over the original** when the draft and its check are done — never edited in place · `cache/_returns/final-report-writer.json` |
 | **Logs** | `cache/_progress/final-report-writer.log` — `reading the raw report` · `drafting <section>`, one per summary section |
 | **How it reports failure** | on the receipt, in `unresolved`: an enumerable section it could not make match its CSV, a paragraph it could not mark. **One fix pass, then report** — it never loops |

@@ -45,6 +45,9 @@ digmore/<topic-slug>/
   cache/<source>/vetting-worklist.json      # who Vet is going to dispatch, frozen before it starts
   cache/<source>/handles/<handle>.json      # one Handle Vetter's verdict on one handle
   cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
+  cache/audit/worklist.json      # the fact check's paragraphs, frozen and numbered
+  cache/audit/unmarked.md        # the prose the writer has to mark, set aside by the same pass
+  cache/audit/<n>.json           # one paragraph's verdict, written as each is finished
   cache/_progress/<label>.log    # one heartbeat line per sub-agent step
   cache/_returns/<label>.json    # what a sub-agent handed back, before it was checked
   cache/_misc/<file>             # scratch that belongs to no source
@@ -72,6 +75,8 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `full_source_analysis/<source>-handles.json` | **four writers at four different times, never at once**: the Source Analyst creates it in Extract · `handle_vetting.mjs prepare` writes the `experts.csv` auto-promotions in before any vetter is dispatched · `handle_vetting.mjs aggregate` merges the per-handle verdicts in after they have all stopped · the Source Analyst appends handles first seen in expert material during Enrichment. `experts.mjs build` then sets `inExperts`, which is the last field written in Vet |
 | `cache/<source>/vetting-worklist.json` | `handle_vetting.mjs prepare`, once per source. Frozen on purpose: a vetter is dispatched a *range*, so a list that shrank as handles were vetted would leave "handles 11 to 20" addressing what used to be 21 to 30 |
 | `cache/<source>/handles/<handle>.json` | one Handle Vetter per file, written as each handle is finished. A per-handle file is what lets several vetters fan out with no shared file between them — nothing to lose rows, nothing to lock |
+| `cache/audit/worklist.json`, `cache/audit/unmarked.md` | `factcheck.mjs prepare`, twice in Audit — once before the marker redraft and once after, because the writer changes the summary and the first list is then stale |
+| `cache/audit/<n>.json` | one Claim Fact Checker per file, written as each paragraph is finished. A per-paragraph file is what lets a batch fan out with nothing shared between them, and it is the record a resumed run reads |
 | `cache/**` (everything else) | whichever sub-agent fetched or produced it, each to its own filename |
 
 **Every finding goes into `audit.md` the moment the run makes it, through one command:**
@@ -89,7 +94,7 @@ category that sentence names.
 subtraction; this needs a fixed line format, a closed category list and a truncation nobody
 forgets — three things a model re-invents slightly differently each time it writes the file by hand.
 **And why at the moment rather than at the end:** it used to mean "hold this in your head until
-`[6.8/6]`", across nine or more call sites and six phases, and a run killed while composing the file
+`[6.7/6]`", across nine or more call sites and six phases, and a run killed while composing the file
 lost every finding it had earned rather than only the last step.
 
 **Any temp file a run generates goes under `cache/<source>/`, or `cache/_misc/` if it belongs to no source, and its name begins with the label of whoever wrote it.** Intermediate JSON dumps, scratch markdown, sub-agent partial outputs, debug traces — all inside the topic's cache subtree. Nothing the run produces, even briefly, lands outside `digmore/<topic-slug>/`. The summary's `.tmp` is the one exception, and it sits beside the file it replaces because that is what makes the rename atomic.

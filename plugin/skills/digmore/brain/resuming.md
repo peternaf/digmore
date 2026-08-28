@@ -97,10 +97,10 @@ is yours to apply, and the entry is in `research_plan.json` where you already ar
   so re-dispatch the writer rather than expanding a manifest whose own dispatch never finished.
 - **Audit failure** → re-enter at the sub-step the log names, not at the top of the phase. It holds
   up to six dispatch groups and rewrites the deliverable three times, so re-running it whole is no
-  longer cheap. The fact check resumes per paragraph: it writes
-  `cache/_returns/claim-fact-checker-<n>.json` as each one returns, a resumed run re-reads the same
-  summary so the numbering is identical, and only the paragraphs with no return file are
-  re-dispatched. Nothing needs undoing: `audit.md` is appended a line at a time as findings happen, so a re-entered sub-step adds to it rather than rewriting it, and a finding recorded twice is a duplicate line rather than a lost one.
+  longer cheap. The fact check resumes per paragraph rather than per dispatch: each agent writes
+  `cache/audit/<n>.json` the moment that paragraph is finished, a resumed run re-runs
+  `factcheck.mjs prepare` on the same summary and gets the same numbering, and only the numbers with
+  no file are dispatched again. Nothing needs undoing: `audit.md` is appended a line at a time as findings happen, so a re-entered sub-step adds to it rather than rewriting it, and a finding recorded twice is a duplicate line rather than a lost one.
 
 ## When the cache is gone
 
