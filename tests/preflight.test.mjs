@@ -350,7 +350,7 @@ test('a configuration reduced by --fast prints both values, and an unchanged one
   const rowFor = (key) => out.split('\n').find((line) => line.trim().startsWith(key));
 
   assert.match(rowFor('extract.fetchesPerBranch'), /10 → 5/, 'reduced in fast');
-  assert.match(rowFor('enrich.expertsFollowed'), /10 → 3/);
+  assert.match(rowFor('enrich.expertsFollowed'), /5 → 0/, 'zero is a skip and is shown as one');
   assert.match(rowFor('twitter.handlesDeepVetted'), /10 → 0/, 'zero is a skip and is shown as one');
   assert.match(rowFor('extract.maxPagesPerDocument'), /\s5\s/, 'the same in both modes');
   assert.ok(!/→/.test(rowFor('extract.urlsPerDispatch')), 'a batch size does not reduce in fast');
