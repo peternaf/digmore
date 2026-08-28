@@ -7,7 +7,7 @@
 | **Input text** | the topic · the research question · the spec for every enumerable section this run declared — `row_is`, fields, sort and render, from `research_plan.json.scope.sections`. **On the repair pass**, the gap list instead: what the reviewer found missing or wrong |
 | **Input rule files** | `output.md` · `sections.md` · `page_quality.md`, **for the rank order alone**. **Not `vetting.md`** — the verdict rules are the script's, and an agent sent them would be a second place they could be applied differently |
 | **Input data files** | every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. **On `gtm` runs only**, also the four `<source>-handles.json`, which `promoter_network.csv` needs for `person_verdict` and for the labelled identifiers its identity join rests on |
-| **Runs** | `synthesis.mjs index`, which expands its merge manifest into `claim_index.json` · `validate.mjs` on the manifest and on its own receipt, each with one repair and one re-check. No network. It re-reads the CSVs it wrote against `sections.md`'s cell rules — a prose check, not a gate, because the checker reads JSON against a shape and a CSV is neither |
+| **Runs** | `synthesis.mjs read_source_claims`, which prints every surviving claim one to a line with the position the manifest addresses it by — **that, not the joined files raw**, which is six files of citation objects to reach six fields · `synthesis.mjs index`, which expands its merge manifest into `claim_index.json` · `validate.mjs` on the manifest and on its own receipt, each with one repair and one re-check. No network. It re-reads the CSVs it wrote against `sections.md`'s cell rules — a prose check, not a gate, because the checker reads JSON against a shape and a CSV is neither |
 | **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on both files it checks: one repair, one revalidation, then it reports a failure. Nothing else — everything that bounded the evidence was spent before this agent ran |
 | **Held in its context** | every surviving claim in the run at once, from the six joined reports, plus `players.csv`. **It is the only actor that ever holds the whole claim set**, and the split from the Final report writer exists so that nothing else has to |
 | **Returns to main context** | the `raw-report-writer` shape — counts, the sections it wrote and their row counts, **every claim it deleted for having no URL**, and the subjects the filter dropped with reasons. Not the claim set, and not the index: both are on disk |
@@ -151,7 +151,15 @@ that merged claim says* — the `merge-manifest` shape — and a script expands 
 
 - **`from`** is a position in that source's `<source>-joined.json` `claims` array. Source claims have
   no ids, and the file was written once by `synthesis.mjs join` and is never rewritten, so the
-  position is stable for the rest of the run.
+  position is stable for the rest of the run. **`synthesis.mjs read_source_claims` prints that position beside
+  every claim** — `reddit[12]` — so copy it rather than counting: a miscount is refused by
+  `synthesis.mjs index` after the whole merge is done, which is the worst moment in the run to find
+  a bookkeeping mistake.
+- **Leave `claim` out where nothing merged.** It is required only where several source claims
+  became one and need a sentence covering them all. An entry with a single `from` almost never
+  does — the source claim already says what it says, and the script copies its text across. This is
+  the one field that still costs real output, so writing it where it is not needed is the whole of
+  what this file still costs you.
 - **`refutedByIndex` is a position in this manifest**, not a `claimId` — the ids do not exist until
   the script has run. It turns yours into the winner's id.
 
@@ -163,11 +171,17 @@ own, since the fact check compares the report against the cached page and a quot
 being retyped sends it to the wrong evidence. **What is yours is the judgement**: which source claims
 are one claim, what it says, and which of two contradicting claims won.
 
-**Then run the script:**
+**Check it, then run the script:**
 
 ```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" merge-manifest \
+  digmore/<slug>/cache/_returns/raw-report-writer-manifest.json
+
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/synthesis.mjs" index --topic <slug>
 ```
+
+The two catch different things and neither substitutes for the other: the shape check reads
+structure, and the script is what knows whether `reddit[41]` is actually a claim.
 
 It resolves every reference, copies each one's citations, takes the highest `importance` and the
 canonical `pageQuality`, and numbers the result. **It fails on a reference that does not resolve,

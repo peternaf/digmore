@@ -6,8 +6,13 @@
  * handles that said it. Vet then produced a verdict per handle. This is the join between the
  * two, and the filter that follows from it.
  *
- *   node synthesis.mjs join  --topic <slug>
- *   node synthesis.mjs index --topic <slug> [--manifest <path>] [--append]
+ *   node synthesis.mjs join   --topic <slug>
+ *   node synthesis.mjs read_source_claims --topic <slug> [--source <source>]
+ *   node synthesis.mjs index  --topic <slug> [--manifest <path>] [--append]
+ *
+ * `join` writes the joined files, `read_source_claims` reads them back as one line per claim, and `index`
+ * turns the manifest built from that reading into claim_index.json. The middle one exists because
+ * the first two left a gap the agent filled with `node -e` and a `cd`.
  *
  * It reads the per-source reports and the handles files, stamps a status on every citation,
  * drops the citations the run does not listen to, drops the claims left with nothing behind
@@ -247,6 +252,7 @@ export function expandEntry(entry, joinedBySource, position) {
   const citations = [];
   let importance = 'tangential';
   let pageQuality = 'unreliable';
+  let firstClaimText = '';
 
   for (const reference of references) {
     const joined = joinedBySource.get(reference?.source);
@@ -261,6 +267,8 @@ export function expandEntry(entry, joinedBySource, position) {
         `claims[${position}] cites ${reference.source}[${reference?.index}], which is not in that file`,
       );
     }
+
+    if (!firstClaimText) firstClaimText = sourceClaim.claim ?? '';
 
     if ((IMPORTANCE_RANK[sourceClaim.importance] ?? 0) > (IMPORTANCE_RANK[importance] ?? 0)) {
       importance = sourceClaim.importance;
@@ -285,7 +293,10 @@ export function expandEntry(entry, joinedBySource, position) {
     throw new Error(`claims[${position}] resolved to no citations at all`);
   }
 
-  return { claim: entry.claim ?? '', importance, pageQuality, citations };
+  // An entry with no `claim` of its own did not need one: nothing merged into it, so the source
+  // claim already says what it says. Only a claim built from several needs a sentence covering
+  // them all, and making the agent retype the rest was 80% of what the manifest still cost.
+  return { claim: entry.claim || firstClaimText, importance, pageQuality, citations };
 }
 
 /**
@@ -329,6 +340,68 @@ export function readJoined(analysisDir) {
     joinedBySource.set(source, readJson(path));
   }
   return joinedBySource;
+}
+
+/**
+ * One claim as one line, addressed the way the manifest addresses it.
+ *
+ * `<source>[<index>]` is not decoration: it is exactly the `{source, index}` reference the merge
+ * manifest requires, so the agent copies it instead of counting positions in a JSON array. A
+ * miscounted index is rejected by `index` after the whole merge pass is done, which is the most
+ * expensive moment in the run to find a bookkeeping mistake.
+ */
+function claimLine(source, index, claim) {
+  const measure = claim?.kind === 'quantitative' && claim?.value !== undefined
+    ? `  ${claim.value} ${claim.unit ?? ''}`.trimEnd()
+    : '';
+  return [
+    `${source}[${index}]  ${claim?.importance ?? '?'}/${claim?.kind ?? '?'}${measure}`,
+    `  ${claim?.claim ?? ''}`,
+    `  Q: ${claim?.quote ?? ''}`,
+  ].join('\n');
+}
+
+/**
+ * Every surviving claim, one per line, for the agent that has to merge them.
+ *
+ * **The counterpart to `join`, and the reason it exists is what happened without it.** `join`
+ * writes the joined files; nothing read them back, so the Raw report writer — which is specified to
+ * hold every claim in the run at once — reached for `node -e` and a relative `require`, and had to
+ * `cd` into the topic to make that resolve. Both are things its dispatch forbids, and it did them
+ * because reading six files of full citation objects to get at six fields is the alternative.
+ *
+ * **What is left out is the point.** Citations, `cachedPage`, `pageQuality` and the verdict statuses
+ * are all copied into `claim_index.json` by `index` from the joined file itself, so an agent that
+ * never sees them cannot get them wrong. What it does see is what merging and settling
+ * contradictions actually need: what was claimed, in whose words, how strongly, and where it lives.
+ *
+ * Text rather than JSON, deliberately. Re-serialising the file it just read would return the
+ * problem to the caller in a slightly smaller box.
+ */
+export function joinedListing(topicSlug, { source } = {}) {
+  const analysisDir = join(topicDir(topicSlug), 'full_source_analysis');
+  const wanted = source ? [source] : SOURCES;
+  if (source && !SOURCES.includes(source)) {
+    throw new Error(`--source must be one of ${SOURCES.join(', ')}`);
+  }
+
+  const lines = [];
+  let total = 0;
+  for (const name of wanted) {
+    const path = join(analysisDir, `${name}-joined.json`);
+    if (!existsSync(path)) continue;
+    const claims = readJson(path)?.claims ?? [];
+    lines.push(`===== ${name} — ${claims.length} claims`);
+    claims.forEach((claim, index) => lines.push(claimLine(name, index, claim)));
+    total += claims.length;
+  }
+
+  if (!lines.length) {
+    throw new Error(
+      `no <source>-joined.json found — run "synthesis.mjs join --topic ${topicSlug}" first`,
+    );
+  }
+  return { text: `${lines.join('\n')}\n`, claims: total };
 }
 
 /**
@@ -380,8 +453,11 @@ export function run(argv) {
   if (verb === 'index') {
     return indexAll(flags.topic, { manifestPath: flags.manifest, append: flags.append === true || flags.append === "true" });
   }
+  if (verb === 'read_source_claims') {
+    return joinedListing(flags.topic, { source: flags.source });
+  }
   if (verb !== 'join') {
-    throw new Error(`unknown command: ${verb ?? '(none)'} — expected join or index`);
+    throw new Error(`unknown command: ${verb ?? '(none)'} — expected join, read_source_claims or index`);
   }
 
   const result = joinAll(flags.topic);
@@ -395,7 +471,10 @@ export function run(argv) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
-    process.stdout.write(`${JSON.stringify(run(process.argv.slice(2)))}\n`);
+    const result = run(process.argv.slice(2));
+    // `read_source_claims` is the one verb whose answer is the listing itself. Wrapping it in JSON would
+    // escape every quote in it and hand back something bigger than the file it read.
+    process.stdout.write(result?.text ?? `${JSON.stringify(result)}\n`);
   } catch (error) {
     process.stderr.write(`${JSON.stringify({ error: error.message })}\n`);
     process.exit(1);

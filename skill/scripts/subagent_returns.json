@@ -1117,13 +1117,12 @@
         "items": {
           "type": "object",
           "required": [
-            "claim",
             "from"
           ],
           "properties": {
             "claim": {
               "type": "string",
-              "description": "The merged one-line checkable statement — one sentence for the several that merged into it. This is the field the whole manifest exists to carry: the fact check uses it as the KEY to find which sentence of the summary renders it, never as the text being checked."
+              "description": "The merged one-line checkable statement, **only where several source claims merged into one**. Leave it out where nothing merged: the source claim already says what it says, and `synthesis.mjs index` copies its text across. Making the agent retype every unmerged claim was 80% of what the manifest cost, and the fact check uses this as the KEY to find which sentence of the summary renders it, never as the text being checked."
             },
             "from": {
               "type": "array",

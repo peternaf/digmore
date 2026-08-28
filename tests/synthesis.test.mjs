@@ -438,3 +438,101 @@ test('highestClaimNumber ignores anything that is not a claim id', () => {
   assert.equal(highestClaimNumber(undefined), 0);
   assert.equal(highestClaimNumber([{ claimId: 'claim-003' }, { claimId: 'not-an-id' }, {}]), 3);
 });
+
+// ---------------------------------------------------------------- claims — reading them back
+
+// `join` writes the joined files and nothing read them back, which is why the Raw report writer
+// reached for `node -e` and a `cd` its dispatch forbids. These pin the shape it now gets instead.
+
+const writeJoined = (slug, source, claims) => {
+  const dir = join(sandbox.cwd, 'digmore', slug, 'full_source_analysis');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${source}-joined.json`), JSON.stringify({ source, claims }));
+};
+
+test('read_source_claims prints one entry per claim, addressed the way the manifest addresses it', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()]), claim([citation()], { claim: 'a second one' })]);
+  const { code, out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.equal(code, 0);
+  assert.match(out, /reddit\[0\]/, 'the source and the position, which is the manifest reference');
+  assert.match(out, /reddit\[1\]/);
+  assert.match(out, /Mux charges \$0\.005 per minute/);
+  assert.match(out, /Q: \$0\.005 per minute/, 'the quote travels with the claim');
+});
+
+test('the listing is text, never JSON', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()])]);
+  const { out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.throws(() => JSON.parse(out), 're-serialising would escape every quote in it');
+});
+
+test('a quantitative claim carries its value and unit; a qualitative one carries neither', async () => {
+  writeJoined('demo', 'reddit', [
+    claim([citation()], { kind: 'quantitative', value: 1200, unit: 'requests/day' }),
+    claim([citation()], { kind: 'qualitative', claim: 'people find it confusing' }),
+  ]);
+  const { out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.match(out, /central\/quantitative\s+1200 requests\/day/);
+  assert.match(out, /central\/qualitative\n/, 'nothing trails a claim with no measurement');
+});
+
+test('citations and page quality never appear — index copies those from the file itself', async () => {
+  writeJoined('demo', 'reddit', [claim([citation({ handle: 'u/someone' })])]);
+  const { out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.ok(!out.includes('cachedPage'), 'an agent that never sees it cannot get it wrong');
+  assert.ok(!out.includes('pageQuality'));
+  assert.ok(!out.includes('u/someone'));
+});
+
+test('--source reads one source, and every source is the default', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()])]);
+  writeJoined('demo', 'websearch', [claim([citation()], { claim: 'from the open web' })]);
+
+  const one = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo', '--source', 'reddit');
+  assert.match(one.out, /reddit\[0\]/);
+  assert.ok(!one.out.includes('websearch'), 'one source means one source');
+
+  const all = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+  assert.match(all.out, /reddit\[0\]/);
+  assert.match(all.out, /websearch\[0\]/);
+});
+
+test('each source is headed with its own count', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()]), claim([citation()])]);
+  const { out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.match(out, /===== reddit — 2 claims/);
+});
+
+test('a source with no joined file is skipped, not reported as empty', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()])]);
+  const { out } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.ok(!out.includes('twitter'), 'a source that produced nothing has no file and no heading');
+});
+
+test('no joined files at all names the call that was missed', async () => {
+  mkdirSync(join(sandbox.cwd, 'digmore', 'demo'), { recursive: true });
+  const { code, err } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo');
+
+  assert.equal(code, 1);
+  assert.match(err, /synthesis\.mjs join/, 'it says which call comes first');
+});
+
+test('an unknown source is refused rather than read as empty', async () => {
+  writeJoined('demo', 'reddit', [claim([citation()])]);
+  const { code, err } = await sandbox.run('synthesis.mjs', 'read_source_claims', '--topic', 'demo', '--source', 'nope');
+
+  assert.equal(code, 1);
+  assert.match(err, /--source must be one of/);
+});
+
+test('the unknown-verb message names all three', async () => {
+  const { code, err } = await sandbox.run('synthesis.mjs', 'tally', '--topic', 'demo');
+  assert.equal(code, 1);
+  assert.match(err, /join, read_source_claims or index/);
+});
