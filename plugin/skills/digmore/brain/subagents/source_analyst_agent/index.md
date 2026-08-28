@@ -7,13 +7,13 @@
 | **Input text** | the source name · the output paths · the four things to look for · on the handle-bearing sources, the handles job. **In Enrichment**, the names of the new claims files and nothing else |
 | **Input rule files** | `subagents/source_analyst_agent/index.md` · that agent's `<source>.md` · `output.md` |
 | **Input data files** | every file under `cache/<source>/` — both halves of each pair, the stripped page and its claims. **Not the `handles/` subdirectory**, which is Vet's verdicts rather than documents. **In Enrichment**, only the new claims files the dispatch names, plus the three files you already wrote |
-| **Runs** | no scripts, no network. It reads `cache/<source>/` and writes three files under `full_source_analysis/` — everything it needs is already on disk |
-| **Settings that control it** | none it enforces, and none it is told. `extract.fetchesPerBranch`, `extract.maxPagesPerDocument` and `hackernews.commentDepth` shaped what is in the directory before this agent ran; it reads the result, never the number |
+| **Runs** | no network. It reads `cache/<source>/` and writes three files under `full_source_analysis/`, then `validate.mjs` once on each — everything else it needs is already on disk |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on each of its three files: one repair, one revalidation, then it reports. Otherwise none it is told. `extract.fetchesPerBranch`, `extract.maxPagesPerDocument` and `hackernews.commentDepth` shaped what is in the directory before this agent ran; it reads the result, never the number |
 | **Held in its context** | every stripped page and every claims file that source produced — the largest read in the run, and the reason this is a sub-agent at all. None of it leaves |
-| **Returns to main context** | `none` — no shape, and so no dispatch template. Its product is the three files it writes. The orchestrator checks them itself |
+| **Returns to main context** | `none` — no shape, and so no dispatch template. Its product is the three files it writes, each checked by this agent before it returns. What comes back in words is only a file it could not produce or could not make valid |
 | **Writes to disk** | `full_source_analysis/<source>-raw-report.json` · `full_source_analysis/<source>-players.json` · `full_source_analysis/<source>-handles.json`, the last on the handle-bearing sources only |
 | **Logs** | `cache/_progress/source-analyst-<source>.log` — `reading <n> documents from <source>` · `writing the raw report` · `writing the entities` · `writing the handles` (handle-bearing sources only) |
-| **How it reports failure** | say plainly which file could not be produced, and why. **Never write an empty one** — an empty handles file and a source with nobody in it are indistinguishable on disk, and one of them is a failure |
+| **How it reports failure** | say plainly which file could not be produced **or could not be made to pass its check**, and why. **Never write an empty one** — an empty handles file and a source with nobody in it are indistinguishable on disk, and one of them is a failure |
 | **One dispatch per** | one source that pulled data |
 | **Run instances** | one per source that pulled data in Extract; one per source that gained expert material in Enrichment |
 | **`--fast`** | the same in both modes — the reduction is in how much each one reads, not how many run |
@@ -222,6 +222,49 @@ with one claim, still gets a row.
 
 **Nobody reads this file directly.** Enrichment's script merges all six, joins each claim's handle to
 its verdict, filters, recounts and applies the floor.
+
+## Check what you wrote
+
+**All three are JSON with a shape, and each is checked by you before you return.** You are the one
+agent in the run that returns no shape, so you receive no dispatch template and no schema — which is
+why the calls are written here instead:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-raw-report \
+  digmore/<slug>/full_source_analysis/<source>-raw-report.json
+
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-handles \
+  digmore/<slug>/full_source_analysis/<source>-handles.json
+
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-players \
+  digmore/<slug>/full_source_analysis/<source>-players.json
+```
+
+**Print a shape first if you are unsure of it** — `validate.mjs --shape source-raw-report` — rather
+than guessing at a field name.
+
+**Exit 1: fix the file, write it again, check once more.** One repair and one re-check, never a loop
+— `subagents.repairAttempts` is 1 and you are the one enforcing it. Fixing means fixing the
+structure: do not go back to the pages, and **where a required field has no value in what you read,
+leave the item out and say so**. Never fill one to make the check pass — that is how a missing quote
+becomes an invented quote, and an invented quote passes every check there is.
+
+**One bad entry in an array is one entry.** Drop it, keep the rest, re-check. The three files are
+lists, and a single malformed claim is not a reason to lose a source's whole report.
+
+**Still failing, or exit 2 — record it and name it in your return:**
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding subagent-drop \
+  "<source>-<which file>: <the errors>" --topic <slug>
+```
+
+Where a repair worked, record that too, with the category `subagent-repair`.
+
+**The check matters more here than on most agents**, because the phase after each of these files
+cannot run without it: a raw report that fails is every claim this source produced, a handles file
+that fails is a source that cannot be vetted, and a players file that fails is a source whose
+entities never reach Enrichment. Nothing downstream re-reads the pages to rebuild any of them.
 
 ## Coverage gaps belong in `observations` too
 

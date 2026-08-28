@@ -195,25 +195,16 @@ the run and the only one with no script behind it to explain the wait. Its heart
 agent returning no schema received no template, and the two copies drifted the first time one was
 edited.
 
-### Check the files it wrote
+### What it reports about the files it wrote
 
-**All three are JSON with a shape**, and the phase after each of them cannot run without it, so check
-them the way every other payload is checked — the calls are yours, because this agent gets no
-dispatch template to carry them:
+**The agent checks all three itself** — `../subagents/source_analyst_agent/index.md` §"Check what you
+wrote" carries the calls, the one repair and the record. It returns no shape and so receives no
+dispatch template, which is why the instruction is written into its own file rather than inherited.
+**You run no `validate.mjs` here**, as nowhere else (`../subagents/dispatch_structured_subagent.md`
+§"Whoever writes a JSON validates it").
 
-```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-raw-report \
-  digmore/<slug>/full_source_analysis/<source>-raw-report.json
-
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-handles \
-  digmore/<slug>/full_source_analysis/<source>-handles.json
-
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-players \
-  digmore/<slug>/full_source_analysis/<source>-players.json
-```
-
-One repair attempt on exit 1, then a recorded drop, per `../subagents/dispatch_structured_subagent.md`
-§"The repair pass". What each failure costs is different, and the run says which:
+What reaches you is a file it could not make valid, named. What each failure costs is different, and
+the run says which:
 
 - **A raw report that still fails** is a source whose evidence never reaches the summary at all —
   the largest loss of the three, because it is every claim that source produced.
@@ -232,7 +223,7 @@ that did produce documents: the material is on disk, one of its files is not, an
 identical to a source with nobody and nothing in it.
 
 1. **Re-dispatch it once.**
-2. If the second attempt still leaves one of the three missing or failing its check, record it in
+2. If the second attempt still leaves one of the three missing, or reported as failing its check, record it in
    `audit.md` and name it in the run's Issues, per the costs above.
 3. **Do not rebuild any of them by hand.** You no longer hold the claims, so any ranking or count you
    built would be by frequency alone — the thing these files exist to replace.

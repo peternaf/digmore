@@ -52,7 +52,12 @@ const NEVER_VETTED = Object.freeze({ keep: true, counts: true });
 /** A page has an author rather than an account, so these are judged on the page instead. */
 const UNREADABLE_PAGE_QUALITY = 'unreliable';
 
-const IMPORTANCE_RANK = Object.freeze({ central: 3, supporting: 2, tangential: 1, none: 0 });
+/**
+ * brain/page_quality.md holds these beside the words they score; this is the copy a script can
+ * read. `none` is not one of them — it is this file's own rank for a handle that produced no
+ * claim at all, which the shapes never store.
+ */
+export const IMPORTANCE_RANK = Object.freeze({ central: 3, supporting: 2, tangential: 1, none: 0 });
 
 export const SOURCES = Object.freeze([
   'reddit',
@@ -71,7 +76,16 @@ export function parseArgs(argv) {
   for (let index = 0; index < rest.length; index += 1) {
     if (!rest[index].startsWith('--')) continue;
     const name = rest[index].slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
-    flags[name] = rest[index + 1] ?? '';
+    const next = rest[index + 1];
+    // A flag with nothing after it, or another flag, is a switch — --append, --fast. Consuming
+    // the next token regardless is what made a trailing switch read as '' and a leading one
+    // swallow the flag after it, so the switch was ignored in one position and broke the call in
+    // the other. handle_vetting.mjs and expert_selection.mjs already read them this way.
+    if (next === undefined || next.startsWith('--')) {
+      flags[name] = true;
+      continue;
+    }
+    flags[name] = next;
     index += 1;
   }
   return { verb, flags };

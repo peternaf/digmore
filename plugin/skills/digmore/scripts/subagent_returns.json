@@ -1,4 +1,195 @@
 {
+  "research-plan": {
+    "description": "digmore/<slug>/research_plan.json — the only JSON the orchestrator writes itself, and checked as a file rather than as a return. It is written three times and validated after each: identity and this run's run_history entry at the start of Plan, scope once the plan is settled, and the entry's phases_completed at the end of the run. `scope` is deliberately not required, because an absent one is the legitimate state between the first write and the second — but where it exists it must be complete, since every later phase reads it for the branches, the deliverables and the angles. The reason this file is checked at all: it is hand-composed rather than emitted by a script, and extract_resume.mjs reads its run_history entry for the configurations a resumed run must honour — a dropped entry makes the resume fall back to today's settings and continue under a different cap with nothing saying so.",
+    "type": "object",
+    "required": [
+      "slug",
+      "title",
+      "kind",
+      "created_at",
+      "originating_prompt",
+      "run_history"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "Kebab-case directory name. Matches the folder and the summary's filename."
+      },
+      "title": {
+        "type": "string",
+        "description": "Human-readable full title; what shows up when listing topics."
+      },
+      "kind": {
+        "type": "string",
+        "enum": [
+          "landscape",
+          "competitor",
+          "inquiry",
+          "gtm-teardown"
+        ],
+        "description": "Command identity. Set once at topic creation and then left alone."
+      },
+      "created_at": {
+        "type": "string",
+        "description": "ISO timestamp of topic creation, from `runlog.mjs stamp`. Never composed — you have no clock, and a composed timestamp is wrong in a way nothing downstream catches."
+      },
+      "parent_slug": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "null for a fresh topic, the parent's slug for a branched or chained one."
+      },
+      "originating_prompt": {
+        "type": "string",
+        "description": "The user's free-form invocation at topic creation, verbatim. The Final report reviewer is given this to judge the draft against."
+      },
+      "run_history": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Every run appends one entry and none is ever rewritten. Appended in Plan rather than at the end of the run, because a run that dies mid-Extract would otherwise have recorded nothing and a resume would have no record of the numbers its cache was built to.",
+        "items": {
+          "type": "object",
+          "required": [
+            "ts",
+            "kind",
+            "prompt",
+            "mode",
+            "configurations"
+          ],
+          "properties": {
+            "ts": {
+              "type": "string",
+              "description": "ISO timestamp from `runlog.mjs stamp`."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "fresh",
+                "re-run",
+                "branch"
+              ],
+              "description": "What this run is. A resume appends no entry at all — it is finishing the run the last entry already describes."
+            },
+            "prompt": {
+              "type": "string",
+              "description": "Verbatim user prose for THIS run, which may differ from originating_prompt. Storing it per run is what shows how intent shifted across re-runs."
+            },
+            "mode": {
+              "type": "string",
+              "description": "The two axes as you would say them — \"manual, full\", \"auto, fast\"."
+            },
+            "configurations": {
+              "type": "object",
+              "description": "The values that APPLIED to this run, not the ones configured — --fast lowers several, and the entry records what the run really used, in the same shape preflight.mjs printed them. This is what makes two runs on one topic comparable, and what extract_resume.mjs reads."
+            },
+            "phases_completed": {
+              "type": "string",
+              "description": "Comma-separated phase names, filled in at the end of the run and at no other time. Absent means the run did not finish, which is worth being able to see — so it is deliberately not required."
+            }
+          }
+        }
+      },
+      "scope": {
+        "type": "object",
+        "description": "This run's plan, replaced when a run is re-planned while identity and run_history outlive it. An empty or absent scope means the plan has not been made yet — a fresh topic, or a deliberate re-plan — and that is the state Extract's resume reads as \"nothing was fetched\".",
+        "required": [
+          "vocabulary",
+          "recurring_names",
+          "deliverables",
+          "angles",
+          "sources",
+          "branches"
+        ],
+        "properties": {
+          "vocabulary": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "From the Scoping agent. Every later branch query inherits this wording."
+          },
+          "recurring_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "From the Scoping agent."
+          },
+          "deliverables": {
+            "type": "object",
+            "description": "Every section of the summary, in order. Key is the title as it will appear; value is either a pointer to the file that defines it — \"reference/gtm-teardown.md §1.4\" — or, for a section this run invented, {type, description}. The Run footer is never in here: it is the orchestrator's own bookkeeping, appended at Audit's Record step, and listed here it would be a section the writer is told to produce and cannot fill."
+          },
+          "sections": {
+            "type": "object",
+            "description": "The full spec for each invented enumerable section: csv, row_is, fields, sort, render. Empty when the run invented none, which is why it is not required."
+          },
+          "angles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueBy": "label",
+            "description": "The Scoping agent's, accepted by the orchestrator in plan_phase_a.md §4. The count is checked against plan.minAngles–plan.maxAngles there rather than here, since this checker cannot read the user's settings.",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "query",
+                "rationale"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Short kebab-case name. It names the branch, its log file and its records, so a collision is load-bearing — which is why the array is unique on it."
+                },
+                "query": {
+                  "type": "string"
+                },
+                "rationale": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "The sources available on THIS run. Reddit and Twitter need an API key, so with no key they are absent here rather than listed and later reported missing."
+          },
+          "sources_unavailable": {
+            "type": "array",
+            "description": "Carried through to the summary and the terminal output. A source nobody queried must never read as a source that came back with nothing.",
+            "items": {
+              "type": "object",
+              "required": [
+                "source",
+                "reason"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "branches": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "One angle paired with one available source — \"pricing-tiers × websearch\". The unit Extract works in, and the only record of which branches this topic is meant to have."
+          }
+        }
+      }
+    }
+  },
   "scope": {
     "description": "Returned by the Scoping agent, once, in Plan (phases/plan_phase_a.md §2). It searches the open web to find out what the subject actually is, then decomposes it into the angles the run will search. The orchestrator writes all of it into research_plan.json under scope, and decides the summary's sections itself — that needs the command's reference file and the user, neither of which this agent has.",
     "type": "object",
@@ -913,8 +1104,74 @@
       }
     }
   },
+  "merge-manifest": {
+    "description": "What the Raw report writer hands back instead of claim_index.json, written to cache/_returns/raw-report-writer-manifest.json. `synthesis.mjs index` expands it into the index. It exists because every field of claim_index.json except the merged claim text and the refutation is a copy, a maximum or a counter: the citations are the bulk of that file and each one is copied verbatim from <source>-joined.json. A run measured twelve minutes emitting the index as model output, hitting the output limit part-way and restarting in batches — dozens of write calls with no heartbeat between them, against a stuck-agent check that kills at ten. Retyping the quotes was also a correctness risk, since the fact check compares the report against the cached page and a drifted quote sends it to the wrong evidence. What stays the agent's is the judgement: which source claims are one claim, what that claim says, and which of two contradicting claims won.",
+    "type": "object",
+    "required": [
+      "claims"
+    ],
+    "properties": {
+      "claims": {
+        "type": "array",
+        "description": "One entry per MERGED claim, in the order the ids will be assigned. Position is identity here: `refutedByIndex` addresses this array, because the ids do not exist until the script has run.",
+        "items": {
+          "type": "object",
+          "required": [
+            "claim",
+            "from"
+          ],
+          "properties": {
+            "claim": {
+              "type": "string",
+              "description": "The merged one-line checkable statement — one sentence for the several that merged into it. This is the field the whole manifest exists to carry: the fact check uses it as the KEY to find which sentence of the summary renders it, never as the text being checked."
+            },
+            "from": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every source claim that merged into this one. A single-source claim has one entry; a claim corroborated across three sources has three. The script copies each referenced claim's citations in, takes the highest importance and the canonical page quality, and numbers the result.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "index"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "reddit",
+                      "hackernews",
+                      "twitter",
+                      "websearch",
+                      "forums",
+                      "local"
+                    ],
+                    "description": "Which <source>-joined.json the claim is in."
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Its position in that file's `claims` array. Position rather than an id because source claims have none — and the file is written once by `synthesis.mjs join` and never rewritten, so the position is stable for the rest of the run. The script fails on a reference that does not resolve, naming it, which is a check no shape could make."
+                  }
+                }
+              }
+            },
+            "refutedByIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Where this claim lost a factual contradiction, the POSITION in this manifest of the claim that beat it. The script turns it into the winner's claimId. An index rather than an id because the ids are assigned after this file is written; pointing at itself is refused. Only factual contradictions — one of the two is wrong — never disagreements, where both positions are real and both belong in the report."
+            },
+            "refutedReason": {
+              "type": "string",
+              "description": "One line on why the winner was stronger. Written here because the agent's own dispatch dies before audit.md is written, so a refutation held anywhere else dies with it."
+            }
+          }
+        }
+      }
+    }
+  },
   "claim-index": {
-    "description": "The file the Raw report writer writes to claim_index.json at the topic root, alongside <slug>-raw-report.md. Validated as a file rather than as a return, since it never enters the orchestrator's context whole. The two are written from one merge in one dispatch, so they cannot drift. It is the one new file in a run that a script can check, and it is the one most worth checking: the fact check's dispatches are built from it, the claim texts split the summary's paragraphs, and the refuted section renders off it. Never edited after it is written, with one exception - the repair pass appends, continuing the counter from the highest id already there rather than restarting.",
+    "description": "claim_index.json at the topic root, written by `synthesis.mjs index` from the Raw report writer's merge manifest, alongside <slug>-raw-report.md. Validated as a file rather than as a return, since it never enters the orchestrator's context whole. It and the raw report still cannot drift: both come out of one agent, one merge and one context, and the only change is that this one is expanded from the manifest by a script rather than typed out. It is the one new file in a run that a script can check, and it is the one most worth checking: the fact check's dispatches are built from it, the claim texts split the summary's paragraphs, and the refuted section renders off it. Never edited after it is written, with one exception - the repair pass appends, continuing the counter from the highest id already there rather than restarting.",
     "type": "object",
     "required": [
       "claims"

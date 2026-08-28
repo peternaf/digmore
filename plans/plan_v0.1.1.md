@@ -491,6 +491,100 @@ Assumes `runlog.mjs`'s stamped heartbeats are already in.
 - [x] Nothing to do for existing topics — a resumed run reads the missing file as no log and does a
       full scan, which `phases/index.md` already covers.
 
+## Whoever writes a JSON validates it — §Whoever writes a JSON validates it
+
+**Blocks nothing, blocked by nothing.**
+
+**The dispatch template**
+
+- [ ] `dispatch_structured_subagent.md` §"When a dispatch produces a shape" — the block gains the
+      check, the one repair, the revalidation and the failure report.
+- [ ] §"Then check what comes back" — the orchestrator's call goes; what is left is what it does with
+      a reported failure: record the drop, name it in Issues.
+- [ ] §"The repair pass" — becomes the agent's, carrying both instructions verbatim.
+- [ ] §"Count them" — the counts reach `audit.md` through the agent's own `runlog.mjs finding`.
+- [ ] The paragraph justifying the printed shape — *"omitting it is the one thing that gets caught"* —
+      is false once the checker moves. Rewrite it.
+- [ ] The array rule — one entry dropped, not the dispatch — is the agent's, and it revalidates after.
+
+**The Source Analyst — no shape, so no template**
+
+- [ ] `extract_phase_b.md` §"Check the files it wrote" — the three orchestrator calls go.
+- [ ] `source_analyst_agent/index.md` — a check section, and four summary rows: *Runs* (no longer
+      `no scripts, no network`), *Returns* (*"The orchestrator checks them itself"*),
+      *Settings that control it* (`subagents.repairAttempts`), *How it reports failure*.
+
+**`research_plan.json` — the orchestrator's own**
+
+- [ ] `subagent_returns.json` — new `research-plan` shape. Identity, `run_history`, `scope`.
+- [ ] `plan_phase_a.md` — a call after the identity write and after `scope`; one repair, then report.
+- [ ] `audit_phase_f.md` §`[6.8/6]` — a call after `phases_completed`.
+- [ ] `tests/validate.test.mjs` — the new shape, and that a missing `run_history` entry is caught.
+
+**Eight agent files gain two rows** — *Runs* gains `validate.mjs <shape>`, *Settings that control it*
+gains `subagents.repairAttempts` as enforced by that agent:
+
+- [ ] `scoping_agent.md` · `branch_searcher_agent/index.md` · `page_analyst_agent/index.md` ·
+      `player_profiler_agent.md` · `final_report_writer_agent.md` ·
+      `final_report_reviewer_agent.md` · `final_report_copy_editor_agent.md` ·
+      `claim_fact_checker_agent.md`.
+- [ ] `handle_vetter_agent/index.md` and `raw_report_writer_agent.md` already say it — make the
+      wording the shared rule rather than their own exception.
+
+**Passing mentions**
+
+- [ ] `brain/index.md` item 5 — *"Every sub-agent return is checked"* keeps the guarantee, changes the actor.
+- [ ] `synthesize_phase_e.md` ×2, `audit_phase_f.md` ×1 — *"Check what comes back"* becomes reading the receipt.
+- [ ] `validate.mjs` docstring — *"the orchestrator gets ONE repair attempt"* names the writer, and the
+      `phases/index.md` pointer moves to the dispatch template.
+- [ ] `phases/index.md:133` — the bulk-material table still gives `<source>-handles.json` three writers
+      including the orchestrator. Line 71 has it right: Source Analyst, `prepare`, `aggregate`, Source
+      Analyst, then `experts.mjs build`. Stale independently of this package; it is the last place
+      anything claims the orchestrator writes a JSON other than the plan.
+
+## A script writes `claim_index.json` — §A script writes `claim_index.json`, not the agent
+
+**After the validation package** — it removes `validate.mjs claim-index` from the agent, which that
+package touches.
+
+**Schemas**
+
+- [x] New `merge-manifest` shape: per merged claim, the source claim references it groups, the merged
+      `claim` text, `refutedBy` and `refutedReason`. No quotes, no URLs.
+- [x] `claim-index` is unchanged — the file's shape is the same, only its writer moves. Its
+      `description` says the Raw report writer writes it; that becomes `synthesis.mjs index`.
+
+**`synthesis.mjs` — new `index` verb**
+
+- [x] Reads the manifest and the six `<source>-joined.json`; writes `claim_index.json`.
+- [x] Resolves each reference, copies its citations verbatim, takes the highest `importance` and the
+      canonical citation's `pageQuality`, numbers the result `claim-001` upward.
+- [x] **Fails on a reference that does not resolve**, naming it — the check a shape could never make.
+- [x] On the repair pass it appends, continuing from the highest id already there.
+
+**The agent**
+
+- [x] `raw_report_writer_agent.md` §5 — it writes the raw report and the manifest, then calls
+      `synthesis.mjs index`. Summary rows: *Runs*, *Returns*, *Writes to disk*.
+- [x] Its `validate.mjs claim-index` call goes; the manifest is what it validates.
+- [x] §5's "written together from one merge" clause — the guarantee holds, the index is now expanded
+      from the manifest by a script rather than typed out.
+- [x] **Beat per batch on any multi-call write**, so a long write is never mistaken for a hung agent.
+      This is the fix that stops the stuck-agent check killing it at 10 minutes, and it stands whether
+      or not the rest of this package lands.
+
+**Phase and brain files**
+
+- [x] `synthesize_phase_e.md` §`[5.1/6]` — the writer's outputs, and the new script call.
+- [x] `phases/index.md` §"Where a run writes" — `claim_index.json`'s writer becomes the script.
+- [x] `resuming.md` — "either `<topic-slug>-raw-report.md` or `claim_index.json` missing means the
+      pass did not finish" still holds; check the wording still names the right actor.
+
+**Tests**
+
+- [x] The new shape · reference resolution · an unresolvable reference · the two maxima · id numbering
+      · append-on-repair continuing the counter.
+
 ## Verification gates — manual, once
 
 - [x] `npm test` passes. 372 pass, 0 fail, 2 skipped by design — the 429-that-never-clears wants

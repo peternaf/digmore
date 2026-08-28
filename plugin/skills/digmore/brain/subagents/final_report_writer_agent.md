@@ -7,8 +7,8 @@
 | **Input text** | **`scope.deliverables` first — the whole section list, in order, exactly as Plan settled it.** Then the format spec for each of those sections, **inlined verbatim**: from the command's reference file for a predefined one, from `scope.sections` for an invented one. **On a redraft**, only what changed: the sections a repair touched, the paragraphs that came back unmarked, or the sentences the fact check found unsupported |
 | **Input rule files** | `output.md` · `sections.md` · `vetting.md`, for the confidence tag |
 | **Input data files** | the aggregate `<slug>-raw-report.md` · every CSV it renders an enumerable section from — `players.csv`, `experts.csv`, and any invented one. **Not the six per-source reports**: their observations are already merged into the aggregate, and reading one file instead of several hundred is the whole point of the split |
-| **Runs** | no scripts, no network. It reads the raw report and the CSVs, and writes one document |
-| **Settings that control it** | none |
+| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads the raw report and the CSVs, and writes one document |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the aggregate raw report and every CSV it renders from. The summary it composes goes to disk; nothing of the evidence comes back with it |
 | **Returns to main context** | the `final-report-writer` shape — **every claim it dropped and why**, plus sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. Not the findings themselves: the summary is on disk |
 | **Writes to disk** | `<slug>-executive-summary.md`, **written to `<slug>-executive-summary.md.tmp` and renamed over the original** when the draft and its check are done — never edited in place · `cache/_returns/final-report-writer.json` |

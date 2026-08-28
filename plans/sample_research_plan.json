@@ -19,15 +19,15 @@
           "urlsPerDispatch": 5
         },
         "vet": {
-          "handleCapPerSource": 50,
+          "handleCapPerSource": 20,
           "handlesPerDispatch": 10
         },
         "enrich": {
-          "expertsFollowed": 10,
+          "expertsFollowed": 5,
           "urlsPerExpert": 10
         },
         "twitter": {
-          "handlesDeepVetted": 20,
+          "handlesDeepVetted": 10,
           "handlesPerDispatch": 5,
           "postsPerDeepVet": 50
         }
@@ -46,11 +46,11 @@
           "urlsPerDispatch": 5
         },
         "vet": {
-          "handleCapPerSource": 20,
+          "handleCapPerSource": 10,
           "handlesPerDispatch": 10
         },
         "enrich": {
-          "expertsFollowed": 3,
+          "expertsFollowed": 0,
           "urlsPerExpert": 3
         },
         "twitter": {

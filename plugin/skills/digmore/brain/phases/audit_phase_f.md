@@ -81,8 +81,9 @@ since both are its own inputs. **It finding nothing to repair is a valid outcome
 dispatch** — it means the evidence was already in the aggregate and the fault was the draft's. The
 redraft runs either way, over the sections the repair touched.
 
-**Repaired claims keep their ids.** The Raw report writer appends to `claim_index.json`, continuing
-the counter from the highest id already there rather than restarting. A repaired claim with no id is
+**Repaired claims keep their ids.** The Raw report writer hands back a manifest of them and runs
+`synthesis.mjs index --append`, which continues the counter from the highest id already in the file
+rather than restarting. A repaired claim with no id is
 one the writer cannot mark and the fact check never receives — the newest material in the report would
 be the one part verification structurally could not reach.
 
@@ -116,7 +117,7 @@ editor's sentences are what the user reads, so they are the ones the fact check 
 
 Its return records every removal by `claimId` — the only trace of a citation lost with a deleted
 duplicate — and the two counts. Where flags raised and flags fixed differ, the summary still holds a
-sentence nobody could follow. Check the return, then keep it for the record.
+sentence nobody could follow. Keep the return for the record; the agent checked it before handing it back.
 
 ## `[6.5/6]` Redraft · markers — the backstop behind the writer's own check
 
@@ -249,20 +250,15 @@ noticed — Node resolved it to `C:\tmp`, the read failed, and the file was move
 it would have written there silently, and run material would have sat outside the topic subtree with
 nothing reporting it.
 
-**Getting text into a file is about which parser it crosses**, not about which tool is nicer:
+**Getting text into a file** is `index.md` §"Getting text into a file" — the edit tool, never a
+heredoc, never `node -e`. It is stated there because you write files from Plan onwards, and it was
+here alone while the first failure it describes happened in Plan.
 
-- **Changing an existing file → the edit tool.** Only the changed region crosses, and no shell reads
-  the content.
-- **A heredoc always quotes its delimiter** — `<<'EOF'`. That quote is the whole difference between
-  the footer being written and being run: an unquoted one made the shell execute the backticked
-  filenames in the text, and it was one quote away from silently altering a 145 KB deliverable while
-  the run reported success. The footer is full of backticked filenames and the summary is full of `$`
-  and backticks, so this is the ordinary case rather than an unlucky one.
-- **Never `node -e` with document text inline.** Shell, then JavaScript, both parsing prose.
-
-**Rewriting the whole file is the expensive option, not the safe one.** The summary is 145 KB and the
-harness reads a file before overwriting it, so a full rewrite pays for it twice. "Use the file tool"
-is the obvious-sounding rule here and it is the wrong one.
+**Why it bites hardest in this phase.** The summary is 145 KB, so a whole-file rewrite pays for
+itself twice over — change the region. And the footer is full of backticked filenames while the
+summary is full of `$` and backticks, so an unquoted heredoc here does not merely fail: one made the
+shell execute the filenames in the text, one quote away from silently altering the deliverable while
+the run reported success.
 
 **None of this touches the temp-file-then-rename rule**, which is unchanged: the summary is still
 written as `.tmp` and renamed over the original, and the rename is a shell command either way. What
@@ -300,8 +296,18 @@ held in your head, and a run killed during it lost every one of them.
 rather than from anything this run did, and it is stated once in the README. A disclaimer repeated
 every run costs the reader confidence to describe a failure they cannot act on.
 
-**Then close the run:** append this run's entry to `research_plan.json.run_history`, write the closing
-pair to `run_log.log`, and print the four terminal sections in `../reporting.md`.
+**Then close the run:** fill in `phases_completed` on this run's `run_history` entry — **the entry
+itself was appended in Plan**, and a second one here would put this run in the history twice and make
+a resume read the wrong configurations (`plan_phase_a.md` §`run_history`). Then check the file, as
+its writer:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" research-plan \
+  digmore/<slug>/research_plan.json
+```
+
+Then write the closing pair to `run_log.log`, and print the four terminal sections in
+`../reporting.md`.
 
 ## End of Audit
 

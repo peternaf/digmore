@@ -281,6 +281,20 @@ return, and one run-log pair for the sub-step as a whole. It is the longest stre
 the only one where the user can see progress in units they recognise. **The marker is the whole
 message**, and the next one follows it in the same turn (`../reporting.md`).
 
+**Read that number off disk; never keep a tally.** One `ls` of
+`cache/_returns/player-profiler-*.json` is how many have returned, and the step is finished when
+every dispatched row has a file there or a recorded skip. **A count you maintain in your head is
+wrong by the end of this step**: completion notifications arrive several to a message, and a run that
+writes three rows in one turn and advances the count by one is then short by two for the rest of the
+phase. That is not a hypothetical — a run reported `14 of 16` with all sixteen returns on disk, then
+waited on two agents that had finished an hour earlier.
+
+**Waiting is unchanged, and is not the thing that goes wrong.** Dispatch, refill as each returns, wait
+for the rest. What changes is that the answer to *is this step done* comes from looking rather than
+from arithmetic — which is how Extract's readers and Audit's fact check already work, and why neither
+has this failure. A row dispatched with no return file and no skip is named with
+`runlog.mjs finding known-gap` rather than waited on.
+
 ## Fill the cells
 
 As each row returns, write its cells into the row already in `players.csv`. One return, one write —

@@ -22,7 +22,8 @@
  *      repair prompt
  *   2  the script was invoked wrong, or the file is not JSON at all
  *
- * On exit 1 the orchestrator gets ONE repair attempt (phases/index.md). Never more:
+ * On exit 1 whoever wrote the file gets ONE repair attempt — the agent itself, or the
+ * orchestrator on research_plan.json (subagents/dispatch_structured_subagent.md). Never more:
  * a fix-and-recheck loop that can run twice can run forever.
  */
 

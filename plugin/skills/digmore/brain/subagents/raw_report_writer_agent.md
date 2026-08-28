@@ -7,13 +7,13 @@
 | **Input text** | the topic · the research question · the spec for every enumerable section this run declared — `row_is`, fields, sort and render, from `research_plan.json.scope.sections`. **On the repair pass**, the gap list instead: what the reviewer found missing or wrong |
 | **Input rule files** | `output.md` · `sections.md` · `page_quality.md`, **for the rank order alone**. **Not `vetting.md`** — the verdict rules are the script's, and an agent sent them would be a second place they could be applied differently |
 | **Input data files** | every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. **On `gtm` runs only**, also the four `<source>-handles.json`, which `promoter_network.csv` needs for `person_verdict` and for the labelled identifiers its identity join rests on |
-| **Runs** | `validate.mjs claim-index` on the index it writes, and nothing else. No network. It re-reads the CSVs it wrote against `sections.md`'s cell rules — a prose check, not a gate |
-| **Settings that control it** | none. Everything that bounded the evidence was spent before this agent ran |
+| **Runs** | `synthesis.mjs index`, which expands its merge manifest into `claim_index.json` · `validate.mjs` on the manifest and on its own receipt, each with one repair and one re-check. No network. It re-reads the CSVs it wrote against `sections.md`'s cell rules — a prose check, not a gate, because the checker reads JSON against a shape and a CSV is neither |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on both files it checks: one repair, one revalidation, then it reports a failure. Nothing else — everything that bounded the evidence was spent before this agent ran |
 | **Held in its context** | every surviving claim in the run at once, from the six joined reports, plus `players.csv`. **It is the only actor that ever holds the whole claim set**, and the split from the Final report writer exists so that nothing else has to |
-| **Returns to main context** | the `raw-report-writer` shape — counts, the sections it wrote and their row counts, **every claim it deleted for having no URL**, and the subjects the filter dropped with reasons. Not the claim set: that is on disk |
-| **Writes to disk** | at the topic root — each declared enumerable section's CSV **first**, then `<slug>-raw-report.md` and `claim_index.json` **together at the end** · `promoter_network.csv` on `gtm` runs, written directly rather than through `experts.mjs` · `cache/_returns/raw-report-writer.json` |
-| **Logs** | `cache/_progress/raw-report-writer.log` — `reading <source>` · `merging duplicates across sources` · `settling contradictions` · `writing <section-name>.csv` · `writing the raw report and the claim index` |
-| **How it reports failure** | `claimIndexError` on the receipt, when the index still failed its check after the one repair attempt. Finding nothing to repair on the repair pass is **not** a failure — it means the evidence was already in the aggregate and the fault was the draft's |
+| **Returns to main context** | the `raw-report-writer` shape — counts, the sections it wrote and their row counts, **every claim it deleted for having no URL**, and the subjects the filter dropped with reasons. Not the claim set, and not the index: both are on disk |
+| **Writes to disk** | at the topic root — each declared enumerable section's CSV **first**, then `<slug>-raw-report.md` and `cache/_returns/raw-report-writer-manifest.json` **together at the end** · `promoter_network.csv` on `gtm` runs, written directly rather than through `experts.mjs` · `cache/_returns/raw-report-writer.json`. **`claim_index.json` is the script's**, written from the manifest — every field of it but the merged claim text and the refutation is a copy, a maximum or a counter |
+| **Logs** | `cache/_progress/raw-report-writer.log` — `reading <source>` · `merging duplicates across sources` · `settling contradictions` · `writing <section-name>.csv` · `writing the raw report and the manifest`, and **once per batch where a write runs past one tool call**: `writing the raw report, part <n>`. A step that goes quiet for ten minutes is killed |
+| **How it reports failure** | `claimIndexError` on the receipt, when `synthesis.mjs index` still refused the manifest after the one repair — its errors name the reference that would not resolve. Finding nothing to repair on the repair pass is **not** a failure — it means the evidence was already in the aggregate and the fault was the draft's |
 | **One dispatch per** | the run |
 | **Run instances** | 1, plus **one** repair dispatch when the reviewer finds a closable gap. One pass only, never a loop |
 | **`--fast`** | the same in both modes |
@@ -79,8 +79,9 @@ more than teams expect"* is two real positions, and both belong in the report. A
 weaker side of every disagreement would delete exactly what "Non-trivial insights & unexpected expert
 takes" is built from — and call it verification.
 
-**Write the refutation onto the loser in `claim_index.json`**, as `refutedBy` — the winner's `claimId`
-— and `refutedReason`, one line on why that one was stronger. Not because the file is edited later: it
+**Write the refutation onto the loser in the manifest**, as `refutedByIndex` — the winner's position
+in the manifest, since the ids do not exist until the script has run — and `refutedReason`, one line on
+why that one was stronger. Not because the file is edited later: it
 is written once, with the refutation already known. Your return is a receipt of counts, and `audit.md`
 is written two steps later by someone else, so a refutation held only in your head dies when this
 dispatch does.
@@ -125,34 +126,59 @@ rows, and their mention count is split across them instead of summed — one per
 three platforms is exactly what a teardown exists to catch. Record it in the receipt as a known-gap
 whenever the run finishes with handles it could not join.
 
-### 5. Write the raw report and the claim index — together
+### 5. Write the raw report and the merge manifest — together
 
-Both carry the ids from step 2, and they cannot drift, because you write both from the same merge.
-There is no third file either is derived from.
+Both carry the merge from step 1 and the refutations from step 3, and they cannot drift, because you
+write both from that one merge. There is no third file either is derived from.
 
-**The raw report is markdown, though the six files you read are JSON.** Structured where a script reads
-it, prose where a model does — the asymmetry is the rule, not an oversight. It is read by the Final
-report writer, by the copy editor, and by a person.
+**The raw report is markdown, though the six files you read are JSON.** Structured where a script
+reads it, prose where a model does — the asymmetry is the rule, not an oversight. It is read by the
+Final report writer, by the copy editor, and by a person.
 
-**`claim_index.json` is the same claims in a form a script can query.** One entry per merged claim, in
-the `claim-index` shape. Every citation carries both its `url` — where the evidence is on the web, what
-the report cites, what a reader clicks — and its `cachedPage` — the file the run actually read, and
-what the fact check opens. **Neither is derivable from the other**: on Reddit, Hacker News and Twitter
-the script named the file and the URL is not in it.
+**The manifest is not the claim index.** It says *which source claims you merged into one and what
+that merged claim says* — the `merge-manifest` shape — and a script expands it into
+`claim_index.json`:
 
-**The score is not stored.** A script multiplies importance by page quality when contradiction strength
-needs it, which is the only thing that needs it now that nothing ranks claims.
+```json
+{"claims": [
+  {"claim": "Mux charges $0.005 per minute of encoding",
+   "from": [{"source": "reddit", "index": 12}, {"source": "websearch", "index": 3}]},
+  {"claim": "Mux charges $0.01 per minute",
+   "from": [{"source": "reddit", "index": 41}],
+   "refutedByIndex": 0, "refutedReason": "the vendor's own pricing page against one forum comment"}
+]}
+```
 
-**Then run the check:**
+- **`from`** is a position in that source's `<source>-joined.json` `claims` array. Source claims have
+  no ids, and the file was written once by `synthesis.mjs join` and is never rewritten, so the
+  position is stable for the rest of the run.
+- **`refutedByIndex` is a position in this manifest**, not a `claimId` — the ids do not exist until
+  the script has run. It turns yours into the winner's id.
+
+**Why you do not write the index yourself.** Every field of it except the merged claim text and the
+refutation is a copy, a maximum or a counter: the citations are the bulk of the file and each is
+copied verbatim out of `<source>-joined.json`. A run spent twelve minutes emitting it as output, hit
+the limit part-way and restarted in batches — and retyping the quotes is a correctness risk of its
+own, since the fact check compares the report against the cached page and a quote that drifts while
+being retyped sends it to the wrong evidence. **What is yours is the judgement**: which source claims
+are one claim, what it says, and which of two contradicting claims won.
+
+**Then run the script:**
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" claim-index digmore/<slug>/claim_index.json
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/synthesis.mjs" index --topic <slug>
 ```
 
-One repair attempt, then the failure goes on your receipt. **It is the one file in this phase worth a
-real check**: everything after you depends on it — the fact check's dispatches are built from it, the
-claim texts split the summary's paragraphs, and the refuted section renders off it. A malformed index
-is not a bad section; it is a fact check that silently checks nothing.
+It resolves every reference, copies each one's citations, takes the highest `importance` and the
+canonical `pageQuality`, and numbers the result. **It fails on a reference that does not resolve,
+naming it** — a check no shape could make, since a shape reads structure and not whether a claim is
+there. Fix the manifest and run it again. On the repair pass add `--append`, which continues the
+counter from the highest id already in the file.
+
+**A long write says so while it is writing.** Where any of your writes runs past a single tool call —
+the raw report is the one that does — beat per batch rather than per step: `writing the raw report,
+part 3`. A step that goes quiet for ten minutes is killed by the stuck-agent check, and your own file
+already notes you run long with nothing to show.
 
 ## A claim with no URL does not leave this step
 
@@ -177,7 +203,7 @@ So the common gap is not missing evidence at all — it is evidence that was gat
 per-source report, and did not make the aggregate.
 
 Repair the raw report and any enumerable section from evidence already on disk. **Fetch nothing.**
-Append repaired claims to `claim_index.json` with ids continuing the counter.
+Hand back a manifest of the repaired claims and run `synthesis.mjs index --append`, which continues the counter from the highest id already in the file.
 
 **Finding nothing to repair is a valid answer.** Say so. It means the evidence was already in the
 aggregate and the draft was what skipped it, which is the redraft's problem rather than yours.

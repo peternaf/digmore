@@ -7,8 +7,8 @@
 | **Input text** | **the paragraph, verbatim and whole** — that is what gets judged. Then **one entry per distinct `cachedPage`** its claims cite, each carrying the verbatim quotes drawn from that page and the claim text each was drawn for. Two claims citing one page make one entry, not two |
 | **Input rule files** | `output.md`. **Not `fetching.md`** — this agent does not fetch, and a file explaining how to get a page invites it to go and get one |
 | **Input data files** | the cached files its claims cite, and nothing else. Not the raw report, not `claim_index.json`, not the rest of the summary |
-| **Runs** | no scripts, no network. It reads cached files only |
-| **Settings that control it** | none. Audit gains no configuration — the unit is one paragraph of the document, which is a property of the document rather than a number anyone sets |
+| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads cached files only |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the paragraph, and the cached documents behind the claims in it. Nothing of the text leaves — the verdict is the answer |
 | **Returns to main context** | the `claim-fact-checker` shape — **only what failed**, plus two counts. One entry per unsupported statement, quoting the sentence as the report has it with the reason; `statementsJudged` and `pagesRead`; and `evidenceUnreadable` |
 | **Writes to disk** | `cache/_returns/claim-fact-checker-<n>.json`, where `<n>` is the paragraph's position in the summary. Nothing else |
@@ -59,11 +59,20 @@ established here; use them to know what to look for. **The report's wording is w
 supported**, and it will differ from the index's, because the writer phrased it and the copy editor may
 have rewritten it.
 
+**Judge against the quotes first, and the page only where they fall short.** A statement the quotes
+carry is supported and you are done. One that needs the wider page is supported too — say so in its
+reason.
+
+**Why that order.** A quote is what the run recorded as its evidence for a claim; the page is only
+where the quote came from. Half this run's claims assert more than their quote does — a version number
+in the quote, beside a claim that also gives a download size the quote never mentions. Against the page
+that passes, because the words are somewhere in the file. Against the quote it does not.
+
 ## The posture
 
-**Support has to be positively found.** A statement you cannot locate in any of the pages is
-`unsupported`, not "probably fine". **Stop at the first page that supplies it** — you are asked whether
-the paragraph is borne out, not how many times.
+**Support has to be positively found.** A statement you cannot locate in the quotes or, failing them,
+in any of the pages is `unsupported`, not "probably fine". **Stop at the first place that supplies it**
+— you are asked whether the paragraph is borne out, not how many times.
 
 **Every surviving citation is sent, not the canonical one alone.** A merged claim can carry three, and
 the canonical one is only the highest-quality page — not necessarily the one carrying the sentence in

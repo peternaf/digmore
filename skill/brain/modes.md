@@ -22,6 +22,8 @@ Two things trigger a prompt, and both are about **intent** rather than cost:
 
 **Those two are the only places a run stops, and both are in Plan.** Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
 
+**A message from the user mid-run is an instruction, not a stop.** Carry it out and keep going in the same turn. What changed goes in one line before the next marker — never a block that sets out the consequences and closes on what comes next, which is the sign-off `reporting.md` forbids and costs the user the same restart as a question would. **Answering someone is not handing back to them**, and this is the case the rule above does not cover: it is written about the run's own boundaries, and nothing finishing is what prompts this one. A real run dropped a source on request, recorded it correctly, then wrote three paragraphs on what the loss cost and ended the turn — the last line of which promised not to stop again.
+
 **A run never stops to ask permission to spend.** Every configuration is a number the user already set, printed by `preflight.mjs` at the start of the run — asking again mid-run is asking them to re-approve their own settings, which teaches them to say yes without reading.
 
 ## Auto mode (`--auto`)

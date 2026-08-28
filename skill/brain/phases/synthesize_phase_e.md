@@ -66,12 +66,18 @@ runs only, also the four `<source>-handles.json`, which `promoter_network.csv` n
 `person_verdict` column and for the labelled identifiers its identity join rests on.
 
 **It writes, in this order:** each declared enumerable section's CSV, then `<slug>-raw-report.md` and
-`claim_index.json` together at the end. The order is the partial-progress path — **either of those two
+its merge manifest together at the end, and then runs `synthesis.mjs index`, which expands the manifest
+into `claim_index.json`. The order is the partial-progress path — **either the raw report or the index
 missing means the pass did not finish** — and it is also the right order for the work: filling a table
 forces a structured pass over the evidence with a specific question, which settles sequence and
 completeness that a prose pass blurs.
 
-**Check what comes back**, then read the receipt for the two things only it can carry: the claims it
+**The index is a script's now, and the manifest is what the agent hands it.** Every field of that file
+but the merged claim text and the refutation is a copy, a maximum or a counter, and a run spent twelve
+minutes emitting it as model output before hitting the limit and restarting in batches. The agent's
+file carries the shape and the call.
+
+**Read the receipt** — the agent validated it before returning — for the two things only it can carry: the claims it
 deleted for having no URL, and the short list of subjects the filter dropped with reasons. Keep both.
 The first goes into `audit.md`; the second travels into the reviewer's dispatch in Audit, so it does
 not report a gap the run already found and deliberately discarded.
@@ -108,7 +114,7 @@ as one comment at its end: `<!-- claims: 001, 004, 009 -->`. That marker is the 
 report and the evidence behind it, and three things read it — the fact check's scope, the copy
 editor's removals, and the redraft that follows either.
 
-**Check what comes back**, then keep the receipt's drop list: every claim it read in the raw report
+**Read the receipt** and keep its drop list: every claim it read in the raw report
 and chose not to use, with the reason. Nothing else records those. Every other actor writes down what
 it discarded — Enrichment names each excluded player, Vet keeps rejections in `<source>-handles.json`,
 Extract logs dropped-for-budget URLs — and without this, drafting is the one place in the run where

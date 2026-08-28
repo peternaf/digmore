@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { Sandbox } from './helpers.mjs';
-import { judgeCitation, joinSource } from '../skill/scripts/synthesis.mjs';
+import { judgeCitation, joinSource, buildIndex, highestClaimNumber } from '../skill/scripts/synthesis.mjs';
 
 let sandbox;
 beforeEach(() => (sandbox = new Sandbox()));
@@ -292,4 +292,149 @@ test('the verb and the topic are both required', async () => {
   assert.notEqual((await sandbox.run('synthesis.mjs')).code, 0);
   assert.notEqual((await sandbox.run('synthesis.mjs', 'merge', '--topic', 'demo')).code, 0);
   assert.notEqual((await sandbox.run('synthesis.mjs', 'join')).code, 0);
+});
+
+// ---------------------------------------------------------------- the index verb
+//
+// claim_index.json used to be model output. Every field of it but the merged claim text and the
+// refutation is a copy, a maximum or a counter, and a run spent twelve minutes emitting it before
+// hitting the output limit and restarting in batches. These pin the expansion: what the agent
+// still decides, and what a reference that does not resolve does.
+
+const joinedClaim = (over = {}) => ({
+  claim: 'a source claim',
+  quote: 'the words the source used',
+  importance: 'supporting',
+  kind: 'qualitative',
+  citations: [
+    { cachedPage: 'cache/reddit/a.json', url: 'https://example.test/1', handle: 'u/foo', pageQuality: 'forum', status: 'legit' },
+  ],
+  ...over,
+});
+
+const joinedFor = (entries) => new Map(Object.entries(entries).map(([source, claims]) => [source, { source, claims }]));
+
+test('a merged claim takes the highest importance and the canonical page quality', () => {
+  const joined = joinedFor({
+    reddit: [joinedClaim({ importance: 'supporting' })],
+    websearch: [joinedClaim({
+      importance: 'central',
+      citations: [{ cachedPage: 'cache/websearch/p.md', url: 'https://vendor.test/pricing', pageQuality: 'primary-self', status: 'no-handle' }],
+    })],
+  });
+
+  const [merged] = buildIndex(
+    { claims: [{ claim: 'merged', from: [{ source: 'reddit', index: 0 }, { source: 'websearch', index: 0 }] }] },
+    joined,
+  );
+
+  assert.equal(merged.claimId, 'claim-001');
+  assert.equal(merged.claim, 'merged', "the agent's text, not either source's");
+  assert.equal(merged.importance, 'central');
+  assert.equal(merged.pageQuality, 'primary-self');
+  assert.equal(merged.citations.length, 2, 'every citation of every source claim it merged');
+});
+
+test("a citation's quote is its source claim's, carried to each of that claim's citations", () => {
+  const joined = joinedFor({
+    reddit: [joinedClaim({
+      quote: 'we pay half a cent',
+      citations: [
+        { cachedPage: 'cache/reddit/a.json', url: 'https://example.test/1', pageQuality: 'forum', status: 'no-handle' },
+        { cachedPage: 'cache/reddit/b.json', url: 'https://example.test/2', pageQuality: 'forum', status: 'no-handle' },
+      ],
+    })],
+  });
+
+  const [merged] = buildIndex({ claims: [{ claim: 'x', from: [{ source: 'reddit', index: 0 }] }] }, joined);
+  assert.deepEqual(merged.citations.map((one) => one.quote), ['we pay half a cent', 'we pay half a cent']);
+});
+
+test('the handle travels where there is one and is absent where there is not', () => {
+  const joined = joinedFor({
+    reddit: [joinedClaim({
+      citations: [
+        { cachedPage: 'cache/reddit/a.json', url: 'https://example.test/1', handle: 'u/foo', pageQuality: 'forum', status: 'legit' },
+        { cachedPage: 'cache/websearch/p.md', url: 'https://example.test/2', pageQuality: 'blog', status: 'no-handle' },
+      ],
+    })],
+  });
+
+  const [merged] = buildIndex({ claims: [{ claim: 'x', from: [{ source: 'reddit', index: 0 }] }] }, joined);
+  assert.equal(merged.citations[0].handle, 'u/foo');
+  assert.equal('handle' in merged.citations[1], false, 'an author is not an account');
+});
+
+test('ids are a counter over the merged set, and a repair pass continues it', () => {
+  const joined = joinedFor({ reddit: [joinedClaim(), joinedClaim()] });
+  const manifest = {
+    claims: [
+      { claim: 'one', from: [{ source: 'reddit', index: 0 }] },
+      { claim: 'two', from: [{ source: 'reddit', index: 1 }] },
+    ],
+  };
+
+  assert.deepEqual(buildIndex(manifest, joined).map((one) => one.claimId), ['claim-001', 'claim-002']);
+  assert.deepEqual(
+    buildIndex(manifest, joined, { startAt: highestClaimNumber([{ claimId: 'claim-009' }, { claimId: 'claim-002' }]) })
+      .map((one) => one.claimId),
+    ['claim-010', 'claim-011'],
+    'a repaired claim that reused an id would point a rendered marker at different evidence',
+  );
+});
+
+test('refutedByIndex becomes the winner id, because the ids do not exist when the agent writes', () => {
+  const joined = joinedFor({ reddit: [joinedClaim(), joinedClaim()] });
+  const claims = buildIndex(
+    {
+      claims: [
+        { claim: 'winner', from: [{ source: 'reddit', index: 0 }] },
+        { claim: 'loser', from: [{ source: 'reddit', index: 1 }], refutedByIndex: 0, refutedReason: 'the vendor page' },
+      ],
+    },
+    joined,
+  );
+
+  assert.equal(claims[1].refutedBy, 'claim-001');
+  assert.equal(claims[1].refutedReason, 'the vendor page');
+  assert.equal('refutedBy' in claims[0], false, 'the winner carries nothing');
+});
+
+// A shape check reads structure; it cannot know whether reddit[41] is a claim. This is the check
+// that only the script can make, and it is why the manifest is expanded rather than trusted.
+test('a reference that does not resolve fails loudly, naming it', () => {
+  const joined = joinedFor({ reddit: [joinedClaim()] });
+
+  assert.throws(
+    () => buildIndex({ claims: [{ claim: 'x', from: [{ source: 'reddit', index: 41 }] }] }, joined),
+    /claims\[0\] cites reddit\[41\]/,
+  );
+  assert.throws(
+    () => buildIndex({ claims: [{ claim: 'x', from: [{ source: 'mastodon', index: 0 }] }] }, joined),
+    /has no <source>-joined\.json/,
+  );
+  assert.throws(
+    () => buildIndex({ claims: [{ claim: 'x', from: [] }] }, joined),
+    /has no `from`/,
+  );
+});
+
+test('a refutation pointing at itself or at nothing is refused', () => {
+  const joined = joinedFor({ reddit: [joinedClaim()] });
+  const entry = { claim: 'x', from: [{ source: 'reddit', index: 0 }] };
+
+  assert.throws(
+    () => buildIndex({ claims: [{ ...entry, refutedByIndex: 0 }] }, joined),
+    /points at itself/,
+  );
+  assert.throws(
+    () => buildIndex({ claims: [{ ...entry, refutedByIndex: 7 }] }, joined),
+    /is not a claim in this manifest/,
+  );
+});
+
+test('highestClaimNumber ignores anything that is not a claim id', () => {
+  assert.equal(highestClaimNumber([]), 0);
+  assert.equal(highestClaimNumber(undefined), 0);
+  assert.equal(highestClaimNumber([{ claimId: 'claim-003' }, { claimId: 'not-an-id' }, {}]), 3);
 });

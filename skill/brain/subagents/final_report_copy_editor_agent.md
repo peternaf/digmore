@@ -7,11 +7,11 @@
 | **Input text** | the two stages below, in order, with the flag file's path · the dedup instruction in full, **which is the one part of this job `output.md` does not contain** · `output.md` named as the standard to edit against, its rules not restated, per `dispatch_structured_subagent.md` §"A dispatch never restates what the agent's own file says" |
 | **Input rule files** | `output.md`. **For every other agent this is a style reminder; here it is the job description** — it holds the banned-phrase list stage 1 flags against, the prose standard that defines a violation, and the boundary that keeps this agent off quoted source text |
 | **Input data files** | **stage 1** — the draft summary, alone. **stage 2** — the aggregate raw report and every finished CSV the summary renders an enumerable section from. Named in the dispatch, **but not to be opened until the flag file is written** |
-| **Runs** | no scripts, no network. It reads the draft, then the raw report and the CSVs, and rewrites the summary — into a temp file, renamed over the original |
-| **Settings that control it** | none |
+| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads the draft, then the raw report and the CSVs, and rewrites the summary — into a temp file, renamed over the original |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the draft in stage 1; then the aggregate raw report and every CSV the summary renders from in stage 2 — the same material the writer held |
 | **Returns to main context** | the `final-report-copy-editor` shape — every idea removed **by `claimId`**, with the section it was cut from and the one it was kept in; every sentence rewritten; and the two counts, flags raised against flags fixed |
-| **Writes to disk** | `<slug>-executive-summary.md`, via `<slug>-executive-summary.md.tmp` renamed over the original · `cache/_misc/copy-editor-flags.md`, the stage-1 list, **written before stage 2 begins** |
+| **Writes to disk** | `<slug>-executive-summary.md`, via `<slug>-executive-summary.md.tmp` renamed over the original · `cache/_misc/copy-editor-flags.md`, the stage-1 list, **written before stage 2 begins** · `cache/_returns/final-report-copy-editor.json`, the receipt it validates before returning |
 | **Logs** | `cache/_progress/final-report-copy-editor.log` — `reading the draft cold` · `writing <n> flags` · `reading the raw report` · `fixing <n> flags` |
 | **How it reports failure** | **a flag it cannot repair is left alone, not guessed at.** The sentence stays as it is and the flag is reported unfixed — which is what the gap between the two counts says |
 | **One dispatch per** | the draft |

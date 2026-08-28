@@ -63,7 +63,8 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `experts.csv` | `experts.mjs build`, **once, at the end of Vet**, from the merged `<source>-handles.json` rosters. It used to be written per batch from what the orchestrator was holding; reading the rosters instead means the file is built from what is on disk rather than from what survived a context |
 | `player_candidates.json` | `players.mjs candidates`, once, in Enrichment |
 | `players.csv` | the orchestrator, in Enrichment — the rows before profiling, the returned cells after. Everyone else only reads it |
-| `<topic-slug>-raw-report.md`, `claim_index.json`, `promoter_network.csv`, any `<section-name>.csv` | the Raw report writer, in Synthesize, and again if the reviewer finds a closable gap |
+| `<topic-slug>-raw-report.md`, `promoter_network.csv`, any `<section-name>.csv` | the Raw report writer, in Synthesize, and again if the reviewer finds a closable gap |
+| `claim_index.json` | `synthesis.mjs index`, from the merge manifest the Raw report writer hands it. The agent decides which source claims are one claim and what it says; every other field of the file is a copy, a maximum or a counter |
 | the summary | the Final report writer in Synthesize, then the copy editor and two redrafts in Audit — one at a time, each renaming a complete file over the last |
 | `audit.md` | the orchestrator, **through `runlog.mjs finding`, one tagged line appended at the moment the run makes each finding** — in every phase, not in Audit. `runlog.mjs header` truncates it at the start of a run, which is what "it describes one run" now means. Audit appends only Unanswered, the one thing that cannot be known before the report is finished |
 | `full_source_analysis/<source>-raw-report.json`, `<source>-players.json` | one Source Analyst per source, each to its own files, created in Extract and appended once in Enrichment |
@@ -97,6 +98,36 @@ lost every finding it had earned rather than only the last step.
 
 **Sub-agents are told this in their dispatch, not here.** They are sent their own files and nothing else, so a rule that lives only in this file reaches the orchestrator and no one else — which is why every agent that wrote scratch was inventing the path and the name unguided. The wording they get is in `../subagents/dispatch_structured_subagent.md` §"Every dispatch carries this".
 
+### Never `cd` — your working directory is the run's
+
+**Your `cd` persists and theirs does not**, so every sub-agent dispatched after one starts wherever
+you left the session. A run cd'd into the plugin's directory to read a phase file, and every agent
+after that wrote its pages, claims and receipts into a second topic tree beside the installed skill.
+Nothing reported it: the paths were valid, the writes succeeded, and the branches read as having made
+no progress.
+
+Name the path instead — `cat "${CLAUDE_PLUGIN_ROOT}/skills/digmore/brain/…"`, or the read tool.
+
+### Getting text into a file
+
+**It is about which parser the text crosses, not about which tool is nicer.** You write files in
+four phases — `research_plan.json` in Plan, `players.csv` in Enrichment, the summary in Synthesize
+and again in Audit — so this applies from the first step, not only where the documents are large.
+
+- **Writing a new file, or changing one → the write or edit tool.** Nothing else. The content never
+  reaches a shell, so nothing in it can be reparsed as syntax.
+- **Never `cat > file <<EOF`.** A run lost two turns to this in Plan writing `research_plan.json`,
+  the shell reporting `unexpected EOF while looking for matching '` on JSON that was fine. Quoting
+  the delimiter — `<<'EOF'` — is necessary and not sufficient: it stops `$` and backticks expanding,
+  and it does nothing about a body the shell never sees the end of.
+- **Never `node -e` with document text inline.** Shell, then JavaScript, both parsing prose.
+
+**Rewriting a whole file is the expensive option, not the safe one.** The harness reads a file before
+overwriting it, so a full rewrite of a large document pays for it twice. Change the region, not the
+file.
+
+**None of this touches the temp-file-then-rename rule.** A rename moves no content through the shell.
+
 `_misc` is only for what belongs to no source. **Anything a source produced goes under that source**, at the filename that source's own file gives it. That is where resume looks for it, so a vetting verdict parked in `_misc` is a verdict the next run will pay to fetch again.
 
 ## The bulk material never enters your context (cross-phase)
@@ -110,9 +141,9 @@ Your context has to survive all six phases; a sub-agent's dies when it returns. 
 | `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst, which reads every one its source produced; the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory |
 | `full_source_analysis/<source>-raw-report.json` | each Source Analyst | `synthesis.mjs join`, which stamps a verdict on every citation and writes the joined copy beside it |
 | `full_source_analysis/<source>-joined.json` | `synthesis.mjs join` | the Raw report writer, which is the only actor that ever holds all six |
-| `full_source_analysis/<source>-handles.json` | the Source Analyst, then the orchestrator, then the Source Analyst again | Vet, to know who to vet and in what order; the Raw report writer on `gtm`, for the promoter network's identity join; every later run, as the record of who was rejected and why |
+| `full_source_analysis/<source>-handles.json` | the Source Analyst, then `handle_vetting.mjs` twice, then the Source Analyst again — the four writers named in the table above | Vet, to know who to vet and in what order; the Raw report writer on `gtm`, for the promoter network's identity join; every later run, as the record of who was rejected and why |
 | `full_source_analysis/<source>-players.json` | each Source Analyst | `players.mjs candidates` alone. Nobody reads the six files directly — the script merges them, joins the verdicts and hands back candidates |
-| `claim_index.json` | the Raw report writer | a script, to assemble the fact check's dispatches. Never a sub-agent, and never you, whole |
+| `claim_index.json` | `synthesis.mjs index` | a script, to assemble the fact check's dispatches. Never a sub-agent, and never you, whole |
 
 What you keep across the run: the receipts, the plan, the verdicts, and the run's own record. Never the bodies.
 

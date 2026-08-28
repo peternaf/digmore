@@ -7,11 +7,11 @@
 | **Input text** | **three lists**: `research_plan.json.originating_prompt` verbatim · `scope.deliverables`, every section in order · `scope.angles`, each label and rationale. Plus the subjects the Raw report writer's filter dropped, with reasons. **At `[6.3/6]`**, only the items it raised the first time |
 | **Input rule files** | `output.md`, **and deliberately nothing else** |
 | **Input data files** | the draft summary, and nothing else. **Not the raw report**, which would tell it what the run found rather than what it promised |
-| **Runs** | no scripts, no network. It opens the draft summary and writes no file |
-| **Settings that control it** | none |
+| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It opens the draft summary and writes nothing else |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the draft summary alone. That is what makes a cold read of the whole document cheap enough to run |
 | **Returns to main context** | the `final-report-reviewer` shape — one entry per item across all three lists, each with what was asked, its status, and the quote from the draft that serves it. **Plus one entry per unsourced claim**, quoting the sentence |
-| **Writes to disk** | nothing |
+| **Writes to disk** | `cache/_returns/final-report-reviewer.json`, the receipt it validates before returning. **Nothing else** — it never edits the draft it is reading |
 | **Logs** | `cache/_progress/final-report-reviewer.log` — `reading the draft` · `checking <list>`, one per list · `reading for unsourced claims` |
 | **How it reports failure** | **no draft on disk is a stop, not a review of nothing** — say so and return no verdicts. An item it cannot judge comes back `unjudged` with the reason, never as present |
 | **One dispatch per** | the draft |

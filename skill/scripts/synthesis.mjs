@@ -6,7 +6,8 @@
  * handles that said it. Vet then produced a verdict per handle. This is the join between the
  * two, and the filter that follows from it.
  *
- *   node synthesis.mjs join --topic <slug>
+ *   node synthesis.mjs join  --topic <slug>
+ *   node synthesis.mjs index --topic <slug> [--manifest <path>] [--append]
  *
  * It reads the per-source reports and the handles files, stamps a status on every citation,
  * drops the citations the run does not listen to, drops the claims left with nothing behind
@@ -18,6 +19,15 @@
  * genuinely needs the agent is everything after — the semantic merge across sources, the
  * claim ids, the contradictions and the writing.
  *
+ * `index` is the second half of the same argument, added after a run spent twelve minutes on it.
+ * The Raw report writer used to emit claim_index.json as model output, hit the output limit
+ * part-way through and restarted in batches — dozens of write calls with no heartbeat between
+ * them, while the stuck-agent check kills at ten minutes. Every field of that file is a copy, a
+ * maximum or a counter except the merged claim text and the refutation, so the agent now hands
+ * back a manifest naming which source claims it merged and this expands it. Retyping the quotes
+ * was also a correctness risk: the fact check compares the report against the cached page, so a
+ * quote that drifted while being retyped sent it to the wrong evidence.
+ *
  * The per-source reports are never modified. They are the durable checkpoint this phase
  * rebuilds from, so a run that dies here re-reads them and starts again.
  *
@@ -27,7 +37,15 @@
 import { writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SOURCES, VERDICT_RULES, parseArgs, readJson, topicDir, verdictsFor } from './players.mjs';
+import {
+  IMPORTANCE_RANK,
+  SOURCES,
+  VERDICT_RULES,
+  parseArgs,
+  readJson,
+  topicDir,
+  verdictsFor,
+} from './players.mjs';
 
 /**
  * What a handle's verdict becomes on the citation, in the vocabulary the claim index prints.
@@ -169,12 +187,202 @@ export function joinAll(topicSlug) {
   return { written, sourcesMissing, claimsIn, claimsOut, unsourced };
 }
 
+/**
+ * brain/page_quality.md holds these beside the words they score; this is the copy a script can
+ * read. `internal` sits outside the ranking there and scores 4, so a claim from the user's own
+ * files can hold its own in a contradiction rather than losing to any public page by default.
+ */
+export const PAGE_QUALITY_RANK = Object.freeze({
+  'primary-3p': 5,
+  'primary-self': 4,
+  internal: 4,
+  secondary: 3,
+  blog: 2,
+  forum: 1,
+  unreliable: 0,
+});
+
+/** The manifest the Raw report writer hands back, relative to the topic directory. */
+export const MANIFEST_PATH = 'cache/_returns/raw-report-writer-manifest.json';
+
+/** claim-001, claim-002 — a counter over the merged set, never over the source claims. */
+export function claimIdFor(number) {
+  return `claim-${String(number).padStart(3, '0')}`;
+}
+
+/**
+ * The highest id already in an index, so a repair pass continues rather than restarting.
+ *
+ * A repaired claim that reused an id would point the summary's marker at different evidence than
+ * the one already rendered against it.
+ */
+export function highestClaimNumber(existingClaims) {
+  let highest = 0;
+  for (const claim of existingClaims ?? []) {
+    const digits = /^claim-(\d+)$/.exec(claim?.claimId ?? '');
+    if (digits) highest = Math.max(highest, Number(digits[1]));
+  }
+  return highest;
+}
+
+/**
+ * Expand one manifest entry into a claim-index entry.
+ *
+ * Everything here is a copy, a maximum or a counter — which is the whole reason this is a script.
+ * The agent decided which source claims are one claim and what that claim says; nothing below is
+ * a second opinion on either.
+ *
+ * **A citation's quote is its source claim's.** `source-raw-report` stores one quote per claim and
+ * one citation per document, so a source claim that appeared in three threads carries one quote
+ * and three citations. That loss happens in Extract, upstream of both this script and the agent,
+ * and neither can recover what was never written down — so the quote travels to every citation
+ * drawn from that claim, which is what the agent could do and no less.
+ */
+export function expandEntry(entry, joinedBySource, position) {
+  const references = entry?.from ?? [];
+  if (!references.length) {
+    throw new Error(`claims[${position}] has no \`from\` — a merged claim with no source claim behind it`);
+  }
+
+  const citations = [];
+  let importance = 'tangential';
+  let pageQuality = 'unreliable';
+
+  for (const reference of references) {
+    const joined = joinedBySource.get(reference?.source);
+    if (!joined) {
+      throw new Error(
+        `claims[${position}] cites source ${JSON.stringify(reference?.source)}, which has no <source>-joined.json`,
+      );
+    }
+    const sourceClaim = joined.claims?.[reference?.index];
+    if (!sourceClaim) {
+      throw new Error(
+        `claims[${position}] cites ${reference.source}[${reference?.index}], which is not in that file`,
+      );
+    }
+
+    if ((IMPORTANCE_RANK[sourceClaim.importance] ?? 0) > (IMPORTANCE_RANK[importance] ?? 0)) {
+      importance = sourceClaim.importance;
+    }
+
+    for (const citation of sourceClaim.citations ?? []) {
+      if ((PAGE_QUALITY_RANK[citation.pageQuality] ?? 0) > (PAGE_QUALITY_RANK[pageQuality] ?? 0)) {
+        pageQuality = citation.pageQuality;
+      }
+      const expanded = {
+        quote: sourceClaim.quote ?? '',
+        url: citation.url ?? '',
+        cachedPage: citation.cachedPage ?? '',
+        status: citation.status ?? 'unvetted',
+      };
+      if (citation.handle) expanded.handle = citation.handle;
+      citations.push(expanded);
+    }
+  }
+
+  if (!citations.length) {
+    throw new Error(`claims[${position}] resolved to no citations at all`);
+  }
+
+  return { claim: entry.claim ?? '', importance, pageQuality, citations };
+}
+
+/**
+ * Build the claim set from the manifest and the joined reports.
+ *
+ * The ids are assigned here, after the merge, because the merge is what decides how many claims
+ * there are. `refutedByIndex` is a position in the manifest for the same reason: the agent cannot
+ * name an id that does not exist until this runs.
+ */
+export function buildIndex(manifest, joinedBySource, { startAt = 0 } = {}) {
+  const entries = manifest?.claims ?? [];
+  const claims = entries.map((entry, position) => ({
+    claimId: claimIdFor(startAt + position + 1),
+    ...expandEntry(entry, joinedBySource, position),
+  }));
+
+  entries.forEach((entry, position) => {
+    if (entry?.refutedByIndex === undefined || entry.refutedByIndex === null) return;
+    if (entry.refutedByIndex === position) {
+      throw new Error(`claims[${position}].refutedByIndex points at itself`);
+    }
+    const winner = claims[entry.refutedByIndex];
+    if (!winner) {
+      throw new Error(
+        `claims[${position}].refutedByIndex ${entry.refutedByIndex} is not a claim in this manifest`,
+      );
+    }
+    claims[position].refutedBy = winner.claimId;
+    claims[position].refutedReason = entry.refutedReason ?? '';
+  });
+
+  return claims;
+}
+
+/** Every <source>-joined.json this topic has. */
+export function readJoined(analysisDir) {
+  const joinedBySource = new Map();
+  for (const source of SOURCES) {
+    const path = join(analysisDir, `${source}-joined.json`);
+    if (!existsSync(path)) continue;
+    joinedBySource.set(source, readJson(path));
+  }
+  return joinedBySource;
+}
+
+/**
+ * The whole verb: read the manifest, expand it, write the index.
+ *
+ * `append` is the repair pass, which is the one thing that ever adds to an existing index. It is
+ * otherwise never edited after it is written.
+ */
+export function indexAll(topicSlug, { manifestPath, append = false } = {}) {
+  const root = topicDir(topicSlug);
+  const analysisDir = join(root, 'full_source_analysis');
+  const resolvedManifest = manifestPath ?? join(root, MANIFEST_PATH);
+  const indexPath = join(root, 'claim_index.json');
+
+  if (!existsSync(resolvedManifest)) {
+    throw new Error(`no manifest at ${resolvedManifest} — the Raw report writer has not written one`);
+  }
+  const manifest = readJson(resolvedManifest);
+  if (!Array.isArray(manifest?.claims)) {
+    throw new Error(`${resolvedManifest} has no claims array`);
+  }
+
+  const joinedBySource = readJoined(analysisDir);
+  if (!joinedBySource.size) {
+    throw new Error('no <source>-joined.json found — run synthesis.mjs join first');
+  }
+
+  const existing = append && existsSync(indexPath) ? readJson(indexPath)?.claims ?? [] : [];
+  const built = buildIndex(manifest, joinedBySource, { startAt: highestClaimNumber(existing) });
+  const claims = [...existing, ...built];
+
+  writeFileSync(indexPath, `${JSON.stringify({ claims }, null, 2)}\n`, 'utf8');
+
+  return {
+    path: indexPath,
+    claims: claims.length,
+    added: built.length,
+    citations: built.reduce((total, claim) => total + claim.citations.length, 0),
+    appended: append,
+  };
+}
+
 // ---------------------------------------------------------------- cli
 
 export function run(argv) {
   const { verb, flags } = parseArgs(argv);
-  if (verb !== 'join') throw new Error(`unknown command: ${verb ?? '(none)'} — expected join`);
   if (!flags.topic) throw new Error('--topic <slug> is required');
+
+  if (verb === 'index') {
+    return indexAll(flags.topic, { manifestPath: flags.manifest, append: flags.append === true || flags.append === "true" });
+  }
+  if (verb !== 'join') {
+    throw new Error(`unknown command: ${verb ?? '(none)'} — expected join or index`);
+  }
 
   const result = joinAll(flags.topic);
   if (!result.written.length && !result.sourcesMissing.length) {

@@ -39,9 +39,15 @@ is the answer, not a reason to try again: exit 3 means the source is unavailable
 and calling it a ninth time changes nothing except how long the run takes. Report what the
 command said on stderr and move on.
 
-Run from the directory you were started in. Never cd. Every script builds its own paths
-from there as digmore/<slug>/..., so stepping into the topic directory first makes it
-nest a second copy inside itself — the scripts now refuse rather than do it silently.
+Run from the directory you were started in. Never cd, and write every path relative to
+it — digmore/<slug>/..., never C:/dev/... or /Users/... Every script builds its own paths
+that way, so stepping into the topic directory first makes it nest a second copy inside
+itself; the scripts now refuse rather than do it silently.
+
+Never mkdir either. Every script creates the directories it needs on the way, and so
+does the tool you write a file with. A mkdir asks the user to approve a directory that
+already exists, and an agent that opens by scaffolding reads as one that does not know
+where it is.
 
 Before each step you take, say what you are about to do:
 
@@ -186,6 +192,34 @@ Your return is the shape <SHAPE NAME>. Print it before you start, and follow it 
 Return exactly that JSON and nothing else, and write the same JSON to
 digmore/<slug>/cache/_returns/<your-label>.json.
 
+Then check the file you wrote, and do not return until it passes:
+
+  node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" <SHAPE NAME> \
+    digmore/<slug>/cache/_returns/<your-label>.json
+
+Exit 0 and you are done. Exit 1 prints one line per problem: fix what you wrote, write
+it again, and run the check once more. One repair and one re-check, never a loop.
+
+Fixing means fixing the structure. Do not search, fetch or research again — this is a
+formatting correction, not another pass at the work. And where a required field has no
+value in what you read, say so and leave the item out. Never fill one to make the check
+pass: that is how a missing quote becomes an invented quote, and an invented quote
+passes every check there is.
+
+Where your shape is an array, one bad entry is one entry. Drop that entry, keep the
+rest, re-check — never discard the whole file for it.
+
+Still failing after that one repair, or exit 2, which means what you wrote was not JSON
+at all: record it and say so in your return rather than returning a file you know is
+wrong.
+
+  node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding subagent-drop \
+    "<SHAPE NAME> from <your-label>: <the errors>" --topic <slug>
+
+Where the repair worked, record that too, with the same command and the category
+subagent-repair. A shape that needs repairing on most dispatches is a broken prompt,
+and nobody can see that unless the attempts are written down.
+
 <THE FORMAT SPEC — only where the job produces formatted output. The column rules, cell
 format and worked example from the command's reference file, verbatim. A sub-agent
 pointed at a file instead of given the spec defaults to the shortest plausible content,
@@ -205,10 +239,12 @@ once its URLs are batched, `player-profile` ~47, `handle-vetting` ~40, `claim-fa
 `branch-searcher` 27. Pasted, every one of those lands in **your** transcript and stays there for the
 rest of the run; printed by the agent, it costs the agent one command and costs you nothing.
 
-**It is safe here and nowhere else, because omitting it is the one thing that gets caught.** A pasted
-*rule* an agent skips fails silently — no heartbeat file, a scratch file at a name another agent also
-picks, prose in the return. A skipped `--shape` produces the wrong shape, and `validate.mjs` says so
-on the next line, with one repair and then a recorded drop. Nothing new has to be built to detect it.
+**Omitting it is still the one thing that gets caught — now by the agent itself.** A pasted *rule* an
+agent skips fails silently: no heartbeat file, a scratch file at a name another agent also picks,
+prose in the return. A skipped `--shape` produces the wrong shape, and the agent's own
+`validate.mjs` call says so on the next line, with one repair and then a recorded drop. The gate is
+self-administered, and what makes that hold is that it is mechanical: its verdict is an exit code
+rather than a judgement, so an agent cannot talk itself past it the way it can past a rule.
 
 **A `_returns/` file is written because `validate.mjs` reads a file, not a message.** For the agents
 that return `done` it is not a copy at all — it is the only place their output exists, which is what
@@ -216,82 +252,41 @@ makes the one-word return honest rather than lossy.
 
 **The Handle Vetter writes somewhere else, and that is the only variation.** Its output is one file
 per handle under `cache/<source>/handles/`, not one per dispatch under `_returns/`, because a range
-of handles produces a verdict each and a resumed run needs to know which of them finished. It
-validates each file itself; nothing is checked over stdin anywhere in the run.
+of handles produces a verdict each and a resumed run needs to know which of them finished. So it runs
+the check below once per handle rather than once per dispatch. Nothing is checked over stdin
+anywhere in the run.
 
-## Then check what comes back
+## Whoever writes a JSON validates it
 
-Every payload gets checked before anything is built on it:
+**The agent checked its own file before returning** — the block above carries the call, the one
+repair, the array rule and the two `runlog.mjs finding` records. **You run no `validate.mjs` on a
+return, in any phase.** It used to be one call per dispatch, ~280 in a full run, each serialised in
+your thread and each staying in your transcript.
 
-```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" <shape> digmore/<slug>/cache/_returns/<label>.json
-```
+**You are inside the rule rather than outside it.** `research_plan.json` is the one JSON you write
+yourself, and it is checked the same way — `plan_phase_a.md` after the identity write and after
+`scope`, `audit_phase_f.md` §`[6.8/6]` after `phases_completed`.
 
-**`<shape>` is a key in `scripts/subagent_returns.json`**, and that file is the list — run
-`validate.mjs --shapes` to print it rather than keeping a copy here, which is how the copy in this
-file went stale.
+**Scripts are outside it.** `players.mjs candidates`, `handle_vetting.mjs prepare` and `aggregate`,
+`synthesis.mjs join` write JSON and validate none of it: a script's shape is fixed in code and
+covered by the tests, and this rule exists because a model drifts where a script does not.
 
-**Some shapes are checked as files rather than as returns**, because they never enter your context at
-all: what a Page Analyst writes beside its stripped page, what a Source Analyst writes for the phases
-after it, and the claim index. Same command, pointed at the file the agent wrote rather than at
-`_returns/`. Each shape's `description` says which it is.
+**What passing means, since you act on it without seeing it.** The checker reads structure — required
+keys, JSON types, enum values, array and number bounds, the conditional requirements a shape
+declares, and where a shape names a key it is unique on, that no two entries share it. It says
+nothing about whether a quote is real, a URL resolves or a price is a price. **A payload that passed
+is well-formed, not true.**
 
-Exit 0 means use it. Exit 1 prints the problems, one line each, already worded to be pasted at the
-sub-agent. Exit 2 means the payload was not JSON at all, or the call was wrong — there is no document
-to repair, so treat it as a failed return.
+**What is left for you is the failure the agent reports.** A dispatch that comes back saying its file
+could not be made to satisfy the shape has already recorded `subagent-drop`. Drop that item, name it
+in the run's Issues, and carry on — **never re-dispatch it**: `subagents.repairAttempts` is 1 and the
+agent has already spent it. A second repair from here is the unbounded loop the limit exists to
+prevent.
 
-**What it checks:** the keys that must be there, the JSON type of each one, allowed enum values, array
-and number bounds, the conditional requirements a shape declares, and — where a shape names a key it
-is unique on — that no two entries share it, compared lowercased and trimmed. **What it does not check:**
-whether a quote is real, whether a URL resolves, whether a price is a price. A payload that passes is
-well-formed, not true.
-
-**A CSV and a markdown document cannot be checked this way at all** — the script reads JSON against a
-shape and nothing else. The agents that write those re-read their own output against the file that
-says what the right answer is; that is a prose check rather than a gate, and the agents' own files say
-so rather than implying otherwise.
-
-### The repair pass — one attempt, then drop
-
-On exit 1, re-prompt **the same sub-agent** once. The repair prompt carries three things and
-nothing else:
-
-1. the checker's exact errors,
-2. the shape it should have matched — **pasted here, in full**,
-3. its own previous output.
-
-**The repair is the one prompt that still pastes the shape, and the asymmetry is deliberate.** An
-ordinary dispatch names it and the agent prints it; here that would reproduce exactly the failure
-being repaired, because one way to arrive at the wrong shape is to have skipped the print command in
-the first place. This is also the last step before a recorded drop — `subagents.repairAttempts` is 1,
-so the item is lost rather than retried. A repair is rare, so pasting costs almost nothing and buys
-out the one path that ends in losing work.
-
-And it carries these two instructions, in these words:
-
-> Fix the structure of what you already returned. Do not search, fetch, or research again — this is
-> a formatting correction, not another pass at the work.
-
-> If a required field has no value in the source you read, say so and leave the item out. Do not
-> fill it to make the check pass.
-
-That second one is the point. Repair pressure is how a missing quote becomes an invented quote, and
-an invented quote passes every check there is.
-
-Re-check the repaired payload. Still failing → **drop that item**, name it in the run's Issues, and
-record it in `audit.md`. Never a second repair: a fix-and-recheck loop that can run twice can run
-forever, and `subagents.repairAttempts` in `~/.digmore/settings.json` is 1 so the limit is a fact
-rather than a judgement call.
-
-**Where a return is an array, the item is one entry, not the dispatch.** A Page Analyst hands back one
-receipt per URL in its batch, so a single malformed receipt is dropped and the rest stand — the agent
-had already written every page and its claims to disk before returning, which is what makes that
-survivable: what a dropped receipt costs is the branch's fetch tally and that URL's line in
-`audit.md`, not the evidence. `extract_phase_b.md` §"What comes back" carries it.
-
-Count the repairs and the drops per run in `audit.md` (`phases/audit_phase_f.md`). A shape that needs
-repairing on most returns is a broken dispatch prompt, and that is only visible if the number is
-written down.
+**A CSV and a markdown document are checked by nobody** — the script reads JSON against a shape and
+nothing else. The agents that write those re-read their own output against the file that says what
+the right answer is; that is a prose check rather than a gate, and their own files say so rather than
+implying otherwise.
 
 ## Count them
 
@@ -299,3 +294,8 @@ Every dispatch counts toward the run's total, recorded in `audit.md` split by ag
 reaches into the hundreds — one per branch, one per batch of URLs read, one per batch of handles vetted, one per player
 profiled, one per paragraph fact-checked, plus the writing and review passes — and the number is only
 knowable after the fact if it is written down.
+
+**The repairs and the drops are already in there** and are not yours to tally: each agent records its
+own as `subagent-repair` or `subagent-drop` at the moment it happens. What the numbers are for is
+unchanged — a shape that needs repairing on most dispatches is a broken prompt, and that is only
+visible if the attempts are written down.

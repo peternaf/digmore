@@ -168,7 +168,9 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" handle-vetting 
 ```
 
 One repair, one revalidation, then report the failure and go on to the next handle —
-`subagents.repairAttempts` is `1` and **you are the one enforcing it here**. If a required field
+`subagents.repairAttempts` is `1`, and like every agent that writes a JSON **you are the one
+enforcing it**. Yours runs once per handle rather than once per dispatch, because you write a file
+per handle. If a required field
 has no value in what you read, say so in `verdictReason` and leave the field out. Never fill one to
 make the check pass: repair pressure is how a missing signal becomes an invented one, and an
 invented one passes every check there is.

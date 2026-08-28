@@ -7,8 +7,8 @@
 | **Input text** | the topic as the user phrased it · the mode's angle count · the job: find what this subject actually is, then decompose it into angles. **Explicitly not the sections** |
 | **Input rule files** | `subagents/scoping_agent.md` · `output.md` |
 | **Input data files** | none |
-| **Runs** | WebSearch, up to `plan.scopingSearches` calls. No scripts, no files read |
-| **Settings that control it** | `plan.scopingSearches` — **this agent enforces it**, counting its own calls. `plan.minAngles` and `plan.maxAngles` bound what it returns; it is told the count and the orchestrator checks it in `plan_phase_a.md` §4 |
+| **Runs** | WebSearch, up to `plan.scopingSearches` calls · `validate.mjs` on the return it writes, one repair and one re-check. No other scripts, and it reads no files |
+| **Settings that control it** | `plan.scopingSearches` — **this agent enforces it**, counting its own calls. `plan.minAngles` and `plan.maxAngles` bound what it returns; it is told the count and the orchestrator checks it in `plan_phase_a.md` §4. `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure |
 | **Held in its context** | everything it read on the open web. Reading a great deal to hand back a little is the whole reason this is a sub-agent |
 | **Returns to main context** | the `scope` shape — the vocabulary, the recurring names, and the angles, each with a kebab-case label, a search-ready query and a rationale |
 | **Writes to disk** | **nothing it fetched** — what it read on the open web is not kept. `cache/_returns/scoping-agent.json`, a copy of what it returned, on disk because `validate.mjs` reads a file rather than a message |
@@ -36,6 +36,11 @@ Two things, in that order:
    would use.
 2. **Decompose it into angles.** between `plan.minAngles` and `plan.maxAngles`, both printed by `preflight.mjs`. Each angle is one
    research direction, built on what you just found.
+
+   **The maximum is a ceiling, not a target.** Return the number the topic actually has — a question
+   with three real directions gets three, and padding it to the ceiling invents angles nobody asked
+   about, spends a branch on each of them against every source, and dilutes the report with material
+   the reader did not want. Reach the maximum only where the topic genuinely splits that many ways.
 
 ## Search budget
 

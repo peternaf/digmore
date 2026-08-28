@@ -87,11 +87,11 @@ export const RECENCY_WINDOW_YEARS = 2;
  * rather than a number anyone sets.
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
-  plan: { minAngles: 3, maxAngles: 6, scopingSearches: 10 },
+  plan: { minAngles: 2, maxAngles: 6, scopingSearches: 10 },
   extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
-  vet: { handleCapPerSource: 50, handlesPerDispatch: 10 },
-  enrich: { expertsFollowed: 10, urlsPerExpert: 10 },
-  twitter: { handlesDeepVetted: 20, postsPerDeepVet: 50, handlesPerDispatch: 5 },
+  vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
+  enrich: { expertsFollowed: 5, urlsPerExpert: 10 },
+  twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
   subagents: { repairAttempts: 1 },
 });
@@ -105,10 +105,10 @@ export const CONFIGURATION_DEFAULTS = Object.freeze({
  * in fast mode, not 20. Fast mode makes a run shallower, never deeper than the user allowed.
  */
 const FAST_REDUCTIONS = Object.freeze({
-  plan: { minAngles: 2, maxAngles: 2 },
+  plan: { minAngles: 1, maxAngles: 2 },
   extract: { fetchesPerBranch: 5 },
-  vet: { handleCapPerSource: 20 },
-  enrich: { expertsFollowed: 3, urlsPerExpert: 3 },
+  vet: { handleCapPerSource: 10 },
+  enrich: { expertsFollowed: 0, urlsPerExpert: 3 },
   twitter: { handlesDeepVetted: 0 },
 });
 

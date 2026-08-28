@@ -1002,3 +1002,94 @@ test('a distinct list still passes, and an absent key is the required check\'s b
   assert.equal(result.code, 1);
   assert.deepEqual(paths(result), ['handles[0].handle'], 'reported as missing, never as a duplicate');
 });
+
+// research_plan.json is the one JSON the orchestrator writes itself, checked after each of its
+// three writes. `scope` is absent between the first and the second, so it cannot be required —
+// but a scope that exists has to be complete, because every later phase reads it.
+function plan(overrides = {}) {
+  return {
+    slug: 'video-api-providers',
+    title: 'Video API providers landscape (B2B)',
+    kind: 'landscape',
+    created_at: '2026-06-10T15:30:00Z',
+    parent_slug: null,
+    originating_prompt: 'research B2B video API providers',
+    run_history: [
+      {
+        ts: '2026-06-10T15:30:00Z',
+        kind: 'fresh',
+        prompt: 'research B2B video API providers',
+        mode: 'manual, full',
+        configurations: { extract: { fetchesPerBranch: 10 } },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+function planScope(overrides = {}) {
+  return {
+    vocabulary: ['streaming latency'],
+    recurring_names: ['Mux'],
+    deliverables: { Players: 'reference/landscape.md §1.1' },
+    angles: [{ label: 'pricing-tiers', query: 'video api pricing', rationale: 'buyers compare on it' }],
+    sources: ['websearch'],
+    branches: ['pricing-tiers × websearch'],
+    ...overrides,
+  };
+}
+
+test('a plan with identity and no scope passes — that is the state after the first write', async () => {
+  assert.equal((await check('research-plan', plan())).code, 0);
+});
+
+test('a plan carrying a complete scope passes', async () => {
+  assert.equal((await check('research-plan', plan({ scope: planScope() }))).code, 0);
+});
+
+// The failure that prompted the shape: an entry that never landed makes a resumed run fall back
+// to today's configurations and continue under a different cap with nothing saying so.
+test('run_history is required and may not be empty', async () => {
+  const missing = await check('research-plan', plan({ run_history: undefined }));
+  assert.equal(missing.code, 1);
+  assert.deepEqual(paths(missing), ['run_history']);
+
+  const empty = await check('research-plan', plan({ run_history: [] }));
+  assert.equal(empty.code, 1);
+  assert.deepEqual(paths(empty), ['run_history']);
+});
+
+test('a run_history entry without its configurations is caught, with its index', async () => {
+  const payload = plan();
+  delete payload.run_history[0].configurations;
+  const result = await check('research-plan', payload);
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['run_history[0].configurations']);
+});
+
+// phases_completed is filled in at the end of the run and at no other time, so an entry without
+// one is a run that did not finish — worth being able to see, never an error.
+test('phases_completed is optional, because its absence is information', async () => {
+  assert.equal((await check('research-plan', plan())).code, 0);
+});
+
+test('an incomplete scope is caught once scope exists', async () => {
+  const result = await check('research-plan', plan({ scope: planScope({ branches: undefined }) }));
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['scope.branches']);
+});
+
+test('two angles sharing a label are caught — the label names the branch and its files', async () => {
+  const angle = { label: 'pricing-tiers', query: 'q', rationale: 'r' };
+  const result = await check('research-plan', plan({ scope: planScope({ angles: [angle, { ...angle, query: 'other' }] }) }));
+  assert.equal(result.code, 1);
+  assert.deepEqual(paths(result), ['scope.angles[1].label']);
+});
+
+test('kind is the four commands, and run kind the three run types', async () => {
+  assert.equal((await check('research-plan', plan({ kind: 'teardown' }))).code, 1);
+
+  const payload = plan();
+  payload.run_history[0].kind = 'resume';
+  assert.equal((await check('research-plan', payload)).code, 1, 'a resume appends no entry at all');
+});

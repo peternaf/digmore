@@ -92,7 +92,9 @@ is yours to apply, and the entry is in `research_plan.json` where you already ar
 - **Synthesize failure** → the six per-source reports are settled and nothing in this phase touches
   them. **Either `<topic-slug>-raw-report.md` or `claim_index.json` missing means the pass did not
   finish**, so resume rebuilds from those reports — cheap, because the expensive reading happened in
-  the phase before.
+  the phase before. A manifest on disk with no index beside it is the same state: re-running
+  `synthesis.mjs index` is seconds, but the pass that produced the manifest is what has to be trusted,
+  so re-dispatch the writer rather than expanding a manifest whose own dispatch never finished.
 - **Audit failure** → re-enter at the sub-step the log names, not at the top of the phase. It holds
   up to six dispatch groups and rewrites the deliverable three times, so re-running it whole is no
   longer cheap. The fact check resumes per paragraph: it writes

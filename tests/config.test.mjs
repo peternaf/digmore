@@ -65,18 +65,18 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
   assert.equal(extract.urlsPerDispatch, 5);
-  assert.equal(vet.handleCapPerSource, 50);
+  assert.equal(vet.handleCapPerSource, 20);
   assert.equal(vet.handlesPerDispatch, 10);
   assert.equal(twitter.handlesPerDispatch, 5, 'Twitter batches smaller — a deep vet reads its posts');
-  assert.equal(enrich.expertsFollowed, 10);
+  assert.equal(enrich.expertsFollowed, 5);
   assert.equal(enrich.urlsPerExpert, 10);
-  assert.equal(twitter.handlesDeepVetted, 20);
+  assert.equal(twitter.handlesDeepVetted, 10);
   assert.equal(twitter.postsPerDeepVet, 50);
   assert.equal(hackernews.commentDepth, 5);
   assert.equal(hackernews.deadSampleSize, 5);
   assert.equal(subagents.repairAttempts, 1);
   assert.equal(fast.extract.fetchesPerBranch, 5);
-  assert.equal(fast.enrich.expertsFollowed, 3);
+  assert.equal(fast.enrich.expertsFollowed, 0);
   assert.equal(fast.enrich.urlsPerExpert, 3);
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
   assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
@@ -259,7 +259,7 @@ test('the configurations default as documented', () => {
   run('show');
   const config = settings();
   assert.equal(config.extract.fetchesPerBranch, 10);
-  assert.equal(config.vet.handleCapPerSource, 50);
+  assert.equal(config.vet.handleCapPerSource, 20);
   assert.equal(config.plan.scopingSearches, 10);
   assert.equal(config.enrich.urlsPerExpert, 10);
 });
@@ -283,7 +283,7 @@ test('show reports the configurations, so a run can read them without the key', 
   const { out } = run('show');
   const reported = JSON.parse(out);
   assert.equal(reported.extract.fetchesPerBranch, 10);
-  assert.equal(reported.vet.handleCapPerSource, 50);
+  assert.equal(reported.vet.handleCapPerSource, 20);
   assert.ok(!('apiKey' in reported), 'the key itself is still never printed');
 });
 
@@ -296,7 +296,7 @@ for (const bad of [0, -5, '20', 1.5, null]) {
     const { code, out } = run('show');
     assert.equal(code, 0, 'a bad configuration is not a malformed file');
     assert.equal(JSON.parse(out).extract.fetchesPerBranch, 10);
-    assert.equal(JSON.parse(out).vet.handleCapPerSource, 50);
+    assert.equal(JSON.parse(out).vet.handleCapPerSource, 20);
     assert.equal(settings().extract.fetchesPerBranch, 10, 'and the file is corrected to match');
   });
 }
