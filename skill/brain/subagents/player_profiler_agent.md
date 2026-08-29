@@ -150,6 +150,12 @@ up. Other free traffic estimators are blocked; do not spend requests on them.
 | Domain not indexed, or the parent was no help | `UNAVAILABLE — not-indexed` |
 | A captcha, a block, or the fetch failed | `UNAVAILABLE — similarweb-blocked` |
 
+**The figure SimilarWeb shows against a three-month range is already a monthly average.** Copy it in
+as it stands. **Never divide it, never add the months together, and never do arithmetic on it at
+all** — the page reading *429.2K visits, the 3 months to July 2026* means 429.2K a month, and a run
+that divided by three reported a company at 143K and sorted the Players table on the wrong number.
+The cell is what SimilarWeb said, so anyone checking it against the page sees the same figure.
+
 **A bare `UNAVAILABLE` is never acceptable.** It carries its reason.
 
 **A blocked SimilarWeb does not fail the profile.** Write the reason into this one cell and finish
