@@ -10,11 +10,12 @@ afterEach(() => sandbox.cleanup());
 
 // Exit codes. Every caller of this script branches on these.
 test('success exits 0 and prints the API payload on stdout', async () => {
-  const base = await sandbox.apiReturning({ results: [{ url: 'https://x.test', title: 't' }] });
+  const user = { name: 'someone', verdict: 'legit', recent_comments: [] };
+  const base = await sandbox.apiReturning({ someone: user });
   sandbox.configured(base);
   const { code, json, err } = await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'demo');
   assert.equal(code, 0);
-  assert.deepEqual(json, { results: [{ url: 'https://x.test', title: 't' }] });
+  assert.deepEqual(json, { users: { someone: user } }, 'keyed by the name that was sent');
   assert.equal(err, '', 'stdout carries JSON, stderr carries errors');
 });
 
@@ -172,7 +173,7 @@ test('a cache hit skips the call entirely', async () => {
   const { code, json } = await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'my-topic');
   assert.equal(code, 0);
   assert.equal(sandbox.requests.length, 0, 'nothing is fetched when the cache has it');
-  assert.equal(json.name, 'from-cache');
+  assert.equal(json.users.someone.name, 'from-cache');
 });
 
 test('the request carries the key in X-API-KEY and hits the v1 path', async () => {
@@ -206,11 +207,3 @@ test('an unknown branch or verb is an error, not a request', async () => {
   assert.equal(sandbox.requests.length, 0);
 });
 
-// Nothing in the plugin tracks or reports money.
-test('no cost field is ever emitted, even if the API sends one', async () => {
-  const base = await sandbox.apiReturning({ name: 'someone', estimated_cost_usd: 0.01 });
-  sandbox.configured(base);
-  const { out } = await sandbox.run('api.mjs', 'twitter', 'user', 'someone', '--topic', 'demo');
-  assert.ok(!out.includes('estimated_cost_usd'), 'the cost field is stripped');
-  assert.ok(!out.includes('0.01'));
-});

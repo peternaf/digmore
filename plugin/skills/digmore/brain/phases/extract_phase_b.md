@@ -149,7 +149,7 @@ Raw data writes to `digmore/<topic-slug>/cache/<source>/` incrementally — one 
 
 **Per angle-source pair**, so `pricing × reddit` and `complaints × reddit` each get their own budget. The number is `extract.fetchesPerBranch`, and it belongs to the user: `preflight.mjs` prints the value that applies to this run. Read it there rather than assuming, and never substitute a number of your own.
 
-**It counts every URL the branch fetches, whatever fetched it** — `fetch.mjs`, `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet` or `WebFetch`. Counting one tool's fetches would miss most of them.
+**It counts every URL the branch fetches, whatever fetched it** — `fetch.mjs`, `api.mjs reddit thread`, `hackernews.mjs story`, `api.mjs twitter tweet` or `WebFetch`. Counting one tool's fetches would miss most of them. **URLs, never calls**: `api.mjs reddit thread` takes a whole batch in one request, and five threads fetched together spend five.
 
 **You enforce it between waves, which is the only moment you can.** Add each batch's `pagesRead` to its branch's total as the receipts arrive, and send that branch another batch only while its total is under the cap. **Pages are fetches**, so the spending is not knowable in advance — a branch's URLs each paginate as far as their documents go — and a wave is the point where what was actually spent becomes visible. Dispatching a branch's URLs all at once, as this step used to, meant the receipts that would have stopped it arrived after the spending: the cap could be overrun several times over and nothing would notice.
 

@@ -6,10 +6,10 @@
 
 | File | What it is |
 |---|---|
-| `reddit-search-<scope>-<query-in-4-words>.json` | one per search — the URLs it found, and the ones the run ranked below the cut. `_request` inside says exactly what was asked for |
-| `reddit-thread-<id>.json` | one per thread the run read: the full `Post`, with `comments` |
+| `reddit-search-<query-in-4-words>.json` | one per search, and one search per branch — the URLs it found, and the ones the run ranked below the cut. `_request` inside says exactly what was asked for |
+| `reddit-thread-<id>.json` | one per thread the run tried: the full `Post`, with `comments`. **A file holding `fetchFailed` instead is a thread that could not be fetched** — it is a record of the attempt, not a document. Skip it; the URL is already named in `audit.md` |
 | `reddit-thread-<id>-claims.json` | the Page Analyst's extraction from that thread |
-| `reddit-vet-<name>.json` | one per vetted handle, if Vet has already run: the profile, up to 100 recent comments in full, and the verdict together |
+| `reddit-vet-<name>.json` | one per vetted handle, if Vet has already run: the profile, up to 100 recent comments in full, and the verdict together. `fetchFailed` here means the same thing — a handle that could not be read |
 | `handles/` | **not yours, and not material.** Vet's own verdict on each handle, one file each. Skip the directory: a vetting record read as a document puts a judgement about a person into the report as though somebody had said it |
 
 Comments inside a thread arrive flat, with `parent_id` giving the tree — `t3_<id>` is top level,
@@ -28,16 +28,6 @@ Comments inside a thread arrive flat, with `parent_id` giving the tree — `t3_<
   means something shipped; one that starts appearing means something broke.
 - **The search files show what was passed over.** Each holds more URLs than the run read. A recurring
   title among the ones nobody opened is a gap worth naming.
-
-## Coverage, in numbers — for `observations`
-
-Every thread file carries `num_comments`. Compare it to the length of `comments`:
-
-- Equal → the thread was read whole.
-- `num_comments` larger → the rest were not returned, and you are looking at part of it.
-
-Record the shortfall per thread, both numbers. A thread read at 500 of 3,000 comments does not
-support a claim about what "the thread concluded".
 
 ## The handles — `full_source_analysis/reddit-handles.json`
 

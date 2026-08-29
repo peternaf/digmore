@@ -270,7 +270,6 @@ entities never reach Enrichment. Nothing downstream re-reads the pages to rebuil
 
 Where the material itself shows the run did not see everything, record it with the numbers:
 
-- A Reddit thread whose `num_comments` exceeds the comments returned.
 - A Hacker News discussion that clearly ran deeper than the levels the script returns.
 - **A claims file's `pageNote` saying its coverage was partial** — the Page Analyst read the page and
   saw that most of the surface it covers sits on pages nobody fetched. It wrote that down for you; it

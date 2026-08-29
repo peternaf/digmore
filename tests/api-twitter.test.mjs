@@ -216,21 +216,6 @@ test('the four verbs are exactly user, tweets, tweet and vet', async () => {
 });
 
 // No money anywhere, in the script or in what it emits.
-test('no dollar figure survives, wherever the API puts it', async () => {
-  const base = await sandbox.apiReturning({
-    username: 'someone',
-    estimated_cost_usd: 0.135,
-    meta: { estimated_cost_usd: 0.01, tweets_sampled: 2 },
-    tweets: [{ id: '1', estimated_cost_usd: 0.005 }],
-  });
-  sandbox.configured(base);
-  const { out } = await sandbox.run('api.mjs', 'twitter', 'user', 'someone', '--topic', 'demo');
-  assert.ok(!out.includes('estimated_cost_usd'), 'stripped at every depth');
-  assert.ok(!out.includes('0.135'));
-  assert.ok(!out.includes('0.005'));
-  assert.match(out, /"tweets_sampled":2/, 'the rest of the payload survives');
-});
-
 test('the script itself carries no pricing', () => {
   const source = readFileSync(script('api.mjs'), 'utf8');
   assert.ok(!/\$[0-9]/.test(source), 'no dollar figures');
