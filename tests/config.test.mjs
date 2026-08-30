@@ -70,6 +70,7 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(twitter.handlesPerDispatch, 5, 'Twitter batches smaller — a deep vet reads its posts');
   assert.equal(enrich.expertsFollowed, 5);
   assert.equal(enrich.urlsPerExpert, 10);
+  assert.equal(enrich.minPlayerDocuments, 5);
   assert.equal(twitter.handlesDeepVetted, 10);
   assert.equal(twitter.postsPerDeepVet, 50);
   assert.equal(hackernews.commentDepth, 5);
@@ -78,6 +79,8 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(fast.extract.fetchesPerBranch, 5);
   assert.equal(fast.enrich.expertsFollowed, 0);
   assert.equal(fast.enrich.urlsPerExpert, 3);
+  assert.equal(fast.enrich.minPlayerDocuments, 2,
+    'a floor, not a budget — the lower fast value admits more players, not fewer');
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
   assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
 });

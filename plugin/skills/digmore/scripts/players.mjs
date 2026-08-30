@@ -6,7 +6,7 @@
  * material named, and one reference per claim about it carrying the handle that said it.
  * Vet then produced a verdict per handle. This script is the join between the two.
  *
- *   node players.mjs candidates --topic <slug> [--min-documents 5]
+ *   node players.mjs candidates --topic <slug> [--fast] [--min-documents <n>]
  *
  * It merges the six files, drops the claims the run does not listen to, recounts documents
  * across every source at once, applies the floor, and writes
@@ -23,9 +23,23 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertWorkspaceRoot } from './fetch.mjs';
+import { loadOrCreateConfig, configurationsFor, MALFORMED } from './config.mjs';
 
-/** brain/phases/enrich_phase_d.md — a player is a candidate at five or more documents. */
-export const DEFAULT_MIN_DOCUMENTS = 5;
+/**
+ * The floor a player has to clear, from `enrich.minPlayerDocuments` — full mode's value, or fast
+ * mode's, which is lower because a fast run gathers far less material. `config.mjs` owns both
+ * numbers and `preflight.mjs` prints the pair; nothing here restates either.
+ *
+ * `--min-documents` overrides whatever it resolves to, which is what the tests use and what makes
+ * a floor debuggable against a topic already on disk.
+ */
+function resolveMinDocuments({ fast = false } = {}) {
+  const config = loadOrCreateConfig();
+  if (config === MALFORMED) {
+    throw new Error('cannot parse ~/.digmore/settings.json — fix or delete it, then try again');
+  }
+  return configurationsFor(config, { fast: Boolean(fast) }).enrich.minPlayerDocuments;
+}
 
 /**
  * What a verdict does to a claim, and the two are not the same question.
@@ -208,7 +222,8 @@ function mergeInto(merged, byKey, source, player, keptClaims) {
  * entity nobody said anything checkable about scores zero and never clears the floor, which is
  * the intended outcome: the report would have nothing to say about it either.
  */
-export function buildCandidates(topicSlug, { minDocuments = DEFAULT_MIN_DOCUMENTS } = {}) {
+export function buildCandidates(topicSlug, { minDocuments, fast = false } = {}) {
+  minDocuments = minDocuments ?? resolveMinDocuments({ fast });
   const topicRoot = topicDir(topicSlug);
   const analysisDir = join(topicRoot, 'full_source_analysis');
   const pageQualityOf = pageQualityReader(topicRoot);
@@ -371,7 +386,8 @@ export function run(argv) {
   }
   if (!flags.topic) throw new Error('--topic <slug> is required');
 
-  const minDocuments = flags.minDocuments === undefined ? DEFAULT_MIN_DOCUMENTS : Number(flags.minDocuments);
+  const minDocuments =
+    flags.minDocuments === undefined ? resolveMinDocuments({ fast: flags.fast }) : Number(flags.minDocuments);
   if (!Number.isInteger(minDocuments) || minDocuments < 1) {
     throw new Error('--min-documents must be a whole number of 1 or more');
   }

@@ -90,7 +90,7 @@ export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 2, maxAngles: 6, scopingSearches: 10 },
   extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
   vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
-  enrich: { expertsFollowed: 5, urlsPerExpert: 10 },
+  enrich: { expertsFollowed: 5, urlsPerExpert: 10, minPlayerDocuments: 5 },
   twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
   audit: { paragraphsPerDispatch: 5 },
@@ -104,12 +104,20 @@ export const CONFIGURATION_DEFAULTS = Object.freeze({
  *
  * The lower of the two always wins: a user who sets `vet.handleCapPerSource` to 10 gets 10
  * in fast mode, not 20. Fast mode makes a run shallower, never deeper than the user allowed.
+ *
+ * `enrich.minPlayerDocuments` is the one that reads backwards, and deliberately: it is a floor
+ * rather than a budget, so the lower value admits MORE players. Fast mode gathers roughly a sixth
+ * of full mode's material — two angles instead of six, half the fetches per branch, and no expert
+ * step at all — and an entity almost never reaches five documents in that. A floor sized for the
+ * full corpus makes a fast run report no players, which reads as a market with no companies in it
+ * rather than as a run that did not look hard enough. The bound on how many rows get profiled is
+ * then the orchestrator's selection, in brain/phases/enrich_phase_d.md, not this number.
  */
 const FAST_REDUCTIONS = Object.freeze({
   plan: { minAngles: 1, maxAngles: 2 },
   extract: { fetchesPerBranch: 5 },
   vet: { handleCapPerSource: 10 },
-  enrich: { expertsFollowed: 0, urlsPerExpert: 3 },
+  enrich: { expertsFollowed: 0, urlsPerExpert: 3, minPlayerDocuments: 2 },
   twitter: { handlesDeepVetted: 0 },
 });
 
@@ -145,6 +153,7 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'twitter.handlesPerDispatch': 'the same for Twitter, lower because a deep vet reads that many posts',
   'enrich.expertsFollowed': 'vetted experts whose other writing is read',
   'enrich.urlsPerExpert': 'URLs read per followed expert, and that branch\'s whole fetch budget',
+  'enrich.minPlayerDocuments': 'documents naming an entity before it can be a player — a floor, so the fast value admits more',
   'twitter.handlesDeepVetted': 'handles whose recent posts are read, on top of their profile',
   'twitter.postsPerDeepVet': 'posts read for one of those handles',
   'hackernews.commentDepth': 'reply depth kept when a thread is flattened — below this the argument is lost',

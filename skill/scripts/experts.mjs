@@ -374,7 +374,7 @@ export function rowFromHandle(entry, source) {
  *
  * It runs once rather than per source because Enrichment is globally coupled at two points —
  * the expert step round-robins across sources to one enrich.expertsFollowed budget, and the
- * five-document floor counts across all sources — so there is no early start to buy.
+ * player-document floor counts across all sources — so there is no early start to buy.
  *
  * **Running once is not a regression on the incremental-write rule.** That rule exists because a
  * run stopping at handle 30 would otherwise reach no write at all and lose thirty dispatches.

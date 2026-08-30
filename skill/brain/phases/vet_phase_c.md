@@ -128,7 +128,7 @@ and the four run beside each other.
    land; `experts.mjs add` once threw on the second handle of a loop and took 48 verdicts with it.
 
    **It cannot run per source.** Enrichment round-robins the expert budget across sources and counts
-   the five-document floor across all of them, so there is no early start to buy.
+   the document floor across all of them, so there is no early start to buy.
 
 5. **Record the four sources in one `runlog.mjs finding handle-counts` call**, an argument each: how many handles that roster held, how many were vetted, and
    that the rest were below the cut. A run that vetted 50 of 3,000 has not surveyed the community,

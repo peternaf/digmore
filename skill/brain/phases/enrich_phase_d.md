@@ -115,14 +115,14 @@ what changed.
 **Handles first seen in expert material arrive with no verdict, and that is accepted.** They are
 appended and quoted as unvetted. Vet has finished and is not re-opened.
 
-**This must finish before the candidate filter below.** The five-document floor is counted across the
+**This must finish before the candidate filter below.** The document floor is counted across the
 appended files, so a company named only in expert material can reach it. Run the append after the
 count and it cannot.
 
 ## `[4.4/6]` Filter the candidates — the script decides this, not you
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/players.mjs" candidates --topic <slug>
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/players.mjs" candidates --topic <slug> [--fast]
 ```
 
 Each Source Analyst wrote `full_source_analysis/<source>-players.json`: every entity that source's
@@ -133,9 +133,11 @@ The script reads all six, joins every claim's handle to its verdict in `<source>
 what the run does not listen to, merges the six lists into one, recounts, and applies the floor. It
 writes `digmore/<topic-slug>/player_candidates.json` and prints a summary.
 
-**A player is a candidate at five or more documents across all sources**, counted after the claim
-filter. One document that names a player counts once, however many times the name appears inside it —
-a single long thread repeating a name forty times is one document, not forty mentions.
+**A player is a candidate at `enrich.minPlayerDocuments` or more documents across all sources**,
+counted after the claim filter. `preflight.mjs` prints the value this run applies, and it is lower in
+`--fast` because a fast run gathers far less material for an entity to be named in. One document that
+names a player counts once, however many times the name appears inside it — a single long thread
+repeating a name forty times is one document, not forty mentions.
 
 Which claims count toward that number:
 
@@ -210,7 +212,7 @@ command's "Who counts as a player" test and apply it to the ordered list.
 Three bounds on that judgement:
 
 1. **You may cut from the candidate list. You may never add below the floor.** A company that did
-   not reach five documents did not earn a row, whatever you know about it from elsewhere.
+   not reach the floor did not earn a row, whatever you know about it from elsewhere.
 2. **Every exclusion is recorded — `runlog.mjs finding excluded-player`, all of them in one call**, each argument naming the entity and the reason. A candidate that
    qualified and was left out is a decision the run made, and a reader is entitled to see it.
 3. **Say what you did**, in one line, before moving on: how many candidates qualified, how many
@@ -266,7 +268,7 @@ traffic number. Full reasoning in the agent's own file.
 **Each dispatch carries `extract.fetchesPerBranch` as the pages that profiler may open**, across all
 six of its steps. `preflight.mjs` prints the number this run uses.
 
-**There is no cap on how many rows are profiled**, in either mode. The five-document floor and the
+**There is no cap on how many rows are profiled**, in either mode. The document floor and the
 claim filter are the bound, and unlike a fixed number they scale with what the run actually found.
 
 **When a profile fails**, the agent returns `fetch_failed` rather than writing a cell that hides it.

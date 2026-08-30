@@ -61,7 +61,7 @@ to fetch — whatever you record is very nearly all it will ever have.
 ## The players — `full_source_analysis/forums-players.json`
 
 Forums are where niche tools surface that no article covers, so this file often carries entities that
-appear nowhere else in the run. Those are exactly the ones a five-document floor will cut, and that
+appear nowhere else in the run. Those are exactly the ones the document floor will cut, and that
 is the intended outcome — record them anyway and let the count decide.
 
 - **Users call things what users call them.** The forum's name for a product frequently is not the
