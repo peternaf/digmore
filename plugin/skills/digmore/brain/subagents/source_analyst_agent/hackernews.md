@@ -41,8 +41,6 @@ not a truncation you can measure from the file — the deeper replies are simply
 What you can do is say where it mattered: a story whose visible discussion is clearly mid-argument at
 the cut was read partially, and any claim about how that argument resolved is unsupported.
 
-Where `num_comments` on the story greatly exceeds what is in the tree, record both numbers.
-
 ## The handles — `full_source_analysis/hackernews-handles.json`
 
 - **The handle form is `hn/<name>`.**
