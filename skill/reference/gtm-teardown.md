@@ -1,20 +1,20 @@
 # Digmore — GTM teardown
 
-A five-phase pass focused on ONE company's go-to-market behavior. Name every tactic, channel, insider promoter and community reaction — with measured reach and worked-example URLs.
+A six-phase pass focused on ONE company's go-to-market behavior. Name every tactic, channel, insider promoter and community reaction — with measured reach and worked-example URLs.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `gtm`.
 
 ## Input framing and chaining
 
-Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/topic.md` §"Branched topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
+Parse args for company identity, focus axes and a parent-topic hint. List `digmore/`; if a `competitor` or `landscape` topic exists for the same company, treat this as chained per `../brain/phases/plan_phase_a.md` §1 "Three flows beyond a fresh topic", and read the parent's GTM and Customer-sentiment sections as the starting frame. Extract still runs, tightened to angles the parent didn't cover.
 
-`topic.json.kind` is `gtm-teardown`.
+`research_plan.json.kind` is `gtm-teardown`.
 
 ## What this command emphasizes
 
 Behavior, not capability. "How do they show up in front of buyers, and what happens when they do?"
 
-Scope's angles replace the generic set:
+Plan's angles replace the generic set:
 
 1. **Channel mapping** — where they appear; per occurrence date · URL · upvotes/comments/views.
 2. **Tactics** — repeated go-to-market moves (see the Tactics inventory below for the open list to populate).
@@ -24,13 +24,19 @@ Scope's angles replace the generic set:
 
 Search queries are tactic-anchored, not capability-anchored.
 
-**What `--quick` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: Reddit and Hacker News, nothing else. Twitter and forums are skipped, because a tactic needs a worked example per occurrence and those two return the least of it per URL. Every other reduction in that file applies here unchanged. With no API key this leaves Hacker News alone — too thin a base for a teardown, and the summary says so at the top.
+**What `--fast` runs here.** This replaces `../brain/modes.md`'s source set for `gtm` only: **every source except forums**. Every other reduction in that file applies here unchanged.
+
+- **Forums is the one that goes.** No script vets it, so its handles get no verdict at any depth; it carries no upvote or view counts, so it fills neither the Channels table nor Distribution metrics; and finding it costs two WebSearches — one for the forums, one inside them — before a page is read. That is the worst ratio of worked examples to minutes in the run, which is what a 10–15 minute budget is spending.
+- **The open web still finds the forum mentions.** A forum page websearch surfaces is read like any other page and its claims reach the Channels table, so a fast teardown still says where a brand is being discussed. What it cannot say is who is discussing it: a websearch citation carries no handle by construction, so those quotes score `no-handle` and are judged on page quality alone.
+- **Twitter runs, and its post text comes with it.** The Page Analyst fetches every tweet body by id (`../brain/subagents/page_analyst_agent/twitter.md`), which is what a worked example quotes, and `twitter.handlesDeepVetted` has no bearing on it. What fast does still cost here is the vetting: at `0`, a Twitter handle is judged from its profile alone and reaches `promoter_network.csv` unvetted — the tactic is evidenced, the person behind it is not. Known cost of a fast teardown; say it in the summary rather than working around it.
+
+With no API key this leaves Hacker News and the open web — still thin for a teardown, and the summary says so at the top.
 
 Three phases carry command-specific weight:
 
-- **Vet** — heavy promoter-pattern vetting. Every brand-mentioning handle gets full `vet_user`, and `promoter` / `spammer` verdicts are first-class findings rather than a drop-list.
-- **Synthesize** — build the promoter network as a cross-source identity graph. Replies to insider promoters by `legit` handles are top-tier evidence.
-- **Audit** — every "X did Y" tactic-attribution claim must resolve to a URL where Y is visible. The `manual-verify-required` cap is reserved for tactic attributions.
+- **Vet** — heavy promoter-pattern vetting, and `promoter` / `spammer` verdicts are first-class findings here rather than a drop-list: a promoter identified is the deliverable, not a quote lost. Brand-mentioning handles are what `vet.handleCapPerSource` should be spent on, and they already rank high — a handle whose claims are central to a teardown's angles sits at the top of `<source>-handles.json` by construction.
+- **Synthesize** — the Raw report writer builds `promoter_network.csv` as a cross-source identity graph. It is the only actor holding all six per-source reports and the four handles files at once, which is what a row needs. Two handles are one person only where a profile said so, transcribed into the roster's labelled identifier fields — never because they look alike. Replies to insider promoters by `legit` handles are top-tier evidence.
+- **Audit** — every "X did Y" tactic-attribution claim must resolve to a URL where Y is visible. There is no flag for one that does not: the fact check reads the cached page behind the claim, and a statement the page does not carry is deleted.
 
 ## 1. The summary
 
@@ -74,4 +80,4 @@ Written directly, not through `experts.mjs` — that script owns `experts.csv` a
 
 ## 3. The rest
 
-`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `raw_research_outcomes.md` and `audit.md` are the brain's, unchanged.
+`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged.

@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, utimesSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { Sandbox } from './helpers.mjs';
 import * as experts from '../skill/scripts/experts.mjs';
@@ -142,41 +142,39 @@ test('a row matching two people is appended and flagged, never merged', async ()
   assert.match(rows[2].notes, /Grace Hopper/);
 });
 
-// Atomic .tmp + rename, so concurrent sources never half-write.
+// Atomic .tmp + rename, so a crash mid-write cannot leave a half-written file. This guards a
+// different failure from the lock that used to sit beside it, and it stays.
 test('the write is atomic and leaves no .tmp behind', async () => {
   await add('--real-name', 'Ada Lovelace');
   const files = readdirSync(join(sandbox.cwd, 'digmore', 'demo'));
-  assert.deepEqual(files, ['experts.csv']);
+  assert.deepEqual(files, ['experts.csv'], 'no .tmp, and no .lock either');
 });
 
-// Phase B fans out one sub-agent per branch, so concurrent appends are the normal
-// case. An atomic write alone would still lose updates — two processes read N rows
-// and both write N+1 — so appendOrMerge takes a lock.
-test('concurrent adds all survive', async () => {
+// There is one writer now, and so no lock. Vet's Handle Vetters fan out one per handle and hand
+// back a short object each; the orchestrator writes this file, in batches as they arrive. A lock
+// existed for a fan-out that no longer happens, and a fan-out writer coming back is a design to
+// change rather than a lock to restore.
+test('a sequence of adds all survive, and none leaves a lock behind', async () => {
   const names = ['Ada', 'Grace', 'Barbara', 'Katherine', 'Margaret', 'Dorothy', 'Mary'];
-  const results = await Promise.all(
-    names.map((name) => add('--real-name', name, '--reddit', name.toLowerCase())),
-  );
-  for (const result of results) assert.equal(result.code, 0, result.err);
+  for (const name of names) {
+    const result = await add('--real-name', name, '--reddit', name.toLowerCase());
+    assert.equal(result.code, 0, result.err);
+  }
   const rows = JSON.parse((await sandbox.run('experts.mjs', 'list', 'demo')).out);
-  assert.equal(rows.length, names.length, 'no row is lost to a racing write');
+  assert.equal(rows.length, names.length);
   assert.deepEqual([...rows.map((row) => row.real_name)].sort(), [...names].sort());
-});
-
-test('the lock is released, so a later run is not blocked', async () => {
-  await add('--real-name', 'Ada', '--reddit', 'ada');
   assert.deepEqual(readdirSync(join(sandbox.cwd, 'digmore', 'demo')), ['experts.csv']);
-  assert.equal((await add('--real-name', 'Grace', '--reddit', 'grace')).code, 0);
 });
 
-test('a stale lock left by a killed process does not block forever', async () => {
+// A leftover .lock from a version that took one is not a file this script knows about, so it
+// must not block, break or be tidied away — it is simply ignored.
+test('a lock file left by an older version is ignored rather than waited on', async () => {
   mkdirSync(join(sandbox.cwd, 'digmore', 'demo'), { recursive: true });
-  const lock = `${csvPath()}.lock`;
-  writeFileSync(lock, '');
-  const old = new Date(Date.now() - 60_000);
-  utimesSync(lock, old, old);
+  writeFileSync(`${csvPath()}.lock`, '');
   const { code } = await add('--real-name', 'Ada', '--reddit', 'ada');
-  assert.equal(code, 0, 'a lock older than the stale window is broken');
+  assert.equal(code, 0, 'nothing waits on it, so it cannot time out');
+  const rows = JSON.parse((await sandbox.run('experts.mjs', 'list', 'demo')).out);
+  assert.equal(rows.length, 1);
 });
 
 test('csv special characters survive a round trip', async () => {
@@ -313,4 +311,114 @@ test('a nine-column file from before topical_relevance still loads', async () =>
 
   await add('--real-name', 'Ada', '--topical-relevance', 'medium');
   assert.match(csv(), /topical_relevance/, 'the file is upgraded in place on the next write');
+});
+
+// ---------------------------------------------------------------- build, from the merged rosters
+
+function writeRoster(source, handles) {
+  const dir = join(sandbox.cwd, 'digmore', 'demo', 'full_source_analysis');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `${source}-handles.json`), JSON.stringify({ source, handles }));
+}
+
+function roster(source) {
+  return JSON.parse(
+    readFileSync(join(sandbox.cwd, 'digmore', 'demo', 'full_source_analysis', `${source}-handles.json`), 'utf8'),
+  );
+}
+
+test('build takes the legit rows off the rosters and leaves everyone else out', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'high', lastActive: '2026-03-01' },
+    { handle: 'u/spam', verdict: 'spammer' },
+    { handle: 'u/quiet', verdict: 'unknown' },
+    { handle: 'u/nobody' },
+  ]);
+
+  const { code, out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(code, 0);
+  assert.equal(JSON.parse(out).added, 1);
+
+  const rows = experts.load(csvPath());
+  assert.equal(rows.length, 1, 'only legit becomes a row');
+  assert.equal(rows[0].real_name, 'Ada Lovelace');
+  assert.equal(rows[0].reddit, 'ada', 'the prefix comes off — the column already says reddit');
+  assert.equal(rows[0].sources, 'reddit');
+  assert.equal(rows[0].last_active, '2026-03-01');
+  assert.equal(rows[0].topical_relevance, 'high');
+});
+
+test('build copies the labelled identifiers into their own columns', async () => {
+  writeRoster('hackernews', [
+    { handle: 'hn/ada', verdict: 'legit', realName: 'Ada', github: 'adagh', website: 'ada.dev', twitter: 'adax' },
+  ]);
+  await sandbox.run('experts.mjs', 'build', 'demo');
+
+  const [row] = experts.load(csvPath());
+  assert.equal(row.hn, 'ada', "the handle's own column is where we actually met them");
+  assert.equal(row.github, 'adagh');
+  assert.equal(row.website, 'ada.dev');
+  assert.equal(row.twitter, 'adax', 'a platform handle the profile stated');
+});
+
+test('build unions one person across two rosters rather than writing two rows', async () => {
+  writeRoster('reddit', [{ handle: 'u/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'low' }]);
+  writeRoster('hackernews', [{ handle: 'hn/ada', verdict: 'legit', realName: 'Ada Lovelace', topicalRelevance: 'high' }]);
+
+  const { out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(JSON.parse(out).rows, 1);
+
+  const [row] = experts.load(csvPath());
+  assert.equal(row.reddit, 'ada');
+  assert.equal(row.hn, 'ada');
+  assert.equal(row.sources, 'reddit|hackernews');
+  assert.equal(row.topical_relevance, 'high', 'the strongest reading across sources wins');
+});
+
+test('build writes inExperts back onto the roster', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada' },
+    { handle: 'u/quiet', verdict: 'unknown' },
+  ]);
+  await sandbox.run('experts.mjs', 'build', 'demo');
+
+  const handles = roster('reddit').handles;
+  assert.equal(handles[0].inExperts, true);
+  assert.equal(handles[1].inExperts, undefined, 'nobody claims a row they did not get');
+});
+
+test('one unusable row is recorded and skipped, and the rest still land', async () => {
+  writeRoster('reddit', [
+    { handle: 'u/ada', verdict: 'legit', realName: 'Ada' },
+    { handle: '', verdict: 'legit' }, // no name, no handle: could never be matched again
+    { handle: 'u/bob', verdict: 'legit', realName: 'Bob' },
+  ]);
+
+  const { code, out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  assert.equal(code, 0, 'one bad row never aborts the rest — that cost 48 verdicts once');
+  const result = JSON.parse(out);
+  assert.equal(result.skipped.length, 1);
+  assert.equal(result.rows, 2);
+});
+
+test('build says which rosters it read and which were not there', async () => {
+  writeRoster('reddit', [{ handle: 'u/ada', verdict: 'legit', realName: 'Ada' }]);
+  const { out } = await sandbox.run('experts.mjs', 'build', 'demo');
+  const result = JSON.parse(out);
+  assert.deepEqual(result.sourcesRead, ['reddit']);
+  assert.deepEqual(result.sourcesMissing, ['hackernews', 'twitter', 'forums']);
+});
+
+test('findExpertByHandle matches the bare name and the prefixed handle alike', () => {
+  const rows = [experts.row({ real_name: 'Ada', reddit: 'ada' })];
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'u/ada'));
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'ada'));
+  assert.ok(experts.findExpertByHandle(rows, 'reddit', 'U/ADA'), 'normalised, as the merge is');
+  assert.equal(experts.findExpertByHandle(rows, 'hn', 'hn/ada'), undefined, 'the wrong column matches nobody');
+});
+
+test('forums has no column, so nothing can auto-promote from it', () => {
+  assert.equal(experts.expertColumnFor('forums'), undefined);
+  assert.equal(experts.expertColumnFor('reddit'), 'reddit');
+  assert.equal(experts.expertColumnFor('hackernews'), 'hn');
 });

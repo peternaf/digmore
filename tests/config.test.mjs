@@ -10,6 +10,12 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG = join(repoRoot, 'skill', 'scripts', 'config.mjs');
 const POSIX = process.platform !== 'win32';
 
+/** Every top-level key the file carries. Grouped by where each configuration applies. */
+const TOP_LEVEL_KEYS = [
+  'apiBaseUrl', 'apiDeclined', 'apiKey', 'audit',
+  'enrich', 'extract', 'fast', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
+];
+
 let home;
 
 beforeEach(() => {
@@ -38,21 +44,87 @@ function writeSettings(text) {
 }
 
 // ~/.digmore/settings.json, created on first run, mode 0600.
-test('creates the file on first run with the five default fields', () => {
+test('creates the file on first run with every parameter present', () => {
   const { code } = run('show');
   assert.equal(code, 0);
-  assert.deepEqual(settings(), {
-    apiBaseUrl: 'https://api.digmore.ai',
-    apiKey: null,
-    apiDeclined: false,
-    fetchesPerBranch: 20,
-    vetHandleCap: 50,
-  });
+  const written = settings();
+  assert.deepEqual(Object.keys(written).sort(), TOP_LEVEL_KEYS);
+  assert.equal(written.apiBaseUrl, 'https://api.digmore.ai');
+  assert.equal(written.apiKey, null);
+  assert.equal(written.apiDeclined, false);
 });
 
-test('the file has exactly five fields and no more', () => {
+// Every configuration is written out, in both modes, so a user can see and change one without
+// having to know it exists. A file listing only the reductions would hide most of them.
+test('the fast block lists every configuration group, not only the ones it reduces', () => {
   run('show');
-  assert.deepEqual(Object.keys(settings()).sort(), ['apiBaseUrl', 'apiDeclined', 'apiKey', 'fetchesPerBranch', 'vetHandleCap']);
+  const { plan, extract, vet, enrich, twitter, hackernews, subagents, fast } = settings();
+  assert.deepEqual(Object.keys(fast).sort(),
+    ['audit', 'enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
+  assert.equal(plan.maxAngles, 6);
+  assert.equal(extract.fetchesPerBranch, 10);
+  assert.equal(extract.maxPagesPerDocument, 5);
+  assert.equal(extract.urlsPerDispatch, 5);
+  assert.equal(vet.handleCapPerSource, 20);
+  assert.equal(vet.handlesPerDispatch, 10);
+  assert.equal(twitter.handlesPerDispatch, 5, 'Twitter batches smaller — a deep vet reads its posts');
+  assert.equal(enrich.expertsFollowed, 5);
+  assert.equal(enrich.urlsPerExpert, 10);
+  assert.equal(enrich.minPlayerDocuments, 5);
+  assert.equal(twitter.handlesDeepVetted, 10);
+  assert.equal(twitter.postsPerDeepVet, 50);
+  assert.equal(hackernews.commentDepth, 5);
+  assert.equal(hackernews.deadSampleSize, 5);
+  assert.equal(subagents.repairAttempts, 1);
+  assert.equal(fast.extract.fetchesPerBranch, 5);
+  assert.equal(fast.enrich.expertsFollowed, 0);
+  assert.equal(fast.enrich.urlsPerExpert, 3);
+  assert.equal(fast.enrich.minPlayerDocuments, 2,
+    'a floor, not a budget — the lower fast value admits more players, not fewer');
+  assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
+  assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
+});
+
+// A batch size is how many items one sub-agent works through in sequence, and fast mode already
+// cuts how many items there are. Reducing it as well would raise the dispatch count in the mode
+// that exists to lower it, so both stay out of the reductions.
+test('every batch size is the same in both modes', () => {
+  run('show');
+  const { extract, vet, twitter, fast } = settings();
+  assert.equal(fast.extract.urlsPerDispatch, extract.urlsPerDispatch);
+  assert.equal(fast.vet.handlesPerDispatch, vet.handlesPerDispatch);
+  // Twitter keeps its lower batch even in fast, where handlesDeepVetted is 0 and no posts are
+  // read — a second conditional to win back a handful of dispatches is not worth the branch.
+  assert.equal(fast.twitter.handlesPerDispatch, twitter.handlesPerDispatch);
+});
+
+// Zero is not a real instruction for either: it would not skip a step, it would mean an agent
+// is handed no work at all. So it falls back to the default like any other invalid value, which
+// is what gives both a floor of 1.
+test('a batch size of zero falls back to its default', () => {
+  writeSettings(JSON.stringify({
+    extract: { urlsPerDispatch: 0 }, vet: { handlesPerDispatch: 0 }, twitter: { handlesPerDispatch: 0 },
+  }));
+  run('show');
+  assert.equal(settings().extract.urlsPerDispatch, 5);
+  assert.equal(settings().vet.handlesPerDispatch, 10);
+  assert.equal(settings().twitter.handlesPerDispatch, 5);
+});
+
+// The group is named for the phase that spends it, and two phases spend nothing: every rendered
+// claim is fact-checked, so there is no checked subset to size and nothing is flagged for the
+// user to chase. A `synthesize` group reappearing here means one of those caps came back.
+// Synthesize still has none. Audit has one, and it is a batch size rather than a depth: it sizes
+// the range one Claim Fact Checker is handed, never how many paragraphs are checked. Every rendered
+// claim is checked in both modes, so there is still no checked subset to configure.
+test('there is no synthesize group, and audit has only a batch size', () => {
+  run('show');
+  const written = settings();
+  assert.ok(!('synthesize' in written), 'its two survivors were renamed to enrich.*');
+  assert.ok(!('synthesize' in written.fast));
+  assert.deepEqual(Object.keys(written.audit), ['paragraphsPerDispatch']);
+  assert.equal(written.fast.audit.paragraphsPerDispatch, written.audit.paragraphsPerDispatch,
+    'a batch size never reduces in fast mode');
 });
 
 test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {
@@ -60,12 +132,31 @@ test('the file is created 0600', { skip: !POSIX && 'POSIX modes only' }, () => {
   assert.equal(statSync(settingsPath()).mode & 0o777, 0o600);
 });
 
-test('creating is idempotent — a second run does not rewrite it', () => {
+test('a complete file is not rewritten — the same read twice changes nothing', () => {
   run('show');
-  writeSettings(JSON.stringify({ apiBaseUrl: 'https://example.test', apiKey: 'k', apiDeclined: false }));
   const before = readFileSync(settingsPath(), 'utf8');
   run('show');
   assert.equal(readFileSync(settingsPath(), 'utf8'), before);
+});
+
+// A file written by an earlier version is missing whatever was added since. Completing it
+// on read is what makes a new configuration visible to someone who installed before it existed:
+// filling the gap only in memory would leave the knob undiscoverable forever.
+test('a file from an older version gains the new parameters, keeping what the user set', () => {
+  writeSettings(JSON.stringify({ apiKey: 'sk-kept', vet: { handleCapPerSource: 7 } }));
+  run('show');
+  const healed = settings();
+  assert.equal(healed.apiKey, 'sk-kept', 'the key survives');
+  assert.equal(healed.vet.handleCapPerSource, 7, 'a tuned configuration survives');
+  assert.equal(healed.extract.fetchesPerBranch, 10, 'a missing configuration is filled in');
+  assert.ok('fast' in healed, 'and so is the whole fast block');
+});
+
+test('an unknown key is dropped rather than left to look meaningful', () => {
+  writeSettings(JSON.stringify({ apiKey: 'sk-kept', nonsenseSetting: 42 }));
+  run('show');
+  assert.ok(!('nonsenseSetting' in settings()), 'a typo disappears instead of being silently ignored');
+  assert.equal(settings().apiKey, 'sk-kept');
 });
 
 // config.mjs owns both writes.
@@ -90,10 +181,10 @@ test('set-key preserves a customised apiBaseUrl', () => {
   assert.equal(settings().apiBaseUrl, 'https://not-the-default.example.test');
 });
 
-test('neither write ever adds a sixth field', () => {
+test('neither write ever adds a field beyond the known set', () => {
   run('decline');
   run('set-key', 'sk-test-123');
-  assert.deepEqual(Object.keys(settings()).sort(), ['apiBaseUrl', 'apiDeclined', 'apiKey', 'fetchesPerBranch', 'vetHandleCap']);
+  assert.deepEqual(Object.keys(settings()).sort(), TOP_LEVEL_KEYS);
 });
 
 // Found running against the real API: PowerShell's `-Encoding utf8` writes a BOM, and
@@ -164,58 +255,71 @@ test('an unknown verb is an error', () => {
   assert.ok(err.length > 0, 'errors go to stderr');
 });
 
-// ---------------------------------------------------------------- run ceilings
+// ---------------------------------------------------------------- run configurations
 //
-// fetchesPerBranch bounds one angle-source pair; vetHandleCap bounds how many people a
-// run vets. Both are the user's to change, and both are read by the skill rather than
-// enforced by any script — see brain/phases/extract_phase_b.md and vet_phase_c.md.
+// Every number that bounds a run lives here rather than in brain prose, because prose is
+// obeyed on trust: two real runs on 2026-08-17 applied 20 and 8 for the same cap with
+// nothing flagging the difference. Grouped by where each applies — the phase for a
+// phase-wide one, the source for a source-specific one.
 
-test('the ceilings default to 20 and 50', () => {
+test('the configurations default as documented', () => {
   run('show');
-  assert.equal(settings().fetchesPerBranch, 20);
-  assert.equal(settings().vetHandleCap, 50);
+  const config = settings();
+  assert.equal(config.extract.fetchesPerBranch, 10);
+  assert.equal(config.vet.handleCapPerSource, 20);
+  assert.equal(config.plan.scopingSearches, 10);
+  assert.equal(config.enrich.urlsPerExpert, 10);
 });
 
-test('a user-set ceiling survives a read', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 8, vetHandleCap: 200 }));
+test('a user-set configuration survives a read', () => {
+  writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   const { code, out } = run('show');
   assert.equal(code, 0);
-  assert.equal(JSON.parse(out).fetchesPerBranch, 8);
-  assert.equal(JSON.parse(out).vetHandleCap, 200);
+  assert.equal(JSON.parse(out).extract.fetchesPerBranch, 8);
+  assert.equal(JSON.parse(out).vet.handleCapPerSource, 200);
 });
 
-test('a user-set ceiling survives a write', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 8, vetHandleCap: 200 }));
+test('a user-set configuration survives a write', () => {
+  writeSettings(JSON.stringify({ extract: { fetchesPerBranch: 8 }, vet: { handleCapPerSource: 200 } }));
   run('set-key', 'sk-test-123');
-  assert.equal(settings().fetchesPerBranch, 8, 'setting a key does not reset the ceilings');
-  assert.equal(settings().vetHandleCap, 200);
+  assert.equal(settings().extract.fetchesPerBranch, 8, 'setting a key does not reset the configurations');
+  assert.equal(settings().vet.handleCapPerSource, 200);
 });
 
-test('show reports the ceilings, so a run can read them without the key', () => {
+test('show reports the configurations, so a run can read them without the key', () => {
   const { out } = run('show');
   const reported = JSON.parse(out);
-  assert.equal(reported.fetchesPerBranch, 20);
-  assert.equal(reported.vetHandleCap, 50);
+  assert.equal(reported.extract.fetchesPerBranch, 10);
+  assert.equal(reported.vet.handleCapPerSource, 20);
   assert.ok(!('apiKey' in reported), 'the key itself is still never printed');
 });
 
-// A ceiling of zero, a negative, or a string would stop a run doing any work at all while
-// looking configured. The default is safer than honouring it.
+// A configuration of zero, a negative, or a string would stop a run doing any work at all while
+// looking configured. The default is safer than honouring it — and the file is corrected,
+// so it never says one number on disk while the run uses another.
 for (const bad of [0, -5, '20', 1.5, null]) {
-  test(`a ceiling of ${JSON.stringify(bad)} reads back as the default`, () => {
-    const written = JSON.stringify({ fetchesPerBranch: bad, vetHandleCap: bad });
-    writeSettings(written);
+  test(`a configuration of ${JSON.stringify(bad)} reads back as the default`, () => {
+    writeSettings(JSON.stringify({ extract: { fetchesPerBranch: bad }, vet: { handleCapPerSource: bad } }));
     const { code, out } = run('show');
-    assert.equal(code, 0, 'a bad ceiling is not a malformed file');
-    assert.equal(JSON.parse(out).fetchesPerBranch, 20);
-    assert.equal(JSON.parse(out).vetHandleCap, 50);
-    assert.equal(readFileSync(settingsPath(), 'utf8'), written, 'and the file is left as the user typed it');
+    assert.equal(code, 0, 'a bad configuration is not a malformed file');
+    assert.equal(JSON.parse(out).extract.fetchesPerBranch, 10);
+    assert.equal(JSON.parse(out).vet.handleCapPerSource, 20);
+    assert.equal(settings().extract.fetchesPerBranch, 10, 'and the file is corrected to match');
   });
 }
 
-test('a bad ceiling is corrected on the next write', () => {
-  writeSettings(JSON.stringify({ fetchesPerBranch: 0, vetHandleCap: -1 }));
-  run('set-key', 'sk-test-123');
-  assert.equal(settings().fetchesPerBranch, 20, 'the file now holds the value the run will use');
-  assert.equal(settings().vetHandleCap, 50);
+// Zero is a real instruction for the configurations that can be switched off, and must not be
+// treated as the mistake it would be elsewhere.
+test('zero is honoured where it means "skip this step"', () => {
+  writeSettings(
+    JSON.stringify({
+      twitter: { handlesDeepVetted: 0 },
+      subagents: { repairAttempts: 0 },
+      hackernews: { deadSampleSize: 0 },
+    }),
+  );
+  const { out } = run('show');
+  assert.equal(JSON.parse(out).twitter.handlesDeepVetted, 0);
+  assert.equal(JSON.parse(out).subagents.repairAttempts, 0);
+  assert.equal(JSON.parse(out).hackernews.deadSampleSize, 0, 'the shadowban test can be switched off');
 });

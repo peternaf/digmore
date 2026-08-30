@@ -1,0 +1,256 @@
+{
+  "slug": "elevenlabs-gtm",
+  "title": "ElevenLabs go-to-market teardown",
+  "kind": "gtm-teardown",
+  "created_at": "2026-08-17T11:43:00Z",
+  "parent_slug": "elevenlabs",
+  "originating_prompt": "how is elevenlabs promoting itself — every tactic, who runs it, and what happened when they did",
+  "recency_cutoff": "2022-01-01",
+  "run_history": [
+    {
+      "ts": "2026-08-17T11:43:00Z",
+      "kind": "branch",
+      "prompt": "how is elevenlabs promoting itself — every tactic, who runs it, and what happened when they did",
+      "mode": "manual, full",
+      "configurations": {
+        "extract": {
+          "fetchesPerBranch": 10,
+          "maxPagesPerDocument": 5,
+          "urlsPerDispatch": 5
+        },
+        "vet": {
+          "handleCapPerSource": 20,
+          "handlesPerDispatch": 10
+        },
+        "enrich": {
+          "expertsFollowed": 5,
+          "urlsPerExpert": 10
+        },
+        "twitter": {
+          "handlesDeepVetted": 10,
+          "handlesPerDispatch": 5,
+          "postsPerDeepVet": 50
+        },
+        "audit": {
+          "paragraphsPerDispatch": 5
+        }
+      },
+      "phases_completed": "plan,extract,vet,enrichment,synthesize,audit"
+    },
+    {
+      "ts": "2026-08-19T08:10:00Z",
+      "kind": "re-run",
+      "prompt": "re-run — add the ElevenHacks weekly series and settle the hackathon dating conflict",
+      "mode": "auto, fast",
+      "configurations": {
+        "extract": {
+          "fetchesPerBranch": 5,
+          "maxPagesPerDocument": 5,
+          "urlsPerDispatch": 5
+        },
+        "vet": {
+          "handleCapPerSource": 10,
+          "handlesPerDispatch": 10
+        },
+        "enrich": {
+          "expertsFollowed": 0,
+          "urlsPerExpert": 3
+        },
+        "twitter": {
+          "handlesDeepVetted": 0,
+          "handlesPerDispatch": 5,
+          "postsPerDeepVet": 50
+        }
+      },
+      "phases_completed": "plan,extract"
+    }
+  ],
+  "scope": {
+    "vocabulary": [
+      "ElevenHacks",
+      "ElevenLabs Worldwide Hackathon",
+      "ElevenLabs Summit",
+      "Startup Grants",
+      "Ambassador Program — Community Builder track, Content Creator track",
+      "Affiliate Program — 22% for 12 months, run on PartnerStack",
+      "1 Million Voices",
+      "11 Voices",
+      "Iconic Voice Marketplace",
+      "Voice Library",
+      "ElevenReader",
+      "GenFM",
+      "AI Speech Classifier",
+      "demo nights, listening parties, meetups"
+    ],
+    "recurring_names": [
+      "Mati Staniszewski (@matistanis) — co-founder and CEO",
+      "Piotr Dabkowski — co-founder",
+      "Luke Harries (@LukeHarries_) — leads Growth",
+      "Thorsten Schaeff (@thorwebdev) — Head of Developer Experience, since moved to Google DeepMind",
+      "@ElevenLabsDevs — separate developer account",
+      "u/J-ElevenLabs — staff Reddit account",
+      "a16z (Jennifer Li) — hackathon co-host",
+      "Devpost, lablab.ai, AI Tinkerers — hackathon hosting platforms",
+      "CMG Worldwide — celebrity estate rights agency",
+      "Pindrop — traced the Biden robocall to ElevenLabs",
+      "Firecrawl, Cloudflare, Replit, Cursor, Stripe — ElevenHacks weekly partners"
+    ],
+    "deliverables": {
+      "Verdict": "reference/gtm-teardown.md §1.1",
+      "Non-trivial insights & unexpected expert takes": "reference/gtm-teardown.md §1.2",
+      "Channels": "reference/gtm-teardown.md §1.3",
+      "Tactics inventory": "reference/gtm-teardown.md §1.4",
+      "Insider promoter network": "reference/gtm-teardown.md §1.5",
+      "Distribution metrics observed": "reference/gtm-teardown.md §1.6",
+      "Reception": "reference/gtm-teardown.md §1.7",
+      "Repercussions": "reference/gtm-teardown.md §1.8",
+      "Cadence & lifecycle": "reference/gtm-teardown.md §1.9",
+      "What independents say works (or doesn't)": "reference/gtm-teardown.md §1.10",
+      "Paid promoter programmes": {
+        "type": "chart",
+        "description": "The Ambassador Program and the affiliate programme side by side: what each pays (credits, event funding, merch; 22% of payments for 12 months via PartnerStack), who runs it, how a person joins, and whether the programme's own page asks for disclosure. One entry per programme, each linking to its page. Added for this run — the company runs two formal promoter programmes and a teardown that does not name their terms is incomplete."
+      },
+      "Timeline of dated moves": {
+        "type": "list",
+        "description": "Every observed promotional move in date order, one line each: the date, what happened, the URL. January 2023 to March 2026. Added for this run — it was branched to settle a dating conflict between the parent topic and Devpost, so the dates are the deliverable rather than a detail inside another section."
+      },
+      "Refuted / unsubstantiated": "reference/gtm-teardown.md §1.11",
+      "Run footer": "brain/reporting.md §The Run footer"
+    },
+    "sections": {
+      "Paid promoter programmes": {
+        "type": "chart",
+        "csv": "paid-promoter-programmes.csv",
+        "row_is": "one formal programme the company runs to pay or reward people for promoting it",
+        "fields": [
+          {
+            "name": "programme",
+            "description": "The programme's own name, as the company writes it. Links to its page."
+          },
+          {
+            "name": "url",
+            "description": "The programme's page on the company's site."
+          },
+          {
+            "name": "run_by",
+            "description": "Team or named person operating it, and the platform it runs on where there is one (e.g. PartnerStack)."
+          },
+          {
+            "name": "pays",
+            "description": "What a participant receives, in the units the page states: cash, percentage and duration, credits, event funding, merch. Not a summary — the terms."
+          },
+          {
+            "name": "how_to_join",
+            "description": "Application, invitation, or open signup, and any stated bar."
+          },
+          {
+            "name": "disclosure_required",
+            "description": "required | encouraged | silent — what the programme's own page asks of participants. `silent` means the page says nothing, which is itself the finding."
+          },
+          {
+            "name": "first_seen",
+            "description": "YYYY-MM-DD the programme was first observed running."
+          }
+        ],
+        "sort": "first_seen ascending",
+        "render": "One row per programme. The programme name is the link. A cell with nothing behind it is `—`, never a guess."
+      },
+      "Timeline of dated moves": {
+        "type": "list",
+        "csv": "timeline-of-dated-moves.csv",
+        "row_is": "one observed promotional move on one date",
+        "fields": [
+          {
+            "name": "date",
+            "description": "YYYY-MM-DD. Where sources disagree, the date the primary source gives, with the conflict noted in `dispute`."
+          },
+          {
+            "name": "move",
+            "description": "What happened, one line, in the vocabulary the company uses for it."
+          },
+          {
+            "name": "url",
+            "description": "Where the move can be seen. A move with no reachable URL is recorded in audit.md as a known-gap, not dropped."
+          },
+          {
+            "name": "channel",
+            "description": "Where it happened — the source or platform."
+          },
+          {
+            "name": "dispute",
+            "description": "Empty unless sources disagree on the date; then both readings and who says which."
+          }
+        ],
+        "sort": "date ascending",
+        "render": "One line per row: date — move ([link](url)). Rows carrying a `dispute` show both dates."
+      }
+    },
+    "angles": [
+      {
+        "label": "dated-channel-appearances",
+        "query": "ElevenLabs Summit November 2025, SXSW premiere March 2026, Oracle Park sponsorship, Product Hunt GenFM, Devpost and lablab.ai listings — one occurrence per date with a URL",
+        "rationale": "The teardown needs a worked example per occurrence, not a channel list."
+      },
+      {
+        "label": "repeatable-programme-tactics",
+        "query": "ElevenHacks weekly hackathons, Worldwide Hackathon with a16z, Startup Grants, Iconic Voices estate deals — when each started, how often it repeated, what changed each time",
+        "rationale": "A tactic run once is an anecdote; a tactic run eleven times is the motion. Sources disagree on when the 33-city hackathon ran — the parent topic says December 2025, Devpost says February — so settling the dates is part of this angle."
+      },
+      {
+        "label": "promoter-handles-and-disclosure",
+        "query": "posts by @matistanis, @LukeHarries_, @thorwebdev, u/J-ElevenLabs; Ambassador Program tracks; affiliate links paying 22% — dated examples with and without disclosure",
+        "rationale": "Feeds promoter_network.csv, this command's own output. The contested part is whether paying creators in credits rather than cash counts as disclosed sponsorship, so collect what each promoter wrote alongside what they were paid in."
+      },
+      {
+        "label": "backlash-and-repercussions",
+        "query": "4chan voice abuse January 2023, Biden robocall traced by Pindrop, Illinois BIPA class actions, r/ElevenLabs moderator removals, Hacker News astroturfing accusations",
+        "rationale": "What happened when they promoted is half the question — including the argument running underneath it, whether consent from an estate is consent at all."
+      },
+      {
+        "label": "observed-reach-per-tactic",
+        "query": "hackathon applicant and submission counts, grants awarded, ElevenHacks prize pool, launch video view counts, Product Hunt upvotes, Hacker News points",
+        "rationale": "Reach numbers separate a tactic that worked from one that was merely run."
+      }
+    ],
+    "sources": [
+      "websearch",
+      "reddit",
+      "hackernews",
+      "twitter",
+      "forums"
+    ],
+    "sources_unavailable": [
+      {
+        "source": "local",
+        "reason": "the user handed over no documents"
+      }
+    ],
+    "branches": [
+      "dated-channel-appearances × websearch",
+      "dated-channel-appearances × reddit",
+      "dated-channel-appearances × hackernews",
+      "dated-channel-appearances × twitter",
+      "dated-channel-appearances × forums",
+      "repeatable-programme-tactics × websearch",
+      "repeatable-programme-tactics × reddit",
+      "repeatable-programme-tactics × hackernews",
+      "repeatable-programme-tactics × twitter",
+      "repeatable-programme-tactics × forums",
+      "promoter-handles-and-disclosure × websearch",
+      "promoter-handles-and-disclosure × reddit",
+      "promoter-handles-and-disclosure × hackernews",
+      "promoter-handles-and-disclosure × twitter",
+      "promoter-handles-and-disclosure × forums",
+      "backlash-and-repercussions × websearch",
+      "backlash-and-repercussions × reddit",
+      "backlash-and-repercussions × hackernews",
+      "backlash-and-repercussions × twitter",
+      "backlash-and-repercussions × forums",
+      "observed-reach-per-tactic × websearch",
+      "observed-reach-per-tactic × reddit",
+      "observed-reach-per-tactic × hackernews",
+      "observed-reach-per-tactic × twitter",
+      "observed-reach-per-tactic × forums"
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 # Digmore — Competitor
 
-A five-phase research pass focused on ONE competitor. Goal: a verdict — moat strength, wedge to exploit, weakness to attack — backed by depth across positioning, pricing, GTM, recent moves, customer sentiment, leadership and hiring signals. Plus the same non-trivial-insights payoff `landscape` produces.
+A six-phase research pass focused on ONE competitor. Goal: a verdict — moat strength, wedge to exploit, weakness to attack — backed by depth across positioning, pricing, GTM, recent moves, customer sentiment, leadership and hiring signals. Plus the same non-trivial-insights payoff `landscape` produces.
 
 **Read `../brain/index.md` first and follow it.** This file adds only what is specific to `competitor`.
 
@@ -13,22 +13,22 @@ Args can be a name, a URL, prose, or any mix:
 - `/digmore competitor Mux, focus on live-streaming pricing and Cloudflare encroachment`
 - `/digmore competitor --auto Cloudflare Stream`
 
-Parse out the competitor's identity (name + URL if known), any focus areas, and a parent-topic hint ("the X from my video-apis topic"). `topic.json.kind` is `competitor`. If the args cannot disambiguate the subject — "research Stream" could be Cloudflare Stream, Mux Stream or Stream.io — clarify before slugging, per `../brain/topic.md`.
+Parse out the competitor's identity (name + URL if known), any focus areas, and a parent-topic hint ("the X from my video-apis topic"). `research_plan.json.kind` is `competitor`. If the args cannot disambiguate the subject — "research Stream" could be Cloudflare Stream, Mux Stream or Stream.io — clarify before slugging, per `../brain/phases/plan_phase_a.md` §1.
 
 ## Chaining from landscape
 
 When `parent_slug` points at a landscape topic AND that topic's `players.csv` has a row matching the competitor:
 
-1. Inherit the parent's `experts.csv`, per `../brain/topic.md` §"Branched topic".
+1. Inherit the parent's `experts.csv`, per `../brain/phases/plan_phase_a.md` §1 "Three flows beyond a fresh topic".
 2. Read the parent's `players.csv` row for this competitor — it becomes Extract's starting frame, saving a rediscovery of positioning, URL, `monthly_visits` and the rest.
-3. Read the parent's summary sections that reference this competitor (the Players row plus any inline insights). These reach the synthesizer as prior context, not as claims to re-cite.
+3. Read the parent's summary sections that reference this competitor (the Players row plus any inline insights). These reach the Raw report writer as prior context, not as claims to re-cite.
 4. This topic's `players.csv` lists the focal competitor plus its 3–5 nearest peers, drawn from the parent where available.
 
 No parent, or no matching row: research from scratch, no inheritance.
 
 ## What this command emphasizes
 
-Depth on one player, not breadth across a market. Scope's angles are tighter and tailored:
+Depth on one player, not breadth across a market. Plan's angles are tighter and tailored:
 
 - Positioning + messaging (how they describe themselves vs. how the market describes them).
 - Pricing teardown (public tiers + hidden costs + comparable market pricing).
@@ -39,7 +39,7 @@ Depth on one player, not breadth across a market. Scope's angles are tighter and
 
 Search fans across the same sources as landscape, but every query is competitor-anchored ("Mux pricing", "Mux complaints", "Mux vs Cloudflare Stream").
 
-Phase weights: Extract and Synthesize carry the most signal. Vet is usually cheap when chained from a parent, because `experts.csv` arrives pre-populated.
+Phase weights: Extract and Synthesize carry the most signal. Vet is usually cheap when chained from a parent, because `experts.csv` arrives pre-populated. Audit checks every rendered claim, so its cost tracks the length of the report rather than the size of the topic.
 
 ## 1. The summary
 
@@ -78,4 +78,4 @@ Same columns and the same player test as `landscape.md` §2. When chained from a
 
 ## 3. The rest
 
-`experts.csv`, `raw_research_outcomes.md` and `audit.md` are the brain's, unchanged. `experts.csv` is inherited at the moment of branching when chained, and augmented during the run.
+`experts.csv`, `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged. `experts.csv` is inherited at the moment of branching when chained, and augmented during the run.

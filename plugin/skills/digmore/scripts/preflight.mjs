@@ -13,7 +13,14 @@
  * stderr says why.
  */
 
-import { loadOrCreateConfig, MALFORMED, configPath } from './config.mjs';
+import {
+  loadOrCreateConfig,
+  MALFORMED,
+  configPath,
+  configurationsFor,
+  CONFIGURATION_NOTES,
+  RECENCY_WINDOW_YEARS,
+} from './config.mjs';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -38,7 +45,7 @@ export const WANTED_HARNESS_LIMITS = Object.freeze([
     key: 'CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS',
     stock: 20,
     wanted: 100,
-    why: 'Extract fans out one sub-agent per branch — 25 or more at once — against a stock limit of 20, so the run is throttled into batches',
+    why: 'Extract fans out one sub-agent per branch — 25 or more at once — against a stock limit of 20, so the run is throttled into batches. Raise it only where 16GB or more of RAM is free for the run: a hundred agents each hold their own material, and on a machine that cannot feed them the run is slower rather than wider',
   },
 ]);
 
@@ -138,20 +145,62 @@ Use these numbers. Do not assume a default the user may have raised.${advice}`;
 }
 
 /**
- * digmore's own ceilings, for the same reason `harnessReport` prints the harness's: the
- * brain names a default, the user's settings file is what actually applies, and prose
- * cannot know which. A run that assumes 20 on a machine set to 5 fetches four times what
- * the user allowed.
+ * digmore's own configurations, for the same reason `harnessReport` prints the harness's
+ * limits: the brain names a default, the user's settings file is what actually applies, and
+ * prose cannot know which. A run that assumes 20 on a machine set to 5 fetches four times
+ * what the user allowed.
  */
-export function ceilingsReport(config) {
+export function configurationsReport(config) {
   if (config === MALFORMED) return '';
+
+  const full = configurationsFor(config);
+  const fast = configurationsFor(config, { fast: true });
+
+  const rows = [];
+  for (const [group, configurations] of Object.entries(full)) {
+    for (const name of Object.keys(configurations)) {
+      const fullValue = configurations[name];
+      const fastValue = fast[group][name];
+      rows.push({
+        key: `${group}.${name}`,
+        value: fastValue === fullValue ? String(fullValue) : `${fullValue} → ${fastValue}`,
+        note: CONFIGURATION_NOTES[`${group}.${name}`] ?? '',
+      });
+    }
+  }
+
+  const keyWidth = Math.max(...rows.map((row) => row.key.length));
+  const valueWidth = Math.max(...rows.map((row) => row.value.length));
+  const lines = rows
+    .map((row) => `  ${row.key.padEnd(keyWidth)}  ${row.value.padEnd(valueWidth)}  ${row.note}`.trimEnd())
+    .join('\n');
+
   return `
 
-digmore: RUN CEILINGS — from ${configPath()}:
-  fetchesPerBranch: ${config.fetchesPerBranch}   (URLs per angle-source pair, pages included)
-  vetHandleCap: ${config.vetHandleCap}   (handles vetted per run)
+digmore: RUN CONFIGURATIONS — from ${configPath()}:
+${lines}
 
-Use these numbers. They are the user's, not defaults to assume.`;
+Use these numbers. They are the user's, not defaults to assume. Where two are shown, the
+second applies in --fast; a single number applies in both. A zero means that step is skipped.
+
+Recency cutoff for this run: ${recencyCutoff()}
+Pass it as --after-date on every Reddit search, and use it wherever brain/recency.md asks for
+today-minus-two-years. It is printed here because you have no clock: computed by hand it is a
+different date on every step that needs one, and silently wrong when it is wrong.`;
+}
+
+/**
+ * Today minus the recency window, as YYYY-MM-DD.
+ *
+ * brain/recency.md says "compute it at run start; never hardcode", which is right and gave no way
+ * to do it. Left to improvise the run shells out to `node -e` with a hand-written Date, once per
+ * step that needs a date — arithmetic an agent drifts off, and the same class of defect the run
+ * log's timestamps exist to rule out.
+ */
+export function recencyCutoff(now = new Date()) {
+  const cutoff = new Date(now);
+  cutoff.setFullYear(cutoff.getFullYear() - RECENCY_WINDOW_YEARS);
+  return cutoff.toISOString().slice(0, 10);
 }
 
 /** The sources that need the API. Everything else runs either way. */
@@ -275,7 +324,7 @@ async function main() {
   try {
     const config = loadOrCreateConfig();
     const state = await resolveState(config);
-    process.stdout.write(`${report(state)}${ceilingsReport(config)}${harnessReport()}\n`);
+    process.stdout.write(`${report(state)}${configurationsReport(config)}${harnessReport()}\n`);
     process.exitCode = 0;
   } catch (error) {
     // Every state preflight knows about is reported on stdout and exits 0 — NO_KEY,

@@ -1,5 +1,5 @@
 /**
- * Check a sub-agent's returned JSON against one of the shared shapes in schemas.json.
+ * Check a sub-agent's returned JSON against one of the shared shapes in subagent_returns.json.
  *
  * Structure only: the right keys, the right JSON types, allowed enum values, array and
  * number bounds. It says nothing about whether a price is a price or a quote is real —
@@ -7,6 +7,12 @@
  *
  *   node validate.mjs <shape> <file>       # "-" reads stdin
  *   node validate.mjs --shapes             # list the shape names
+ *   node validate.mjs --shape <name>       # print one shape, to paste into a dispatch
+ *
+ * `--shape` exists because the dispatch template tells the orchestrator to paste a shape into
+ * the prompt verbatim and gave it no way to get one. Left to improvise it reaches for
+ * `node -e` and a hand-written JSON.parse, which is a second place the file is read and a
+ * first place it can be read wrongly.
  *
  * The verdict is the result, not a failure of this script, so it goes to stdout either
  * way and the exit code carries it:
@@ -16,25 +22,39 @@
  *      repair prompt
  *   2  the script was invoked wrong, or the file is not JSON at all
  *
- * On exit 1 the orchestrator gets ONE repair attempt (phases/index.md). Never more:
+ * On exit 1 whoever wrote the file gets ONE repair attempt — the agent itself, or the
+ * orchestrator on research_plan.json (subagents/dispatch_structured_subagent.md). Never more:
  * a fix-and-recheck loop that can run twice can run forever.
  */
 
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadOrCreateConfig, MALFORMED, CONFIGURATION_DEFAULTS } from './config.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 
-export const SCHEMAS_PATH = join(scriptDir, 'schemas.json');
+export const SUBAGENT_RETURNS_PATH = join(scriptDir, 'subagent_returns.json');
 
-/** One repair attempt. The constant exists so the limit is a fact, not a judgement call. */
-export const MAX_REPAIRS = 1;
+/**
+ * How many repair attempts a failed return gets, from `subagents.repairAttempts`. Still a
+ * number read from a file rather than a judgement made mid-run — which is the point — but
+ * now the user can see it and change it, like every other configuration.
+ *
+ * The reason it is small stays true whatever it is set to: a fix-and-recheck loop that can
+ * run twice can run forever, and `Product boundary` names an unbounded repair loop as a
+ * defect marker in its own right.
+ */
+export function maxRepairs() {
+  const config = loadOrCreateConfig();
+  if (config === MALFORMED) return CONFIGURATION_DEFAULTS.subagents.repairAttempts;
+  return config.subagents.repairAttempts;
+}
 
 let cachedSchemas;
 
 export function loadSchemas() {
-  if (!cachedSchemas) cachedSchemas = JSON.parse(readFileSync(SCHEMAS_PATH, 'utf8'));
+  if (!cachedSchemas) cachedSchemas = JSON.parse(readFileSync(SUBAGENT_RETURNS_PATH, 'utf8'));
   return cachedSchemas;
 }
 
@@ -89,6 +109,19 @@ function quote(value) {
  * Collect every problem rather than stopping at the first: the repair pass gets one
  * attempt, so it has to be told everything that is wrong in one go.
  */
+/**
+ * The comparison `uniqueBy` makes — lowercased and trimmed, the same normalisation `experts.mjs`
+ * uses to union two rows. `u/Foo` and `u/foo` are one person and two strings, and a check that
+ * missed that would pass exactly the duplicate the run is most likely to produce.
+ *
+ * A non-string key compares by value, so a numeric id still works. `undefined` means the field is
+ * absent, which is the required check's business rather than this one's.
+ */
+function normaliseKey(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'string' ? value.trim().toLowerCase() : value;
+}
+
 export function validateValue(schema, value, path = '', errors = []) {
   const at = path || '(root)';
 
@@ -135,6 +168,25 @@ export function validateValue(schema, value, path = '', errors = []) {
     if (schema.maxItems !== undefined && value.length > schema.maxItems) {
       errors.push({ path: at, message: `takes at most ${schema.maxItems} items, got ${value.length}` });
     }
+    if (schema.uniqueBy) {
+      // `uniqueItems` is the wrong instrument for this: it means the whole item must be unique, so
+      // two rows for u/foo differing in any field — a different documentCount, a different
+      // verdictReason — both pass. What these shapes are specified as is one entry per THING.
+      const seenAt = new Map();
+      value.forEach((item, index) => {
+        const key = normaliseKey(item?.[schema.uniqueBy]);
+        if (key === undefined) return; // absence is the required check's business, not this one
+        if (seenAt.has(key)) {
+          // Both indexes, because "there is a duplicate somewhere" is not a repairable message.
+          errors.push({
+            path: `${path}[${index}].${schema.uniqueBy}`,
+            message: `duplicate ${schema.uniqueBy} ${quote(item[schema.uniqueBy])} — already at index ${seenAt.get(key)}`,
+          });
+        } else {
+          seenAt.set(key, index);
+        }
+      });
+    }
     if (schema.items) {
       value.forEach((item, index) => validateValue(schema.items, item, `${path}[${index}]`, errors));
     }
@@ -178,8 +230,23 @@ function main(argv) {
     process.stdout.write(`${JSON.stringify({ shapes: Object.keys(loadSchemas()) })}\n`);
     return;
   }
+
+  // Printed indented rather than on one line: it goes into a dispatch prompt, where a wall of
+  // minified JSON is what a sub-agent reads its contract off.
+  if (shapeName === '--shape') {
+    const schemas = loadSchemas();
+    if (!file) return fail(`--shape needs a name — one of ${Object.keys(schemas).join(', ')}`);
+    if (!schemas[file]) {
+      return fail(`unknown shape: ${file} — expected ${Object.keys(schemas).join(', ')}`);
+    }
+    process.stdout.write(`${JSON.stringify(schemas[file], null, 2)}\n`);
+    return;
+  }
+
   if (!shapeName || !file) {
-    return fail('usage: validate.mjs <shape> <file>   ("-" reads stdin, --shapes lists them)');
+    return fail(
+      'usage: validate.mjs <shape> <file>   ("-" reads stdin, --shapes lists them, --shape <name> prints one)',
+    );
   }
 
   let text;

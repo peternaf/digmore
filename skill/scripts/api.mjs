@@ -8,27 +8,74 @@
  * The on-disk cache filenames are load-bearing: phase resume and the salvage paths in
  * brain/phases/index.md read them by name.
  *
- *   node api.mjs reddit  search <query>            --topic <slug> [--subreddit <name>]... [--sort ...] [--time-window ...] [--limit 20] [--after-date YYYY-MM-DD]
- *   node api.mjs reddit  thread <id-or-permalink>  --topic <slug> [--limit 500]
- *   node api.mjs reddit  user   <name>             --topic <slug>   # snapshot + verdict
+ *   node api.mjs reddit  search <query>            --topic <slug> [--sort ...] [--time-window ...] [--limit 20] [--after-date YYYY-MM-DD]
+ *   node api.mjs reddit  thread <id-or-permalink>... --topic <slug> [--limit 500]
+ *   node api.mjs reddit  user   <name>...          --topic <slug>   # snapshots + verdicts
  *   node api.mjs twitter user   <handle>           --topic <slug>
  *   node api.mjs twitter tweets <handle>           --topic <slug> [--limit 25]
  *   node api.mjs twitter tweet  <tweet-id>...      --topic <slug>
- *   node api.mjs twitter vet    <handle>           --topic <slug> --tier 1|2|3
+ *   node api.mjs twitter vet    <handle>           --topic <slug> --posts <n>
  *
  * stdout carries JSON, stderr carries errors.
  */
 
-import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadOrCreateConfig, MALFORMED } from './config.mjs';
+import { assertWorkspaceRoot } from './fetch.mjs';
 
 export const REQUEST_TIMEOUT_MS = 30000;
 
-/** The API takes 1–100 tweet ids per call. */
+/**
+ * What a batched call is given on top of REQUEST_TIMEOUT_MS, per item in the batch.
+ *
+ * A flat 30s was sized for a request that fetches one thing. A batched one fetches as many
+ * things as it was sent, sequentially upstream, so the time it needs is a function of the
+ * batch — and a batch that outgrows the timeout fails as "the digmore API could not be
+ * reached", which reads as the API being down when it is answering perfectly well.
+ *
+ * Measured against `/v1/reddit/users`: 5 profiles in 14.9s, 25 in 40.3s — about 9s fixed
+ * and 1.3s per profile. 4s each is roughly three times that, which is the headroom for an
+ * account whose history is long or a session that has to clear a challenge first.
+ *
+ * MAX_BATCH_TIMEOUT_MS bounds the worst hang, because a timeout that scales without a
+ * ceiling stops being a timeout. At the largest batch either endpoint accepts it is still
+ * twice the measured time.
+ */
+export const BATCH_TIMEOUT_PER_ITEM_MS = 4000;
+export const MAX_BATCH_TIMEOUT_MS = 300000;
+
+/** What one batched call of `count` items is allowed before it is called unreachable. */
+export function batchTimeoutMs(count) {
+  return Math.min(MAX_BATCH_TIMEOUT_MS, REQUEST_TIMEOUT_MS + BATCH_TIMEOUT_PER_ITEM_MS * count);
+}
+
+/**
+ * What a 429 waits, in order, before the next attempt. Three waits, so four attempts.
+ *
+ * digmore's own API has no per-key rate limit today, and this is built anyway: the X bearer
+ * token and the residential proxy behind it can throttle us upstream, and that reaches the
+ * user the same way. Without it a 429 is a hard failure at the moment it arrives — a Reddit
+ * branch that never ran, or a handle that never got vetted, in the middle of the run's
+ * widest fan-out. `extract_phase_b.md`'s rule is that a source nobody queried must never
+ * read as a source that came back empty, and an unhandled throttle produces exactly that,
+ * silently.
+ *
+ * The order is: the client survives a 429 first, the server gets a limit second.
+ */
+export const BACKOFF_MS = Object.freeze([5000, 15000, 45000]);
+
+/**
+ * What one call to each batched endpoint accepts, straight from the API's own limits.
+ * A longer list is split into as many calls as it takes; the caller never chunks.
+ */
 const MAX_TWEET_IDS_PER_CALL = 100;
+const MAX_THREAD_IDS_PER_CALL = 20;
+const MAX_USER_NAMES_PER_CALL = 100;
+
+/** The most results one Reddit search returns, which is also the endpoint's own maximum. */
+const MAX_SEARCH_LIMIT = 20;
 
 /** Exit codes. Every caller of this script sources on these. */
 export const EXIT = Object.freeze({
@@ -39,21 +86,6 @@ export const EXIT = Object.freeze({
   REJECTED: 5, // 401 — and only 401; see request()
   USAGE: 2, // a bad invocation — nothing was attempted
 });
-
-/** Nothing in the plugin tracks or reports money, whatever the API sends. */
-const MONEY_FIELDS = new Set(['estimated_cost_usd', 'cost_usd', 'cost']);
-
-function stripMoney(value) {
-  if (Array.isArray(value)) return value.map(stripMoney);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(([k]) => !MONEY_FIELDS.has(k))
-        .map(([k, v]) => [k, stripMoney(v)]),
-    );
-  }
-  return value;
-}
 
 class ApiError extends Error {
   constructor(message, exitCode) {
@@ -67,7 +99,7 @@ class ApiError extends Error {
 /** Minimal argv parsing. These are called by the skill through Bash, never by a user. */
 export function parseArgs(argv) {
   const positional = [];
-  const flags = { subreddit: [] };
+  const flags = {};
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
     if (!token.startsWith('--')) {
@@ -80,8 +112,7 @@ export function parseArgs(argv) {
       throw new ApiError(`${token} needs a value`, EXIT.USAGE);
     }
     index += 1;
-    if (name === 'subreddit') flags.subreddit.push(value);
-    else flags[name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
+    flags[name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
   }
   return { positional, flags };
 }
@@ -93,6 +124,7 @@ export function parseArgs(argv) {
  * the plugin lives in an install cache that an update replaces.
  */
 export function cacheDir(topic, source) {
+  assertWorkspaceRoot();
   return join(process.cwd(), 'digmore', topic, 'cache', source);
 }
 
@@ -111,50 +143,113 @@ function writeCache(dir, key, payload) {
   writeFileSync(join(dir, key), JSON.stringify(payload), 'utf8');
 }
 
-/** brain/sources/reddit.md — search keys carry md5(query)[:10]. */
-export function queryHash(query) {
-  return createHash('md5').update(query, 'utf8').digest('hex').slice(0, 10);
+/**
+ * Search cache names are readable rather than hashed, so a person opening
+ * digmore/<slug>/cache/reddit/ can see what each file is without opening it:
+ *
+ *   reddit-search-<four words of the query>.json
+ *
+ * The name does not have to be unique — see cachedSearch() for how collisions are
+ * settled. That is the trade: a hash cannot collide and cannot be read; four words can
+ * do both.
+ */
+
+/** Dropped before the query becomes a filename: common in queries, useless in a name. */
+const FILENAME_STOPWORDS = new Set([
+  'a', 'the', 'of', 'for', 'in', 'on', 'to', 'and', 'or', 'is', 'are',
+  'what', 'how', 'why', 'do', 'does', 'vs',
+]);
+
+const QUERY_WORDS_IN_NAME = 4;
+
+/**
+ * The query, reduced to its first four meaningful words.
+ *
+ * Derived here rather than passed in by the caller: a cache key has to be a pure function
+ * of the request, and two sub-agents summarising the same query in their own words would
+ * never hit the same file twice.
+ */
+export function queryWords(query) {
+  const words = String(query ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter((word) => word && !FILENAME_STOPWORDS.has(word));
+  return (words.length ? words : ['query']).slice(0, QUERY_WORDS_IN_NAME).join('-');
+}
+
+export function searchCacheName(query) {
+  return `reddit-search-${queryWords(query)}`;
 }
 
 /**
- * The sub segment of a search cache key. One file per request now that the API merges,
- * so the whole sub list has to be in the name.
- *
- * Order is preserved, never sorted: the first sub's hits rank above the second's, so
- * `--subreddit a --subreddit b` and `--subreddit b --subreddit a` are different queries
- * with different results and must not share a cache entry. Long lists collapse to a hash
- * rather than build a filename that trips the path limit.
+ * Everything that makes one search different from another, stored inside the cache file
+ * and compared on read.
  */
-export function subsSegment(subs = []) {
-  if (!subs.length) return 'sitewide';
-  const joined = subs.join('+');
-  return joined.length <= 60 ? joined : `${subs.length}subs-${queryHash(joined)}`;
+export function searchRequestKey({ query, sort, timeWindow, limit, afterDate }) {
+  return {
+    query: String(query),
+    sort,
+    time_window: timeWindow,
+    limit,
+    after_date: afterDate ?? null,
+  };
 }
 
 // ---------------------------------------------------------------- http
 
 const skip = (value) => value === undefined || value === null || value === '';
 
-async function request(config, path, params = {}) {
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+/**
+ * How long to wait before retrying a throttled request.
+ *
+ * `Retry-After` wins where the server sent one and it is a plain number of seconds — it is
+ * the only party that knows when the window reopens. The date form is not read: it needs a
+ * trustworthy clock on both ends, and getting it wrong waits either far too long or not at
+ * all. Anything unusable falls back to the schedule, which is what the header is a
+ * refinement of rather than a replacement for.
+ */
+export function backoffMs(retryAfterHeader, attempt) {
+  const scheduled = BACKOFF_MS[attempt] ?? BACKOFF_MS[BACKOFF_MS.length - 1];
+  const seconds = Number(retryAfterHeader);
+  if (!Number.isFinite(seconds) || seconds < 0) return scheduled;
+  // A server asking for longer than the schedule is honoured; one asking for less is not,
+  // because the schedule is also protecting the paid dependencies behind our own API.
+  return Math.max(scheduled, Math.round(seconds * 1000));
+}
+
+async function request(config, path, params = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
   const url = new URL(path, config.apiBaseUrl);
   for (const [key, value] of Object.entries(params)) {
     if (skip(value)) continue;
-    // An array repeats the parameter — ?subreddits=a&subreddits=b — not overwriting it.
-    if (Array.isArray(value)) {
-      for (const item of value) if (!skip(item)) url.searchParams.append(key, String(item));
-    } else {
-      url.searchParams.set(key, String(value));
-    }
+    url.searchParams.set(key, String(value));
   }
 
   let response;
-  try {
-    response = await fetch(url, {
-      headers: { 'X-API-KEY': config.apiKey },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ApiError('the digmore API could not be reached', EXIT.FAILED);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      response = await fetch(url, {
+        headers: { 'X-API-KEY': config.apiKey },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch {
+      throw new ApiError('the digmore API could not be reached', EXIT.FAILED);
+    }
+
+    if (response.status !== 429) break;
+
+    // Out of waits. A throttle we could not outlast is the source being unavailable, not a
+    // failure of the call — the run names it as one it could not reach, which is a different
+    // sentence from one that came back empty.
+    if (attempt >= BACKOFF_MS.length) {
+      throw new ApiError(
+        'the digmore API is rate limiting this run — try again later',
+        EXIT.UNAVAILABLE,
+      );
+    }
+    await wait(backoffMs(response.headers.get('retry-after'), attempt));
   }
 
   // 401 and only 401. V0.1 has no authorization layer, so the API rejects a key with
@@ -174,7 +269,7 @@ async function request(config, path, params = {}) {
   }
 
   try {
-    return stripMoney(await response.json());
+    return await response.json();
   } catch {
     throw new ApiError('the digmore API returned a body that is not JSON', EXIT.FAILED);
   }
@@ -184,14 +279,17 @@ async function request(config, path, params = {}) {
 
 const reddit = {
   /**
-   * brain/sources/reddit.md — multi-sub is the default, and the fan-out stays on the
-   * API side: `?subreddits=` repeats and one merged list comes back.
+   * One search, site-wide, one file. There is no subreddit restriction any more: the
+   * searcher used to follow every site-wide pass with a scoped one over subs it picked
+   * itself, and that second pass is gone — see brain/subagents/branch_searcher_agent/reddit.md.
    *
-   * Not merged here, deliberately. Order, `limit` and `relevance` are all properties of
-   * the merged set: dedupe preserves first-seen order across subs, `limit` applies after
-   * merging and after the after_date filter, and `relevance` is rank *within* the merged
-   * list. Stitching per-sub responses together in the client reproduces none of that —
-   * and the search items are `{url, title, relevance}` with no post id to dedupe on.
+   * `sort` is sent and kept in the cache key even though the API accepts it and ignores it
+   * — results are always ordered by descending relevance. Dropping it from the request
+   * would invalidate every stored search key and buy nothing.
+   *
+   * `time_window` and `after_date` are hints, not filters. Both are forwarded upstream and
+   * neither reliably excludes older posts, so a run states its window rather than trusting
+   * it. brain/recency.md holds what that means for the report.
    */
   async search(ctx, [query], flags) {
     if (!query) throw new ApiError('reddit search needs a query', EXIT.USAGE);
@@ -200,28 +298,50 @@ const reddit = {
     // brain/recency.md is `--time-window all --after-date <today-minus-2y>`, passed
     // by the caller.
     const timeWindow = flags.timeWindow ?? 'year';
-    const cacheKey = `search-${subsSegment(flags.subreddit)}-${sort}-${timeWindow}-${queryHash(query)}.json`;
+    const limit = Number(flags.limit ?? MAX_SEARCH_LIMIT);
+    // 1 to MAX_SEARCH_LIMIT is the endpoint's own range, so a value outside it can only
+    // ever be a round trip spent on a 422. Refuse it here rather than pay for it.
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SEARCH_LIMIT) {
+      throw new ApiError(
+        `reddit search --limit must be a whole number from 1 to ${MAX_SEARCH_LIMIT}`,
+        EXIT.USAGE,
+      );
+    }
+    const requestKey = searchRequestKey({ query, sort, timeWindow, limit, afterDate: flags.afterDate });
 
-    return cached(ctx, cacheKey, () =>
+    return cachedSearch(ctx, searchCacheName(query), requestKey, () =>
       request(ctx.config, '/v1/reddit/search', {
         query,
-        subreddits: flags.subreddit,
         sort,
         time_window: timeWindow,
-        limit: flags.limit ?? 20,
+        limit,
         after_date: flags.afterDate,
       }),
     );
   },
 
-  async thread(ctx, [idOrPermalink], flags) {
-    if (!idOrPermalink) throw new ApiError('reddit thread needs an id or permalink', EXIT.USAGE);
-    const threadId = postId(idOrPermalink);
-    return cached(ctx, `thread-${threadId}.json`, () =>
-      request(ctx.config, `/v1/reddit/thread/${encodeURIComponent(threadId)}`, {
-        limit: flags.limit ?? 500,
-      }),
-    );
+  /**
+   * Many threads in one call. The endpoint takes ids, permalinks or full URLs; this sends
+   * the normalised ids so that what comes back is keyed by something the caller can look
+   * up, rather than by whichever form it happened to pass in.
+   *
+   * The result is keyed rather than a list, because the caller has to know *which* id
+   * failed. A list that silently drops the failures reads as a shorter thread set, which
+   * is the one thing extract_phase_b.md forbids: a source nobody could read must never
+   * look like a source that came back empty.
+   */
+  async thread(ctx, idsOrPermalinks, flags) {
+    if (!idsOrPermalinks.length) {
+      throw new ApiError('reddit thread needs one or more ids or permalinks', EXIT.USAGE);
+    }
+    const threads = await keyedBatch(ctx, idsOrPermalinks.map(postId), {
+      cacheName: THREAD_CACHE_NAME,
+      path: '/v1/reddit/threads',
+      param: 'thread_ids',
+      params: { limit: flags.limit ?? 500 },
+      perCall: MAX_THREAD_IDS_PER_CALL,
+    });
+    return { threads };
   },
 
   /**
@@ -236,28 +356,19 @@ const reddit = {
    * every entry after it, so a body and the subreddit beside it would describe different
    * comments.
    *
-   * The brain fetched this as two requests and cached the verdict in a third, so the one
-   * response is split back into the three filenames its resume paths and sub-agents read.
+   * Many handles per call, one file each: the vetting record for one handle is its profile,
+   * its comments and its verdict together, whatever size batch fetched it. A Handle Vetter
+   * serving a range of ten spends one request and leaves ten files.
    */
-  async user(ctx, [name]) {
-    if (!name) throw new ApiError('reddit user needs a name', EXIT.USAGE);
-    const aboutKey = `user-about-${name}.json`;
-    const commentsKey = `user-comments-${name}.json`;
-    const vetKey = `vet-${name}.json`;
-
-    const about = readCache(ctx.dir, aboutKey);
-    const comments = readCache(ctx.dir, commentsKey);
-    const vetted = readCache(ctx.dir, vetKey);
-    if (about !== undefined && comments !== undefined && vetted !== undefined) {
-      return { ...about, recent_comments: comments, ...vetted };
-    }
-
-    const user = await request(ctx.config, `/v1/reddit/user/${encodeURIComponent(name)}`);
-    const { recent_comments: recentComments = [], verdict, signals, reason, ...profile } = user ?? {};
-    writeCache(ctx.dir, aboutKey, profile);
-    writeCache(ctx.dir, commentsKey, recentComments);
-    writeCache(ctx.dir, vetKey, { verdict, signals, reason });
-    return user;
+  async user(ctx, names) {
+    if (!names.length) throw new ApiError('reddit user needs one or more names', EXIT.USAGE);
+    const users = await keyedBatch(ctx, names, {
+      cacheName: USER_CACHE_NAME,
+      path: '/v1/reddit/users',
+      param: 'names',
+      perCall: MAX_USER_NAMES_PER_CALL,
+    });
+    return { users };
   },
 };
 
@@ -266,7 +377,7 @@ const reddit = {
 const twitter = {
   async user(ctx, [handle]) {
     if (!handle) throw new ApiError('twitter user needs a handle', EXIT.USAGE);
-    return cached(ctx, `user-${handle}.json`, () =>
+    return cached(ctx, `twitter-user-${handle}.json`, () =>
       request(ctx.config, `/v1/twitter/user/${encodeURIComponent(handle)}`),
     );
   },
@@ -279,13 +390,13 @@ const twitter = {
     if (!Number.isInteger(limit) || limit < 5 || limit > 100) {
       throw new ApiError('twitter tweets --limit must be a whole number from 5 to 100', EXIT.USAGE);
     }
-    return cached(ctx, `tweets-${handle}-${limit}.json`, () =>
+    return cached(ctx, `twitter-tweets-${handle}-${limit}.json`, () =>
       request(ctx.config, `/v1/twitter/tweets/${encodeURIComponent(handle)}`, { limit }),
     );
   },
 
   /**
-   * brain/sources/twitter.md — the only path to a quotable tweet body. WebSearch sees
+   * brain/subagents/page_analyst_agent/twitter.md — the only path to a quotable tweet body. WebSearch sees
    * only the og:title, roughly the first 15 words, because x.com hydrates client-side.
    * One cache file per tweet id, so re-quoting across runs does not re-fetch.
    */
@@ -295,7 +406,7 @@ const twitter = {
     const found = {};
     const missing = [];
     for (const tweetId of tweetIds) {
-      const cachedTweet = readCache(ctx.dir, `tweet-${tweetId}.json`);
+      const cachedTweet = readCache(ctx.dir, TWEET_CACHE_NAME(tweetId));
       if (cachedTweet === undefined) missing.push(tweetId);
       else found[tweetId] = cachedTweet;
     }
@@ -307,7 +418,7 @@ const twitter = {
       for (const tweet of asResults(payload)) {
         const tweetId = String(tweet.id ?? '');
         if (!tweetId) continue;
-        writeCache(ctx.dir, `tweet-${tweetId}.json`, tweet);
+        writeCache(ctx.dir, TWEET_CACHE_NAME(tweetId), tweet);
         found[tweetId] = tweet;
       }
     }
@@ -315,15 +426,45 @@ const twitter = {
     return { tweets: tweetIds.map((tweetId) => found[tweetId]).filter(Boolean) };
   },
 
+  /**
+   * Vetting reads at a depth, and `--posts` is the whole of it: 0 reads the profile alone, a
+   * positive number also reads that many of the handle's recent posts. Which counts X will
+   * actually serve is the API's business, so this refuses only what could never be a count.
+   *
+   * **One file per handle, however many times it is vetted**, carrying `posts_sampled` — the
+   * depth it was actually fetched at. The cache hits only when the stored depth is AT LEAST
+   * what this call asked for: deeper supersedes shallower, never the other way round.
+   *
+   * The name used to carry the depth, because a handle could be vetted twice — once cheaply,
+   * then again over the ones that came back `unknown`. It cannot any more: depth is decided
+   * from the ranking before anything runs, so one handle means one call. What the depth
+   * comparison still protects is resume and re-runs — a re-run that raises
+   * `twitter.postsPerDeepVet`, or a handle that moved up into the deep set, asks for more
+   * than the file holds. Drop the suffix without the comparison and a shallow file would
+   * answer a deep call, returning cached having never read the posts it was dispatched for.
+   */
   async vet(ctx, [handle], flags) {
     if (!handle) throw new ApiError('twitter vet needs a handle', EXIT.USAGE);
-    const tier = flags.tier;
-    if (!['1', '2', '3'].includes(String(tier))) {
-      throw new ApiError('twitter vet needs --tier 1, 2 or 3', EXIT.USAGE);
+    if (!/^\d+$/.test(String(flags.posts ?? ''))) {
+      throw new ApiError(
+        'twitter vet needs --posts, a whole number of posts to read (0 for the profile alone)',
+        EXIT.USAGE,
+      );
     }
-    return cached(ctx, `vet-${handle}-tier${tier}.json`, () =>
-      request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { tier }),
-    );
+    const posts = Number(flags.posts);
+    const key = `twitter-vet-${handle}.json`;
+
+    const hit = readCache(ctx.dir, key);
+    // A file written before `posts_sampled` existed reads as depth 0, so it answers a
+    // profile-only call and is re-fetched for anything deeper. That is the right way round.
+    if (hit !== undefined && Number(hit.posts_sampled ?? 0) >= posts) return hit;
+
+    const fresh = await request(ctx.config, `/v1/twitter/vet/${encodeURIComponent(handle)}`, { posts });
+    // Recorded here rather than trusted from the response: the depth we asked for is what
+    // the cache comparison has to mean, and the API does not report it back.
+    const stored = { ...fresh, posts_sampled: posts };
+    writeCache(ctx.dir, key, stored);
+    return stored;
   },
 };
 
@@ -337,6 +478,101 @@ async function cached(ctx, key, fetcher) {
   const fresh = await fetcher();
   writeCache(ctx.dir, key, fresh);
   return fresh;
+}
+
+/**
+ * The two batched Reddit endpoints, which behave identically: send a comma-separated list,
+ * get back an object keyed by exactly what was sent, each value either the record or a
+ * short string saying why that one failed. One bad id never costs the rest of the batch,
+ * so the call still returns 200 and a failure arrives per item rather than as a status.
+ *
+ * Only the cache misses are requested, and the answer is fanned out to one file per item —
+ * the same filenames a single-item fetch used to write, so resume and the salvage paths in
+ * brain/phases/index.md still find what they look for.
+ *
+ * **A failure is cached too, as a tombstone.** Without one, the next thing that wants that
+ * id — later in this run, or after a resume — asks again and gets the same answer, and a
+ * batch of twenty dead handles is re-requested every time anything touches it. A tombstone
+ * is an ordinary cache hit, so nothing ever asks twice. It is stored as an object rather
+ * than the bare string so that a reader cannot mistake it for a record. Neither reason is
+ * retried: `not found` can never succeed, and `unavailable` is not re-tried by decision.
+ * Deleting the file is how a re-fetch is forced.
+ *
+ * A key the API omits entirely is treated as `unavailable` rather than skipped, because the
+ * alternative is an item that is neither a record nor a failure and never becomes either.
+ */
+async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perCall }) {
+  const found = {};
+  const missing = [];
+  for (const key of keys) {
+    const hit = readCache(ctx.dir, cacheName(key));
+    if (hit === undefined) missing.push(key);
+    else found[key] = hit;
+  }
+
+  for (let start = 0; start < missing.length; start += perCall) {
+    const batch = missing.slice(start, start + perCall);
+    const payload = await request(
+      ctx.config,
+      path,
+      { ...params, [param]: batch.join(',') },
+      batchTimeoutMs(batch.length),
+    );
+    for (const key of batch) {
+      const value = payload?.[key];
+      const record =
+        value && typeof value === 'object'
+          ? value
+          : { fetchFailed: String(value ?? 'unavailable'), failedAt: new Date().toISOString() };
+      writeCache(ctx.dir, cacheName(key), record);
+      found[key] = record;
+    }
+  }
+
+  return found;
+}
+
+/** A runaway loop guard, not a configured bound — two collisions on one name is already rare. */
+const MAX_CACHE_PROBES = 20;
+
+/**
+ * The search cache, where the filename is readable and therefore not unique.
+ *
+ * Four words of a query cannot carry the sort, the window, the limit or the rest of the
+ * query, so two different searches can land on one name. Left unchecked
+ * the second one opens the first one's file and reports another query's results as its own
+ * — no error, just a wrong answer that looks like a normal one.
+ *
+ * So the full request is written into the file and compared on read: open <name>.json, and
+ * if the stored request matches, that is a hit; if it does not, try <name>-2.json, then -3,
+ * until either a match or a free slot, which gets written.
+ *
+ * The match is on the stored request, never on the number — so a resumed or repeated run
+ * finds its own file whichever number it landed on first, and order decides which number,
+ * never which data. A file written before this existed carries no `_request`, so it misses
+ * and is re-fetched once.
+ */
+async function cachedSearch(ctx, baseName, requestKey, fetcher) {
+  const wanted = JSON.stringify(requestKey);
+
+  for (let attempt = 1; attempt <= MAX_CACHE_PROBES; attempt += 1) {
+    const key = attempt === 1 ? `${baseName}.json` : `${baseName}-${attempt}.json`;
+    const hit = readCache(ctx.dir, key);
+
+    if (hit === undefined) {
+      const fresh = await fetcher();
+      // A bare array is accepted from the API; store it under `results` so `_request` has
+      // somewhere to sit beside it and the file still reads as the search response.
+      const body = Array.isArray(fresh) ? { results: fresh } : { ...fresh };
+      const stored = { _request: requestKey, ...body };
+      writeCache(ctx.dir, key, stored);
+      return stored;
+    }
+
+    if (JSON.stringify(hit._request ?? null) === wanted) return hit;
+  }
+
+  throw new ApiError(`too many cache collisions on ${baseName}`, EXIT.FAILED);
 }
 
 /** The API may answer with a bare array or wrap it; both are accepted. */
@@ -353,6 +589,25 @@ function asResults(payload) {
  * a real permalink carries a title slug after the id, and often a comment id after that,
  * so the last segment is usually neither the post nor an id at all.
  */
+/**
+ * The cache filenames for the two document kinds this script fetches, defined here because this is
+ * the script that writes them.
+ *
+ * `expert_selection.mjs` derives the same names from a URL to decide whether Extract already read a
+ * page. A second copy of either pattern there is a copy that stops matching the first time one
+ * moves — and that failure looks like an expert whose every page is new, so the run pays to read
+ * what it already has claims from.
+ */
+export const THREAD_CACHE_NAME = (threadId) => `reddit-thread-${threadId}.json`;
+export const USER_CACHE_NAME = (name) => `reddit-vet-${name}.json`;
+export const TWEET_CACHE_NAME = (tweetId) => `twitter-tweet-${tweetId}.json`;
+
+/** The tweet id inside an x.com or twitter.com URL — `/status/<id>` — or undefined if there is none. */
+export function tweetIdFromUrl(url) {
+  const match = /\/status(?:es)?\/(\d+)/.exec(String(url));
+  return match ? match[1] : undefined;
+}
+
 export function postId(value) {
   const text = String(value);
   const match = /comments\/([a-z0-9]+)/i.exec(text);

@@ -1,10 +1,11 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import * as hackernews from '../skill/scripts/hackernews.mjs';
+import { CONFIGURATION_DEFAULTS } from '../skill/scripts/config.mjs';
 
 const DAY = 86400;
 const NOW = 1_800_000_000; // a fixed "now" so age assertions never drift
@@ -28,8 +29,9 @@ afterEach(async () => {
 });
 
 /**
- * Stands in for both hosts. Tests call the exported functions in process, so there is
- * no blocking child and the server can answer.
+ * Stands in for both hosts. Algolia's paths (/search, /items/, /users/) and Firebase's
+ * (/user/<name>.json, /item/<id>/dead.json) never collide, so one server answers both.
+ * Tests call the exported functions in process, so there is no blocking child.
  */
 async function stub(handler) {
   server = createServer((req, res) => {
@@ -39,15 +41,7 @@ async function stub(handler) {
   });
   await new Promise((listening) => server.listen(0, '127.0.0.1', listening));
   const base = `http://127.0.0.1:${server.address().port}`;
-  return {
-    algoliaBase: base,
-    hnWebBase: `${base}/user`,
-    cacheDir: dir,
-    now: NOW,
-    // The real 15s gap between HN web calls is asserted separately; waiting it out
-    // here would cost 45s per retry test.
-    hnWebMinIntervalMs: 0,
-  };
+  return { algoliaBase: base, firebaseBase: base, cacheDir: dir, now: NOW };
 }
 
 const json = (res, body, status = 200) => {
@@ -55,19 +49,9 @@ const json = (res, body, status = 200) => {
   res.end(JSON.stringify(body));
 };
 
-const html = (res, body, status = 200) => {
-  res.writeHead(status, { 'content-type': 'text/html' });
-  res.end(body);
-};
-
-/** An HN user page, in the shape the parser reads. */
-function userPage({ karma = 500, created = NOW - 3 * 365 * DAY, about = '' } = {}) {
-  return `<html><body><table>
-    <tr><td>user:</td><td timestamp="${created}">someone</td></tr>
-    <tr><td>created:</td><td><a href="x">October 9, 2006</a></td></tr>
-    <tr><td>karma:</td><td>${karma}</td></tr>
-    <tr><td>about:</td><td>${about}</td></tr>
-  </table></body></html>`;
+/** A Firebase profile, in the shape fetchUser reads. `submitted` is newest first. */
+function firebaseProfile({ karma = 500, created = NOW - 3 * 365 * DAY, about = '', submitted = [] } = {}) {
+  return { id: 'someone', karma, created, about, submitted };
 }
 
 function algoliaComments(texts, { nbHits, lastTs = NOW - 10 * DAY } = {}) {
@@ -75,10 +59,16 @@ function algoliaComments(texts, { nbHits, lastTs = NOW - 10 * DAY } = {}) {
     nbHits: nbHits ?? texts.length,
     hits: texts.map((comment_text, index) => ({
       comment_text,
+      objectID: String(9000 + index),
+      story_id: 500 + index,
+      story_title: `thread ${index}`,
       created_at_i: lastTs - index * DAY,
     })),
   };
 }
+
+/** The vetting rules only read `text`; the rest of the shape is Enrichment's. */
+const commentsOf = (...texts) => texts.map((text) => ({ id: null, story_id: null, story_title: null, created_utc: null, text }));
 
 // ---------------------------------------------------------------- story
 
@@ -105,23 +95,38 @@ test('story fetches the Algolia item tree and caches it as item-<N>.json', async
   assert.equal(story.points, 120);
   assert.equal(story.num_comments, 2, 'num_comments counts the flattened tree');
   assert.deepEqual(story.top_comments.map((comment) => comment.text), ['first', 'second']);
-  assert.ok(existsSync(join(dir, 'item-42.json')));
+  assert.ok(existsSync(join(dir, 'hackernews-item-42.json')));
 });
 
-// The comment tree flattens at depth 3.
-test('the comment tree flattens to depth 3 and no deeper', async () => {
+// The comment tree flattens at hackernews.commentDepth, and who is replying to whom is most of
+// the evidence on this source — a depth that cuts a long chain loses the reply that corrected
+// the claim. The depth is the user's, so the test drives off it rather than pinning a number.
+test('the comment tree flattens to the depth it was given and no deeper', async () => {
   const nest = (depth) =>
-    depth > 6
+    depth > 12
+      ? []
+      : [{ type: 'comment', id: depth, text: `level ${depth}`, children: nest(depth + 1) }];
+  const opts = await stub((req, res) => json(res, { id: 1, title: 't', children: nest(1) }));
+
+  const shallow = await hackernews.fetchStory(1, { ...opts, commentDepth: 3 });
+  assert.deepEqual(
+    shallow.top_comments.map((comment) => comment.text),
+    ['level 1', 'level 2', 'level 3'],
+    'deeper sub-threads are dropped',
+  );
+});
+
+// Unset, it falls back to the configured default rather than to a constant of its own — which
+// is the whole reason the number lives in settings.json where a user can see it.
+test('an unset depth falls back to the configured default', async () => {
+  const nest = (depth) =>
+    depth > 12
       ? []
       : [{ type: 'comment', id: depth, text: `level ${depth}`, children: nest(depth + 1) }];
   const opts = await stub((req, res) => json(res, { id: 1, title: 't', children: nest(1) }));
 
   const story = await hackernews.fetchStory(1, opts);
-  assert.deepEqual(
-    story.top_comments.map((comment) => comment.text),
-    ['level 1', 'level 2', 'level 3'],
-    'deeper sub-threads are dropped',
-  );
+  assert.equal(story.top_comments.length, CONFIGURATION_DEFAULTS.hackernews.commentDepth);
 });
 
 test('comments without text are skipped', async () => {
@@ -164,15 +169,19 @@ test('html in comment text is stripped and entities are decoded', async () => {
 // ---------------------------------------------------------------- user
 
 function userStub({
-  page = userPage(),
+  profile = firebaseProfile(),
   comments = algoliaComments(['hello']),
   stories = { nbHits: 7 },
   commentsMeta,
+  dead = new Set(),
 } = {}) {
   return (req, res, url) => {
-    // /users/<name> is Algolia's fallback endpoint; /user is the HN web page.
+    // /users/<name> is Algolia's fallback endpoint; /user/<name>.json is Firebase's profile.
     if (url.pathname.startsWith('/users/')) return json(res, { karma: 999, about: 'fallback bio' });
-    if (url.pathname === '/user') return html(res, page);
+    if (url.pathname.startsWith('/user/')) return json(res, profile);
+    // Firebase answers a single-field read with the value alone, or null when it is absent.
+    const deadRead = /^\/item\/(\d+)\/dead\.json$/.exec(url.pathname);
+    if (deadRead) return json(res, dead.has(Number(deadRead[1])) ? true : null);
     // search_by_date, newest first: the lifetime count and the true last-comment date.
     if (url.pathname === '/search_by_date') {
       return json(res, commentsMeta ?? { nbHits: comments.nbHits, hits: comments.hits.slice(0, 1) });
@@ -183,10 +192,10 @@ function userStub({
   };
 }
 
-test('user merges the HN page with Algolia and caches all three artefacts', async () => {
+test('user merges the Firebase profile with Algolia into one cached record', async () => {
   const opts = await stub(
     userStub({
-      page: userPage({ karma: 4321, created: NOW - 3 * 365 * DAY, about: 'I work on https://mine.test' }),
+      profile: firebaseProfile({ karma: 4321, created: NOW - 3 * 365 * DAY, about: 'I work on https://mine.test' }),
       comments: algoliaComments(['one', 'two', 'three'], { nbHits: 812 }),
       stories: { nbHits: 7 },
     }),
@@ -194,17 +203,95 @@ test('user merges the HN page with Algolia and caches all three artefacts', asyn
 
   const user = await hackernews.fetchUser('someone', opts);
   assert.equal(user.name, 'someone');
-  assert.equal(user.karma, 4321, 'karma comes from the HN page');
+  assert.equal(user.karma, 4321, 'karma comes from the Firebase profile');
   assert.equal(user.created_utc, NOW - 3 * 365 * DAY, 'the only source of account age');
   assert.match(user.about, /mine\.test/);
   assert.equal(user.comment_count_sampled, 3);
-  assert.deepEqual(user.recent_comment_excerpts, ['one', 'two', 'three']);
+  assert.deepEqual(user.recent_comments.map((comment) => comment.text), ['one', 'two', 'three']);
+  assert.deepEqual(user.recent_comments[0], {
+    id: 9000,
+    story_id: 500,
+    story_title: 'thread 0',
+    created_utc: NOW - 10 * DAY,
+    text: 'one',
+  }, 'the thread a comment sits in travels with it, so Enrichment can reach it');
   assert.equal(user.stories_submitted, 7);
   assert.equal(user.comments_submitted, 812, 'the lifetime count, not the sampled count');
   assert.equal(user.last_activity_utc, NOW - 10 * DAY, 'the newest comment timestamp');
 
-  assert.ok(existsSync(join(dir, 'user-page-someone.html')));
-  assert.ok(existsSync(join(dir, 'user-comments-someone.json')));
+  // One file per handle, not five. The raw payloads it was assembled from — the Firebase
+  // profile, the Algolia comment search, the Algolia fallback — are not kept: nothing ever
+  // read them separately, and five files meant five reads that all had to hit before the
+  // cache counted as warm.
+  assert.ok(existsSync(join(dir, hackernews.VET_CACHE_NAME('someone'))));
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => name.includes('someone')),
+    [hackernews.VET_CACHE_NAME('someone')],
+    'no hackernews-user-firebase-, -algolia- or -comments- beside it',
+  );
+});
+
+// `user` and `vet` write the same file, so whichever ran first warms the cache for the other.
+// The difference is only whether the verdict is in it.
+test('user writes the vet cache file without a verdict, and vet fills it in', async () => {
+  const opts = await stub(userStub());
+
+  await hackernews.fetchUser('someone', opts);
+  const afterUser = JSON.parse(readFileSync(join(dir, hackernews.VET_CACHE_NAME('someone')), 'utf8'));
+  assert.equal(afterUser.name, 'someone');
+  assert.ok(Array.isArray(afterUser.recent_comments), 'the comments are in it either way');
+  assert.equal(afterUser.verdict, undefined, 'user does not judge');
+
+  await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
+  const afterVet = JSON.parse(readFileSync(join(dir, hackernews.VET_CACHE_NAME('someone')), 'utf8'));
+  assert.ok(afterVet.verdict, 'vet adds its verdict to the same file');
+  assert.ok(Array.isArray(afterVet.recent_comments), 'and keeps the record it judged from');
+});
+
+// #5 says the Handle Vetter is sent no data files because the script returns everything it
+// needs on stdout. A bare verdict made that false — the topical-relevance read has nothing to
+// work from, and the agent would have to open the cache itself to get it.
+test('vet returns the whole record, not just the verdict', async () => {
+  const opts = await stub(userStub({ profile: firebaseProfile({ karma: 4321 }) }));
+  const vetted = await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
+
+  assert.ok(vetted.verdict, 'the verdict');
+  assert.ok('signals' in vetted && 'reason' in vetted, 'and what it rested on');
+  assert.equal(vetted.name, 'someone', 'the profile');
+  assert.equal(vetted.karma, 4321);
+  assert.deepEqual(
+    vetted.recent_comments.map((comment) => comment.text),
+    ['hello'],
+    'and the comments in full, which is what topical relevance is judged from',
+  );
+});
+
+// The account age used to come from an HTML page throttled to one request per 15 seconds,
+// which made Hacker News the slowest source in a run. Nothing may reach that host again.
+test('nothing is fetched from news.ycombinator.com', async () => {
+  assert.equal(hackernews.HN_FIREBASE_BASE, 'https://hacker-news.firebaseio.com/v0');
+
+  // Comments are stripped first. The header records that the profile USED to be scraped from
+  // that host, and PLATFORM_HOSTS names it to exclude it from promoter detection — neither is
+  // a request, and a bare substring grep cannot tell prose from a fetch.
+  const source = readFileSync(new URL('../skill/scripts/hackernews.mjs', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  assert.ok(!/getJson\([^)]*news\.ycombinator/.test(source), 'the user page is not fetched');
+  assert.ok(!/getText/.test(source), 'no HTML is fetched at all');
+  assert.ok(!/https?:\/\/news\.ycombinator\.com/.test(source), 'that host is never a request target');
+});
+
+test('a profile Firebase does not have is an empty user, not a crash', async () => {
+  const opts = await stub(
+    userStub({ profile: null, comments: { nbHits: 0, hits: [] }, commentsMeta: { nbHits: 0, hits: [] } }),
+  );
+  const user = await hackernews.fetchUser('nobody', opts);
+  assert.equal(user.karma, null);
+  assert.equal(user.created_utc, null);
+  assert.equal(user.about, '');
+  assert.equal(hackernews.vetUser(user, NOW).reason, 'missing-profile');
 });
 
 // brain/recency.md — "HN Algolia: pass numericFilters=created_at_i>{epoch_2yrs_ago}
@@ -254,10 +341,13 @@ test('last_active is null only when the account has never commented', async () =
   assert.equal(user.last_activity_utc, null);
 });
 
-test('excerpts are capped at 280 characters', async () => {
-  const opts = await stub(userStub({ comments: algoliaComments(['x'.repeat(500)]) }));
+// The script used to slice each comment to 280 characters before storing it. Algolia returns
+// the whole thing, so the cut cost nothing to keep and could not be undone without
+// re-fetching — and Enrichment extracts from these bodies.
+test('comments are stored in full, never truncated', async () => {
+  const opts = await stub(userStub({ comments: algoliaComments(['x'.repeat(5000)]) }));
   const user = await hackernews.fetchUser('someone', opts);
-  assert.equal(user.recent_comment_excerpts[0].length, 280);
+  assert.equal(user.recent_comments[0].text.length, 5000);
 });
 
 test('at most 50 recent comments are asked for', async () => {
@@ -266,13 +356,49 @@ test('at most 50 recent comments are asked for', async () => {
   assert.ok(hits.some((hit) => hit.query.hitsPerPage === '50'));
 });
 
-// When the HN web backoff is exhausted, fall back to Algolia
-// /users/<name> for karma + bio, losing account age. vet_user tolerates it.
-test('a 429-exhausted HN page falls back to Algolia and loses only the age', async () => {
+// ---------------------------------------------------------------- the dead sample
+
+// `submitted` is newest first, so the sample is the most recent submissions and nothing is
+// fetched to discover them. /item/<id>/dead.json answers true or null.
+test('the dead sample reads the newest submissions and counts the dead ones', async () => {
+  const opts = await stub(
+    userStub({ profile: firebaseProfile({ submitted: [10, 11, 12, 13, 14, 15, 16] }), dead: new Set([10, 12]) }),
+  );
+  const user = await hackernews.fetchUser('someone', { ...opts, deadSampleSize: 5 });
+  assert.equal(user.recent_posts_checked, 5, 'the sample is the configured size, not every submission');
+  assert.equal(user.recent_posts_dead, 2);
+  const read = hits.filter((hit) => hit.path.endsWith('/dead.json')).map((hit) => hit.path);
+  assert.deepEqual(read, [10, 11, 12, 13, 14].map((id) => `/item/${id}/dead.json`));
+});
+
+test('a sample size of zero turns the shadowban test off and fetches nothing', async () => {
+  const opts = await stub(userStub({ profile: firebaseProfile({ submitted: [10, 11, 12] }), dead: new Set([10, 11, 12]) }));
+  const user = await hackernews.fetchUser('someone', { ...opts, deadSampleSize: 0 });
+  assert.equal(user.recent_posts_checked, 0);
+  assert.equal(user.recent_posts_dead, 0);
+  assert.ok(!hits.some((hit) => hit.path.endsWith('/dead.json')));
+  assert.notEqual(hackernews.vetUser(user, NOW).verdict, 'throwaway', 'untested is not clean and not damning');
+});
+
+test('a handle with fewer submissions than the sample checks what there is', async () => {
+  const opts = await stub(userStub({ profile: firebaseProfile({ submitted: [10, 11] }), dead: new Set([10, 11]) }));
+  const user = await hackernews.fetchUser('someone', { ...opts, deadSampleSize: 5 });
+  assert.equal(user.recent_posts_checked, 2);
+  assert.equal(user.recent_posts_dead, 2);
+  assert.notEqual(
+    hackernews.vetUser(user, NOW).verdict,
+    'throwaway',
+    'two dead cannot reach the threshold, so a thin account is never condemned by it',
+  );
+});
+
+// ---------------------------------------------------------------- degraded paths
+
+// A Firebase failure falls back to Algolia /users/<name> for karma + bio, losing the
+// account age and the dead sample with it. vet_user tolerates a missing age.
+test('a failed Firebase profile falls back to Algolia and loses the age and the dead sample', async () => {
   const opts = await stub((req, res, url) => {
-    if (url.pathname === '/user') {
-      return html(res, 'rate limited', 429);
-    }
+    if (url.pathname.startsWith('/user/')) return json(res, { error: 'boom' }, 500);
     return userStub()(req, res, url);
   });
 
@@ -280,31 +406,35 @@ test('a 429-exhausted HN page falls back to Algolia and loses only the age', asy
   assert.equal(user.karma, 999, 'karma from the Algolia fallback');
   assert.equal(user.about, 'fallback bio');
   assert.equal(user.created_utc, null, 'account age is unavailable on this path');
-  assert.ok(existsSync(join(dir, 'user-algolia-someone.json')));
-  assert.ok(!existsSync(join(dir, 'user-page-someone.html')));
+  assert.equal(user.recent_posts_checked, 0, 'no submitted list, so nothing to sample');
+  // Still one file, whichever path assembled it. The fallback replaced one raw payload with
+  // another rather than adding a file of its own.
+  assert.deepEqual(
+    readdirSync(dir).filter((name) => name.includes('someone')),
+    [hackernews.VET_CACHE_NAME('someone')],
+  );
 });
 
 test('a 429 is retried on the backoff schedule before falling back', async () => {
-  let pageAttempts = 0;
+  let profileAttempts = 0;
   const opts = await stub((req, res, url) => {
-    if (url.pathname === '/user') {
-      pageAttempts += 1;
-      return html(res, 'rate limited', 429);
+    if (url.pathname.startsWith('/user/')) {
+      profileAttempts += 1;
+      return json(res, { error: 'rate limited' }, 429);
     }
     return userStub()(req, res, url);
   });
   await hackernews.fetchUser('someone', { ...opts, backoffDelays: [0, 0, 0] });
-  assert.equal(pageAttempts, 4, 'immediate attempt plus three retries');
+  assert.equal(profileAttempts, 4, 'immediate attempt plus three retries');
 });
 
 test('the default backoff schedule is the documented schedule', () => {
   assert.deepEqual(hackernews.BACKOFF_DELAYS, [5000, 15000, 45000]);
-  assert.equal(hackernews.HN_WEB_MIN_INTERVAL_MS, 15000);
 });
 
 test('an Algolia failure is an error, not a silent empty user', async () => {
   const opts = await stub((req, res, url) => {
-    if (url.pathname.startsWith('/user')) return html(res, userPage());
+    if (url.pathname.startsWith('/user/')) return json(res, firebaseProfile());
     return json(res, { error: 'boom' }, 500);
   });
   await assert.rejects(() => hackernews.fetchUser('someone', opts));
@@ -320,20 +450,22 @@ const baseUser = (over = {}) => ({
   stories_submitted: 1,
   comments_submitted: 10,
   comment_count_sampled: 5,
-  recent_comment_excerpts: ['a', 'b', 'c', 'd', 'e'],
+  recent_comments: commentsOf('a', 'b', 'c', 'd', 'e'),
   last_activity_utc: NOW - DAY,
+  recent_posts_checked: 5,
+  recent_posts_dead: 0,
   ...over,
 });
 
 const verdictOf = (over) => hackernews.vetUser(baseUser(over), NOW).verdict;
 
-test('a missing or throwaway profile is unknown', () => {
+test('a profile that could not be read is unknown, not throwaway', () => {
   const vetted = hackernews.vetUser(
-    baseUser({ karma: null, about: '', comment_count_sampled: 0, recent_comment_excerpts: [] }),
+    baseUser({ karma: null, about: '', comment_count_sampled: 0, recent_comments: [] }),
     NOW,
   );
   assert.equal(vetted.verdict, 'unknown');
-  assert.equal(vetted.reason, 'missing-or-throwaway');
+  assert.equal(vetted.reason, 'missing-profile');
 });
 
 test('karma over 1000 is legit on its own, even with no known age', () => {
@@ -345,26 +477,62 @@ test('two years plus karma over 100 is legit', () => {
   assert.equal(verdictOf({ karma: 100, created_utc: NOW - 3 * 365 * DAY }), 'unknown', '100 is not over 100');
 });
 
-test('young and low-karma is unknown', () => {
+test('young, low-karma and barely posted is throwaway', () => {
   const vetted = hackernews.vetUser(baseUser({ karma: 49, created_utc: NOW - 30 * DAY }), NOW);
-  assert.equal(vetted.verdict, 'unknown');
-  assert.equal(vetted.reason, 'young-low-karma');
+  assert.equal(vetted.verdict, 'throwaway');
+  assert.equal(vetted.reason, 'young-low-karma-few-posts');
+});
+
+// All three conditions, never one alone. An account can be new because the person just
+// arrived, and low karma says nothing on its own about someone who has been posting for
+// months.
+test('a young low-karma account that has posted a lot is not thrown away', () => {
+  const vetted = hackernews.vetUser(
+    baseUser({ karma: 49, created_utc: NOW - 30 * DAY, stories_submitted: 4, comments_submitted: 40 }),
+    NOW,
+  );
+  assert.notEqual(vetted.verdict, 'throwaway');
 });
 
 test('a submitter with no sampled comments is unknown', () => {
   const vetted = hackernews.vetUser(
-    baseUser({ comment_count_sampled: 0, recent_comment_excerpts: [], karma: 300 }),
+    baseUser({ comment_count_sampled: 0, recent_comments: [], karma: 300 }),
     NOW,
   );
   assert.equal(vetted.verdict, 'unknown');
   assert.equal(vetted.reason, 'submitter-only');
 });
 
+// Algolia 404s a dead item, so this is the only way the run can see a shadowban at all.
+// It is checked before the host counts, because nobody reads a shadowbanned account's
+// comments and there is no point weighing them for promotion.
+test('an account whose recent posts are mostly dead is shadowbanned', () => {
+  const vetted = hackernews.vetUser(
+    baseUser({ recent_posts_checked: 5, recent_posts_dead: 3, karma: 5000, created_utc: NOW - 5 * 365 * DAY }),
+    NOW,
+  );
+  assert.equal(vetted.verdict, 'throwaway', 'it beats the karma>1000 legit rule');
+  assert.equal(vetted.reason, 'shadowbanned');
+  assert.equal(vetted.signals.recent_posts_dead, '3/5');
+});
+
+// One flagged comment is the noise floor on a healthy account — measured at one in
+// nineteen known-good handles.
+test('a couple of dead posts is a flagged comment, not a shadowban', () => {
+  assert.equal(verdictOf({ recent_posts_checked: 5, recent_posts_dead: 2, karma: 5000 }), 'legit');
+  assert.equal(verdictOf({ recent_posts_checked: 5, recent_posts_dead: 1, karma: 5000 }), 'legit');
+});
+
+test('an untested handle carries no dead signal at all', () => {
+  const vetted = hackernews.vetUser(baseUser({ recent_posts_checked: 0, recent_posts_dead: 0 }), NOW);
+  assert.equal(vetted.signals.recent_posts_dead, undefined, 'silence, not a clean bill of health');
+});
+
 test('a bio host repeated three times in comments is a promoter', () => {
   const vetted = hackernews.vetUser(
     baseUser({
       about: 'founder of https://mine.test',
-      recent_comment_excerpts: ['see https://mine.test/a', 'https://mine.test/b', 'and https://mine.test/c'],
+      recent_comments: commentsOf('see https://mine.test/a', 'https://mine.test/b', 'and https://mine.test/c'),
       karma: 5000,
     }),
     NOW,
@@ -377,7 +545,7 @@ test('two repeats is not enough for promoter', () => {
   assert.equal(
     verdictOf({
       about: 'https://mine.test',
-      recent_comment_excerpts: ['https://mine.test/a', 'https://mine.test/b'],
+      recent_comments: commentsOf('https://mine.test/a', 'https://mine.test/b'),
       karma: 5000,
     }),
     'legit',
@@ -391,7 +559,7 @@ test('linking to HN itself is never promotion or spam', () => {
     assert.equal(
       verdictOf({
         about: `https://${host}/user?id=someone`,
-        recent_comment_excerpts: Array.from({ length: 8 }, (_, i) => `https://${host}/item?id=${i}`),
+        recent_comments: commentsOf(...Array.from({ length: 8 }, (_, index) => `https://${host}/item?id=${index}`)),
         karma: 5000,
       }),
       'legit',
@@ -404,7 +572,7 @@ test('a non-bio host repeated five times is a spammer', () => {
   const vetted = hackernews.vetUser(
     baseUser({
       about: '',
-      recent_comment_excerpts: Array.from({ length: 5 }, (_, i) => `buy at https://spam.test/${i}`),
+      recent_comments: commentsOf(...Array.from({ length: 5 }, (_, index) => `buy at https://spam.test/${index}`)),
       karma: 5000,
     }),
     NOW,
@@ -417,7 +585,7 @@ test('four repeats is not enough for spammer', () => {
   assert.equal(
     verdictOf({
       about: '',
-      recent_comment_excerpts: Array.from({ length: 4 }, (_, i) => `https://spam.test/${i}`),
+      recent_comments: commentsOf(...Array.from({ length: 4 }, (_, index) => `https://spam.test/${index}`)),
       karma: 5000,
     }),
     'legit',
@@ -428,13 +596,13 @@ test('www. is stripped so the same host is counted once', () => {
   const vetted = hackernews.vetUser(
     baseUser({
       about: '',
-      recent_comment_excerpts: [
+      recent_comments: commentsOf(
         'https://www.spam.test/1',
         'https://spam.test/2',
         'https://www.spam.test/3',
         'https://spam.test/4',
         'https://www.spam.test/5',
-      ],
+      ),
       karma: 5000,
     }),
     NOW,
@@ -458,10 +626,10 @@ test('signals carry the numbers a reader can check', () => {
 
 // The shared verdict vocabulary.
 test('verdicts only ever come from the shared vocabulary', () => {
-  const allowed = new Set(['legit', 'unknown', 'promoter', 'troll', 'spammer']);
+  const allowed = new Set(['legit', 'unknown', 'promoter', 'spammer', 'throwaway']);
   const cases = [
-    {}, { karma: 5000 }, { karma: 1 }, { comment_count_sampled: 0, recent_comment_excerpts: [] },
-    { karma: null, about: '', comment_count_sampled: 0, recent_comment_excerpts: [] },
+    {}, { karma: 5000 }, { karma: 1 }, { comment_count_sampled: 0, recent_comments: [] },
+    { karma: null, about: '', comment_count_sampled: 0, recent_comments: [] },
   ];
   for (const over of cases) assert.ok(allowed.has(verdictOf(over)));
 });
@@ -472,23 +640,25 @@ test('the three verbs are story, user and vet — there is no search', async () 
   assert.deepEqual(hackernews.VERBS, ['story', 'user', 'vet']);
 });
 
-test('vet returns the name, verdict, signals and reason', async () => {
-  const opts = await stub(userStub({ page: userPage({ karma: 4321 }) }));
-  const payload = await hackernews.run(['vet', 'someone', '--topic', 'demo'], opts);
-  assert.deepEqual(Object.keys(payload).sort(), ['name', 'reason', 'signals', 'verdict']);
+test('vet carries the verdict fields alongside the record it judged from', async () => {
+  const opts = await stub(userStub({ profile: firebaseProfile({ karma: 4321 }) }));
+  const payload = await hackernews.runCommand(['vet', 'someone', '--topic', 'demo'], opts);
+  for (const field of ['name', 'verdict', 'signals', 'reason']) {
+    assert.ok(field in payload, `${field} is on the return`);
+  }
   assert.equal(payload.name, 'someone');
   assert.equal(payload.verdict, 'legit');
 });
 
 test('a run needs --topic, and an unknown verb is refused', async () => {
   const opts = await stub(userStub());
-  await assert.rejects(() => hackernews.run(['user', 'someone'], opts), /--topic/);
-  await assert.rejects(() => hackernews.run(['search', 'anything', '--topic', 'demo'], opts), /search/);
+  await assert.rejects(() => hackernews.runCommand(['user', 'someone'], opts), /--topic/);
+  await assert.rejects(() => hackernews.runCommand(['search', 'anything', '--topic', 'demo'], opts), /search/);
   assert.equal(hits.length, 0, 'nothing is fetched on a bad invocation');
 });
 
 test('cached json is written indented', async () => {
   const opts = await stub((req, res) => json(res, { id: 42, title: 't' }));
   await hackernews.fetchStory(42, opts);
-  assert.match(readFileSync(join(dir, 'item-42.json'), 'utf8'), /\n {2}"/);
+  assert.match(readFileSync(join(dir, 'hackernews-item-42.json'), 'utf8'), /\n {2}"/);
 });

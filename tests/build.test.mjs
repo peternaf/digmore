@@ -153,10 +153,12 @@ test('the source tree is left untouched by a build', () => {
 
 test('every shipped script is executable by node', () => {
   const scripts = readdirSync(join(SKILL_IN_PLUGIN, 'scripts')).filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(scripts.sort(), [
-    'api.mjs', 'config.mjs', 'experts.mjs', 'fetch.mjs', 'hackernews.mjs', 'preflight.mjs',
-    'validate.mjs',
-  ]);
+  // Every .mjs in skill/scripts/ ships, so this compares the built tree against the source
+  // rather than against a list typed here — a list is one more place to forget a new script,
+  // and it forgot three.
+  const shipped = readdirSync(join(repoRoot, 'skill', 'scripts')).filter((file) => file.endsWith('.mjs'));
+  assert.deepEqual(scripts.sort(), shipped.sort(), 'the built scripts are the source scripts');
+  assert.ok(scripts.length > 0, 'and there are some');
   for (const name of scripts) {
     const result = spawnSync(process.execPath, ['--check', join(SKILL_IN_PLUGIN, 'scripts', name)], {
       encoding: 'utf8',
@@ -168,7 +170,10 @@ test('every shipped script is executable by node', () => {
 test('the plugin directory is not empty of the brain', () => {
   const brain = join(SKILL_IN_PLUGIN, 'brain');
   assert.ok(statSync(join(brain, 'index.md')).size > 0);
-  assert.ok(existsSync(join(brain, 'phases', 'scope_phase_a.md')));
+  assert.ok(existsSync(join(brain, 'phases', 'plan_phase_a.md')));
   assert.ok(existsSync(join(brain, 'phases', 'extract_phase_b.md')));
-  assert.ok(existsSync(join(brain, 'sources', 'local.md')));
+  // brain/sources/ is gone: what a source looks like on disk is now per-agent, in the file the
+  // agent working that source is actually sent.
+  assert.ok(existsSync(join(brain, 'subagents', 'page_analyst_agent', 'local.md')));
+  assert.ok(existsSync(join(brain, 'subagents', 'raw_report_writer_agent.md')), 'the flat agent files ship too');
 });

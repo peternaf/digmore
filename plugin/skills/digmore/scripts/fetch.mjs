@@ -3,30 +3,52 @@
  *
  * The canonical fetch path for articles, docs and long
  * forum threads, where WebFetch truncation is unacceptable and the truncation point is
- * invisible. brain/long-form.md decides when to reach for it.
+ * invisible. brain/subagents/page_analyst_agent/index.md decides when to reach for it, and what to do
+ * when a bot wall makes WebFetch the only way through.
  *
- *   node fetch.mjs <url> --output digmore/<slug>/cache/<source>/<safe-name>
+ *   node fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>
+ *
+ * The caller says where; this script says what. The filename is derived from the URL, so
+ * one URL always produces one file: two branches that find the same page write one file
+ * instead of two copies under two invented names, and a page already on disk is returned
+ * rather than fetched again.
+ *
+ * There is deliberately no way to pass a filename. That was the old --output, and it is
+ * how the same page ended up cached twice under two near-miss names an agent typed.
  *
  * stdout JSON, stderr errors. Exit 1 on a non-2xx, 2 on a transport failure.
  *
- * This module also owns the shared user-agent pool (brain/anonymity.md), which the
- * other local source scripts import.
+ * This module also owns the shared user-agent pool, which the other local source
+ * scripts import. See AGENTS.md, "New network code must not identify the user".
  */
 
 import { createWriteStream } from 'node:fs';
-import { mkdirSync, rmSync } from 'node:fs';
-import { dirname, resolve, relative, sep, isAbsolute } from 'node:path';
+import { mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
+import { dirname, join, resolve, relative, sep, isAbsolute } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 
-export const REQUEST_TIMEOUT_MS = 60000;
+import { FILENAME_ONLY_MAX, safeFilename } from './utils.mjs';
 
 /**
- * brain/anonymity.md — a small pool on purpose: "large pools are themselves a
- * fingerprint". These are current Chrome strings; anonymity.md's own list still says
- * Chrome 120-124 and is stale.
- * To rotate, replace the oldest entry with a current Chrome string. Don't grow past 6-8.
+ * How long one page may take before the request is abandoned.
+ *
+ * **Ten seconds.** It was 60, and the open web is the slow source, so the long wait looked like the
+ * cautious choice — but nothing here retries a timeout, so the whole minute was spent to learn one
+ * thing the tenth second already said. The cost lands twice: the agent holding the batch waits out
+ * every second of it, and then falls back to WebFetch anyway.
+ *
+ * A page that has sent nothing in ten seconds is not a page worth the other fifty. What it costs is
+ * a slow-but-live server now failing over to WebFetch, which stores a paraphrase where the source's
+ * own words should be — visible on the receipt, which names the tool that got the page.
+ */
+export const REQUEST_TIMEOUT_MS = 10000;
+
+/**
+ * A small pool on purpose: large pools are themselves a fingerprint. These are current
+ * Chrome strings. To rotate, replace the oldest entry with a current one. Don't grow
+ * past 6-8.
  */
 export const BROWSER_USER_AGENTS = Object.freeze([
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -56,11 +78,11 @@ export function browserHeaders(extra = {}) {
 }
 
 /**
- * brain/long-form.md: "The --output path must resolve under
- * <topic>/cache/<source>/<safe-filename>. Any other path leaves the file outside the
- * topic subtree, in violation of the research-output policy." Checked here rather than
- * left to the caller's discipline, because a run that writes outside its topic is the
- * one thing the layout rule exists to prevent.
+ * Everything a run writes lands under digmore/<slug>/cache/<source>/. Checked here rather
+ * than left to the caller's discipline, because a run that writes outside its own topic is
+ * the one thing the layout rule exists to prevent.
+ *
+ * The filename is this script's now, so only the directory is the caller's to get wrong.
  */
 export function isInsideTopicCache(outPath, cwd = process.cwd()) {
   const target = isAbsolute(outPath) ? resolve(outPath) : resolve(cwd, outPath);
@@ -69,6 +91,53 @@ export function isInsideTopicCache(outPath, cwd = process.cwd()) {
   const parts = rel.split(sep);
   // <slug>/cache/<source-or-file>/... — at least slug, "cache", and a filename.
   return parts.length >= 3 && parts[1] === 'cache';
+}
+
+/**
+ * Every script builds its paths as <cwd>/digmore/<slug>/..., which is right only when the
+ * cwd is the directory the user is working in. A caller that has stepped into the topic
+ * directory first gets digmore/<slug>/digmore/<slug>/... — created without complaint by a
+ * recursive mkdir, so the run looks fine while its cache lands in a tree nothing else
+ * reads, and resume re-fetches everything.
+ *
+ * Refuse it instead. The same reasoning as a missing --topic: a silent no-op leaves a run
+ * that looks complete having saved nothing where anyone will look for it.
+ */
+export function assertWorkspaceRoot(cwd = process.cwd()) {
+  const parts = resolve(cwd).split(sep);
+  const index = parts.lastIndexOf('digmore');
+  // No 'digmore' ancestor, or it is the last segment — the research root itself, fine to sit in.
+  if (index === -1 || index >= parts.length - 1) return;
+
+  // The segment under 'digmore' is the candidate topic directory, whether we are standing in it
+  // or somewhere below it — `digmore/<slug>/cache` has to be refused as much as `digmore/<slug>`.
+  const candidate = parts.slice(0, index + 2).join(sep);
+  if (!isTopicDirectory(candidate)) return;
+
+  throw new Error(
+    `run from the directory you are working in, not from inside ${parts.slice(index).join(sep)} — ` +
+      'paths are built as digmore/<slug>/... and would nest a second copy under this one',
+  );
+}
+
+/**
+ * Whether a directory is one of our topic directories, judged by what is in it rather than by
+ * its name.
+ *
+ * The name is not enough and never was. A user whose projects live under a folder they called
+ * `digmore` — which is most people who work on digmore — has a working directory like
+ * `dev/digmore/digmore-test`, and a check that fires on the ancestor's name refuses every
+ * script in the run for a directory that is a perfectly good workspace. The failure this guard
+ * exists to catch is standing inside a topic we created, so ask that question directly.
+ *
+ * `research_plan.json` is the marker because Plan writes it first and every later phase reads
+ * it; the pair is the fallback for a topic interrupted before the plan was settled. A topic
+ * directory that is genuinely empty is not caught, and nothing is lost when it is not — there
+ * is no earlier work for a second copy to be nested under.
+ */
+function isTopicDirectory(dir) {
+  if (existsSync(join(dir, 'research_plan.json'))) return true;
+  return existsSync(join(dir, 'cache')) && existsSync(join(dir, 'full_source_analysis'));
 }
 
 class FetchError extends Error {
@@ -81,20 +150,92 @@ class FetchError extends Error {
 
 export function parseArgs(argv) {
   let url;
-  let out;
+  let outputDir;
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
-    if (token === '--output') {
-      out = argv[index + 1];
+    if (token === '--output-dir') {
+      outputDir = argv[index + 1];
       index += 1;
     } else if (!url) {
       url = token;
     }
   }
-  return { url, out };
+  return { url, outputDir };
 }
 
-/** Stream url to outPath. Raises on non-2xx, and leaves no file behind when it does. */
+/**
+ * Re-exported so a caller already importing this module for `filenameOnlyFromUrl` needs no
+ * second import for the cap that bounds it. `utils.mjs` defines it, beside the `safeFilename`
+ * that applies it.
+ */
+export { FILENAME_ONLY_MAX };
+
+/**
+ * The cache filename for a URL, without extension. One URL, one filename, every time.
+ *
+ * That is the whole point, and it is why the page title is not used: a title is unknown
+ * until the page has been fetched, so it cannot answer "is this already cached?" without
+ * doing the fetch the question exists to avoid. Titles also repeat across a thread's pages
+ * and change between runs. The title belongs in the extracted page's first heading, where
+ * it makes the directory readable without making the name unstable.
+ *
+ * Host first so a directory listing groups by site, then the path and query — and
+ * `safeFilename` collapses every character a filesystem might object to, caps the length,
+ * and hashes the overflow. **The hash is over the whole URL**, which is why the original is
+ * passed alongside the built name: two URLs sharing their first 120 sanitised characters
+ * would otherwise share a filename.
+ */
+export function filenameOnlyFromUrl(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`not a URL: ${url}`);
+  }
+
+  const tail = `${decodeURIComponent(parsed.pathname)}${decodeURIComponent(parsed.search)}`;
+  return safeFilename(`${parsed.hostname}${tail}`, url);
+}
+
+/**
+ * What the response actually is, as a file extension — or '' when we would be guessing.
+ *
+ * Only the types a research run fetches are mapped. An unrecognised type keeps the name
+ * it was given rather than acquiring a wrong extension, which would be worse than none.
+ */
+export function extensionFor(contentType) {
+  const type = String(contentType).split(';')[0].trim().toLowerCase();
+  return {
+    'text/html': '.html',
+    'application/xhtml+xml': '.html',
+    'text/plain': '.txt',
+    'application/json': '.json',
+    'text/xml': '.xml',
+    'application/xml': '.xml',
+    'application/pdf': '.pdf',
+    'text/markdown': '.md',
+  }[type] ?? '';
+}
+
+/**
+ * A caller passes a slug — `engadget-elevenlabs-banned-biden` — and nothing downstream can
+ * then tell a 600KB HTML page from a 5KB text extract without opening it. So the response's
+ * own content type names the file.
+ *
+ * Only when the caller left the extension off. `…-p2.html` and `…-notes.md` are deliberate
+ * and are kept. The test is a dot plus one to five alphanumerics, so a slug that merely
+ * contains a dot — `mux.com-pricing` — is not mistaken for an extension.
+ */
+export function withExtension(outPath, contentType) {
+  if (/\.[a-z0-9]{1,5}$/i.test(outPath)) return outPath;
+  return outPath + extensionFor(contentType);
+}
+
+/**
+ * Stream url to outPath. Raises on non-2xx, and leaves no file behind when it does.
+ * The extension may be appended from the content type, so read the written name off the
+ * returned `path` rather than assuming the one passed in.
+ */
 export async function fetchToPath(url, outPath) {
   let response;
   try {
@@ -114,7 +255,11 @@ export async function fetchToPath(url, outPath) {
     );
   }
 
-  mkdirSync(dirname(outPath), { recursive: true });
+  // The content type is only known now, so the final name is settled here rather than by
+  // the caller. The returned `path` is what was actually written.
+  const target = withExtension(outPath, response.headers.get('content-type') ?? '');
+
+  mkdirSync(dirname(target), { recursive: true });
   let written = 0;
   try {
     const counter = new TransformStream({
@@ -125,10 +270,10 @@ export async function fetchToPath(url, outPath) {
     });
     await pipeline(
       Readable.fromWeb(response.body.pipeThrough(counter)),
-      createWriteStream(outPath),
+      createWriteStream(target),
     );
   } catch (err) {
-    rmSync(outPath, { force: true });
+    rmSync(target, { force: true });
     throw new FetchError({ error: 'transport', detail: String(err?.message ?? err) }, 2);
   }
 
@@ -138,38 +283,95 @@ export async function fetchToPath(url, outPath) {
     status: response.status,
     content_type: response.headers.get('content-type') ?? '',
     bytes: written,
-    path: outPath,
+    path: target,
   };
 }
 
+const USAGE = 'fetch.mjs <url> --output-dir digmore/<slug>/cache/<source>';
+
+/**
+ * The file this name already has in dir, if any.
+ *
+ * The extension is decided by the response's content type, so the name alone does not match
+ * what is on disk — `…_item_id_43426022` was written as `….html`. Match it exactly, or
+ * followed by a dot, which cannot collide with a `-p2` page because the separator differs.
+ */
+export function findCached(dir, filenameOnly) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return undefined; // no directory yet is a miss, not a failure
+  }
+  const hit = entries.find((name) => name === filenameOnly || name.startsWith(`${filenameOnly}.`));
+  return hit ? join(dir, hit) : undefined;
+}
+
 async function main(argv) {
-  const { url, out } = parseArgs(argv);
-  if (!url || !out) {
-    process.stderr.write(
-      `${JSON.stringify({ error: 'usage', detail: 'fetch.mjs <url> --output digmore/<slug>/cache/<source>/<name>' })}\n`,
-    );
+  const { url, outputDir } = parseArgs(argv);
+
+  if (!url || !outputDir) {
+    process.stderr.write(`${JSON.stringify({ error: 'usage', detail: USAGE })}\n`);
     process.exit(2);
   }
-  if (!isInsideTopicCache(out)) {
+
+  let target;
+  let cached;
+  let filenameOnly;
+  try {
+    // The caller says where, this script says what.
+    //
+    // Both resolved against the working directory, so `path` means the same thing whichever
+    // way the call went. A fresh fetch resolved it and a cache hit did not, so the same URL
+    // answered with an absolute path on the run that fetched it and a relative one on the run
+    // that resumed — and the caller records that value.
+    filenameOnly = filenameOnlyFromUrl(url);
+    target = resolve(process.cwd(), join(outputDir, filenameOnly));
+    const hit = findCached(outputDir, filenameOnly);
+    cached = hit === undefined ? undefined : resolve(process.cwd(), hit);
+  } catch (err) {
+    process.stderr.write(`${JSON.stringify({ error: 'usage', detail: String(err?.message ?? err) })}\n`);
+    process.exit(2);
+  }
+
+  if (!isInsideTopicCache(target)) {
     process.stderr.write(
       `${JSON.stringify({
         error: 'output_outside_topic_cache',
-        detail: 'the --output path must resolve under digmore/<slug>/cache/<source>/',
-        path: out,
+        detail: 'the output path must resolve under digmore/<slug>/cache/<source>/',
+        path: target,
       })}\n`,
     );
     process.exit(2);
   }
 
+  // Already on disk: return it rather than spend a request. The brain used to ask the caller
+  // to check first, which never happened — the caller could not know the name. Now the name
+  // is this script's, so the check belongs here too.
+  if (cached) {
+    process.stdout.write(
+      `${JSON.stringify({ url, path: cached, bytes: statSync(cached).size, cached: true })}\n`,
+    );
+    return;
+  }
+
   try {
-    const result = await fetchToPath(url, resolve(process.cwd(), out));
+    const result = await fetchToPath(url, target);
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (err) {
+    // A failure here is usually a bot wall, and a wall is where the run switches to
+    // WebFetch — which reaches sites a plain HTTP client cannot. Whatever WebFetch returns
+    // has to be saved under the name this fetch would have used, or resume and dedup see
+    // two files for one URL. So the failure carries the name and the path with it: the
+    // caller never derives one, and there is no second call to ask for it.
+    const fallback = { filename_only: filenameOnly, path: target };
     if (err instanceof FetchError) {
-      process.stderr.write(`${JSON.stringify(err.payload)}\n`);
+      process.stderr.write(`${JSON.stringify({ ...err.payload, ...fallback })}\n`);
       process.exit(err.exitCode);
     }
-    process.stderr.write(`${JSON.stringify({ error: 'transport', detail: String(err?.message ?? err) })}\n`);
+    process.stderr.write(
+      `${JSON.stringify({ error: 'transport', detail: String(err?.message ?? err), ...fallback })}\n`,
+    );
     process.exit(2);
   }
 }

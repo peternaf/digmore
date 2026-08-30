@@ -4,29 +4,25 @@
  * Every source records people whose vetting verdict is `legit` here.
  * Charlatans, promoters and spammers are dropped rather than stored.
  *
- *   node experts.mjs list <topic-slug>
- *   node experts.mjs add  <topic-slug> --real-name <name> [--reddit ...] [--hn ...]
- *                                      [--twitter ...] [--github ...] [--website ...]
- *                                      [--sources a|b] [--notes ...] [--last-active YYYY-MM-DD]
- *                                      [--topical-relevance high|medium|low]
+ *   node experts.mjs list  <topic-slug>
+ *   node experts.mjs build <topic-slug>
+ *   node experts.mjs add   <topic-slug> --real-name <name> [--reddit ...] [--hn ...]
+ *                                       [--twitter ...] [--github ...] [--website ...]
+ *                                       [--sources a|b] [--notes ...] [--last-active YYYY-MM-DD]
+ *                                       [--topical-relevance high|medium|low]
+ *
+ * `build` is how a run fills this file: once, after every source has been aggregated, from the
+ * merged <source>-handles.json rosters. `add` is the same merge over one row supplied by hand,
+ * and is what the file was written for before the rosters existed.
  *
  * The merge is pure; the write is atomic (.tmp then rename), so two sources running
  * at once cannot half-write the file.
  */
 
-import {
-  readFileSync,
-  writeFileSync,
-  renameSync,
-  mkdirSync,
-  existsSync,
-  rmSync,
-  openSync,
-  closeSync,
-  statSync,
-} from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertWorkspaceRoot } from './fetch.mjs';
 
 /**
  * vetting.md: "Schema (column order is load-bearing)".
@@ -59,6 +55,42 @@ export const COLUMNS = Object.freeze([
 export const TOPICAL_RELEVANCE = Object.freeze(['low', 'medium', 'high']);
 
 const HANDLE_COLUMNS = Object.freeze(['reddit', 'hn', 'twitter', 'github', 'website']);
+
+/**
+ * Which column of this file a source's handles live in.
+ *
+ * **Forums is deliberately absent, and that is a fact about the file rather than an oversight.**
+ * There is no forums column, so a forums handle can never match an inherited expert and never
+ * auto-promotes. Adding one would mean a column per forum, since two forums share no namespace.
+ */
+export const SOURCE_HANDLE_COLUMN = Object.freeze({
+  reddit: 'reddit',
+  hackernews: 'hn',
+  twitter: 'twitter',
+});
+
+export function expertColumnFor(source) {
+  return SOURCE_HANDLE_COLUMN[source];
+}
+
+/**
+ * The row for one handle, or undefined — the same exact-equality matching `merge` uses, exposed
+ * so Vet's auto-promotion does not carry a second copy of it.
+ *
+ * **Both forms are compared, because two conventions are in use and neither is wrong.** The
+ * roster writes a handle as its source does — `u/foo`, `hn/foo`, `x/foo` — and this file stores
+ * the bare name in a column that already says which platform it is. Comparing only one form
+ * would silently promote nobody, which looks exactly like a topic with no inherited experts.
+ */
+export function findExpertByHandle(rows, column, handle) {
+  if (!column || !handle) return undefined;
+  // Case-insensitive, because the comparison below is: `U/Ada` has to reach `ada` in the column,
+  // and a case-sensitive strip leaves it as `u/ada` matching nothing.
+  const bare = String(handle).replace(/^(u\/|r\/|hn\/|x\/|@)/i, '');
+  const wanted = new Set([norm(handle), norm(bare)]);
+  wanted.delete('');
+  return rows.find((existing) => existing[column] && wanted.has(norm(existing[column])));
+}
 
 /** Python's csv module writes CRLF by default; the file stays byte-compatible. */
 const LINE_TERMINATOR = '\r\n';
@@ -145,6 +177,7 @@ export function parseCsv(text) {
 
 /** The topic directory sits under the working directory. */
 export function topicCsvPath(topicSlug) {
+  assertWorkspaceRoot();
   return join(process.cwd(), 'digmore', topicSlug, 'experts.csv');
 }
 
@@ -269,58 +302,148 @@ export function merge(existing, incoming) {
   return [next, 'merged-handles'];
 }
 
-const LOCK_STALE_MS = 10000;
-const LOCK_RETRY_MS = 20;
-const LOCK_TIMEOUT_MS = 5000;
+/**
+ * Load, merge, save. No lock, because there is only ever one writer.
+ *
+ * There used to be a cross-process lock here, against two Handle Vetters both reading N rows
+ * and both writing N+1 while one expert vanished without a trace. That race is gone: the agents
+ * fan out one file per handle and never touch this one, and every write to it happens in a
+ * single `build` at the end of Vet, reading the merged rosters.
+ *
+ * The atomic write in save() stays. It guards a different failure — a crash mid-write leaving
+ * half a file — which one writer does not prevent.
+ *
+ * If a fan-out writer is ever added back, the fix is to remove the fan-out rather than to
+ * restore the lock.
+ */
+export function appendOrMerge(path, incoming) {
+  const [rows, action] = merge(load(path), incoming);
+  if (action !== 'no-op') save(path, rows);
+  return action;
+}
 
-/** A blocking sleep, so the lock can be held across a synchronous read-modify-write. */
-function sleepSync(ms) {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+// ---------------------------------------------------------------- build, from the merged rosters
+
+/** The four sources that carry handles, in the order their rows are folded in. */
+const HANDLE_SOURCES = Object.freeze(['reddit', 'hackernews', 'twitter', 'forums']);
+
+function readHandlesJson(topicSlug, source) {
+  const path = join(process.cwd(), 'digmore', topicSlug, 'full_source_analysis', `${source}-handles.json`);
+  if (!existsSync(path)) return undefined;
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8').replace(/^﻿/, ''));
+    return Array.isArray(parsed?.handles) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * A cross-process lock around load -> merge -> save.
+ * One roster row becomes one experts.csv row — a copy, not an interpretation.
  *
- * An atomic write stops a half-written file but not a lost update: two source
- * sub-agents both read N rows, both write N+1, and one expert disappears without a
- * trace. Phase B fans out per source, so that race is the normal case rather than an
- * unlucky one.
+ * That is what the labelled identifier fields bought. This function infers nothing: every
+ * column arrives already labelled by the agent that read the profile, and the only work here is
+ * putting the handle itself in the column its own source owns.
+ *
+ * **The prefix comes off.** A column called `reddit` holding `u/foo` says "reddit" twice, and
+ * `github` and `website` are bare already. `findExpertByHandle` compares both forms, so nothing
+ * downstream depends on which was chosen.
  */
-function withLock(path, fn) {
-  const lock = `${path}.lock`;
-  mkdirSync(join(path, '..'), { recursive: true });
-  const deadline = Date.now() + LOCK_TIMEOUT_MS;
-
-  for (;;) {
-    try {
-      closeSync(openSync(lock, 'wx'));
-      break;
-    } catch (err) {
-      if (err.code !== 'EEXIST') throw err;
-      // A process killed mid-write would otherwise block every later run.
-      try {
-        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) rmSync(lock, { force: true });
-      } catch {
-        // The holder released it between the check and the stat; just retry.
-      }
-      if (Date.now() > deadline) throw new Error(`timed out waiting for ${lock}`);
-      sleepSync(LOCK_RETRY_MS);
-    }
-  }
-
-  try {
-    return fn();
-  } finally {
-    rmSync(lock, { force: true });
-  }
+export function rowFromHandle(entry, source) {
+  const column = expertColumnFor(source);
+  const bare = String(entry.handle ?? '').replace(/^(u\/|r\/|hn\/|x\/|@)/i, '');
+  const values = {
+    real_name: entry.realName,
+    reddit: entry.reddit,
+    hn: entry.hn,
+    twitter: entry.twitter,
+    github: entry.github,
+    website: entry.website,
+    sources: source,
+    last_active: entry.lastActive,
+    topical_relevance: entry.topicalRelevance,
+  };
+  // The handle's own column wins over anything the profile stated for the same platform: this
+  // is where we actually met them, and the other is what they say about themselves.
+  if (column) values[column] = bare;
+  return row(values);
 }
 
-export function appendOrMerge(path, incoming) {
-  return withLock(path, () => {
-    const [rows, action] = merge(load(path), incoming);
-    if (action !== 'no-op') save(path, rows);
-    return action;
-  });
+/**
+ * Build experts.csv from the merged rosters, once every source has been aggregated.
+ *
+ * It runs once rather than per source because Enrichment is globally coupled at two points —
+ * the expert step round-robins across sources to one enrich.expertsFollowed budget, and the
+ * player-document floor counts across all sources — so there is no early start to buy.
+ *
+ * **Running once is not a regression on the incremental-write rule.** That rule exists because a
+ * run stopping at handle 30 would otherwise reach no write at all and lose thirty dispatches.
+ * The per-handle file satisfies it earlier and better: it survives the orchestrator dying, which
+ * the orchestrator's own write cannot.
+ *
+ * **One bad row is recorded and skipped, never aborting the rest.** That is not defensive
+ * habit — `experts.mjs add` once threw on the second handle of a loop and took 48 verdicts with
+ * it, because the handles write came after.
+ */
+export function buildFromHandles(topicSlug) {
+  const path = topicCsvPath(topicSlug);
+  let rows = load(path);
+
+  const added = [];
+  const merged = [];
+  const skipped = [];
+  const sourcesRead = [];
+  const sourcesMissing = [];
+
+  for (const source of HANDLE_SOURCES) {
+    const file = readHandlesJson(topicSlug, source);
+    if (!file) {
+      sourcesMissing.push(source);
+      continue;
+    }
+    sourcesRead.push(source);
+
+    for (const entry of file.handles) {
+      // `legit` is the whole test. A handle with no recent on-topic activity was already
+      // demoted to `unknown` by the Handle Vetter, so anything still `legit` is on-topic by
+      // construction — and testing topicalRelevance as well would drop an inherited expert
+      // whose parent row happened to carry no value for it.
+      if (entry?.verdict !== 'legit') continue;
+      try {
+        const incoming = rowFromHandle(entry, source);
+        if (!incoming.real_name && !HANDLE_COLUMNS.some((col) => incoming[col])) {
+          throw new Error('no real name and no handle, so it could never be matched again');
+        }
+        const [next, action] = merge(rows, incoming);
+        rows = next;
+        if (action === 'added') added.push(entry.handle);
+        else if (action === 'merged-handles') merged.push(entry.handle);
+        entry.inExperts = true;
+      } catch (error) {
+        skipped.push({ handle: entry.handle, source, reason: error.message });
+      }
+    }
+
+    // `inExperts` is the last field written in the phase, and it is written back onto the
+    // roster so the run's record of who became a row lives beside its record of who did not.
+    writeFileSync(
+      join(process.cwd(), 'digmore', topicSlug, 'full_source_analysis', `${source}-handles.json`),
+      `${JSON.stringify(file, null, 2)}\n`,
+      'utf8',
+    );
+  }
+
+  save(path, rows);
+
+  return {
+    path,
+    sourcesRead,
+    sourcesMissing,
+    rows: rows.length,
+    added: added.length,
+    merged: merged.length,
+    skipped,
+  };
 }
 
 // ---------------------------------------------------------------- cli
@@ -379,7 +502,12 @@ export function run(argv) {
     return appendOrMerge(topicCsvPath(topicSlug), incoming);
   }
 
-  throw new Error(`unknown command: ${verb ?? '(none)'} — expected list or add`);
+  if (verb === 'build') {
+    if (!topicSlug || topicSlug.startsWith('--')) throw new Error('build needs a topic slug');
+    return JSON.stringify(buildFromHandles(topicSlug), null, 2);
+  }
+
+  throw new Error(`unknown command: ${verb ?? '(none)'} — expected list, add or build`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

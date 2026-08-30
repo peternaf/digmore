@@ -1,6 +1,6 @@
 # Writing style — every output, no exceptions
 
-Every piece of text you produce — the summary, `raw_research_outcomes.md`, `audit.md`, brain files, `topic.json` fields, command stdout messages, mid-run prompts to the user, sub-agent reports — follows the same rules:
+Every piece of text you produce — the summary, `<slug>-raw-report.md`, `audit.md`, brain files, `research_plan.json` fields, command stdout messages, mid-run prompts to the user, sub-agent reports — follows the same rules:
 
 1. **Concrete.** Specific facts, numbers, names, URLs. No vague language ("many", "various", "significant") when a concrete number is knowable.
 2. **Plain, concise, no fluff, no jargon.** Shortest version that conveys the meaning; if a sentence can be cut without losing information, cut it. No throat-clearing ("It's worth noting that..."), no hedging filler ("perhaps", "potentially", "it seems"), no transitional padding, no recapping, no "in summary" sentences, no marketing-style adjectives ("robust", "seamless", "powerful"). No internal jargon either — codebase terms, tier names, signal names, parameter names, design-doc terminology — unless explained inline on first use. A reader of the summary should follow it without having read the design doc, brain files, or scripts. "The script flagged the user as a promoter because URL host repeated 5 times" is bad; "the user shared the same link 5 times across recent posts, which we counted as promotional" is good. If certain, say it; if uncertain, say so with the reason. **Banned LLM-reflexes:** "load-bearing", "category-level", "X-shaped", "X-lens", "thesis", "adoption gate", "founder-lens" — they sound analytical without being clear. Bad: *"Conntour's 50 feeds per RTX 4090 is the load-bearing economic claim of the AI-camera-search thesis."* Good: *"Conntour says one RTX 4090 can analyze 50 camera streams; that single unverified number is what their $7M raise rests on. If it's wrong, the category isn't fundable."*
@@ -34,6 +34,14 @@ The exclusion bar is deliberately high: irrelevant, severely outdated, or unusab
 You are re-reading this file as a reminder. Every time you emit user-facing text, re-check it against the rules above.
 
 This file is style, and only style — it is the one you re-read constantly, so it stays short. What the terminal prints, what the Run footer holds, and where a question for the user goes are in `reporting.md`, read once at the start of a run and once at the end.
+
+## The summary is an executive summary
+
+That is a kind of document, not just a filename. It is written for someone who has to decide something and will not read the sources — a founder, an operator, a board member. So it leads with what is true and what follows from it, and every section earns its place by changing a decision. Background the reader can infer, methodology, and the story of how the research went do not belong in it; the findings, the numbers, the disagreements and the gaps do. The reader should be able to act after the first screen and read the rest only to check the work.
+
+Depth without shape belongs in `<slug>-raw-report.md`, which is the LLM-facing record and has no length limit.
+
+This governs anyone who writes or rewrites the summary, not only whoever drafts it first.
 
 ## Hubs voice — people, not companies
 

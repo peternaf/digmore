@@ -1,0 +1,1608 @@
+{
+  "research-plan": {
+    "description": "digmore/<slug>/research_plan.json — the only JSON the orchestrator writes itself, and checked as a file rather than as a return. It is written three times and validated after each: identity and this run's run_history entry at the start of Plan, scope once the plan is settled, and the entry's phases_completed at the end of the run. `scope` is deliberately not required, because an absent one is the legitimate state between the first write and the second — but where it exists it must be complete, since every later phase reads it for the branches, the deliverables and the angles. The reason this file is checked at all: it is hand-composed rather than emitted by a script, and extract_resume.mjs reads its run_history entry for the configurations a resumed run must honour — a dropped entry makes the resume fall back to today's settings and continue under a different cap with nothing saying so.",
+    "type": "object",
+    "required": [
+      "slug",
+      "title",
+      "kind",
+      "created_at",
+      "originating_prompt",
+      "run_history"
+    ],
+    "properties": {
+      "slug": {
+        "type": "string",
+        "description": "Kebab-case directory name. Matches the folder and the summary's filename."
+      },
+      "title": {
+        "type": "string",
+        "description": "Human-readable full title; what shows up when listing topics."
+      },
+      "kind": {
+        "type": "string",
+        "enum": [
+          "landscape",
+          "competitor",
+          "inquiry",
+          "gtm-teardown"
+        ],
+        "description": "Command identity. Set once at topic creation and then left alone."
+      },
+      "created_at": {
+        "type": "string",
+        "description": "ISO timestamp of topic creation, from `runlog.mjs stamp`. Never composed — you have no clock, and a composed timestamp is wrong in a way nothing downstream catches."
+      },
+      "parent_slug": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "description": "null for a fresh topic, the parent's slug for a branched or chained one."
+      },
+      "originating_prompt": {
+        "type": "string",
+        "description": "The user's free-form invocation at topic creation, verbatim. The Final report reviewer is given this to judge the draft against."
+      },
+      "run_history": {
+        "type": "array",
+        "minItems": 1,
+        "description": "Every run appends one entry and none is ever rewritten. Appended in Plan rather than at the end of the run, because a run that dies mid-Extract would otherwise have recorded nothing and a resume would have no record of the numbers its cache was built to.",
+        "items": {
+          "type": "object",
+          "required": [
+            "ts",
+            "kind",
+            "prompt",
+            "mode",
+            "configurations"
+          ],
+          "properties": {
+            "ts": {
+              "type": "string",
+              "description": "ISO timestamp from `runlog.mjs stamp`."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "fresh",
+                "re-run",
+                "branch"
+              ],
+              "description": "What this run is. A resume appends no entry at all — it is finishing the run the last entry already describes."
+            },
+            "prompt": {
+              "type": "string",
+              "description": "Verbatim user prose for THIS run, which may differ from originating_prompt. Storing it per run is what shows how intent shifted across re-runs."
+            },
+            "mode": {
+              "type": "string",
+              "description": "The two axes as you would say them — \"manual, full\", \"auto, fast\"."
+            },
+            "configurations": {
+              "type": "object",
+              "description": "The values that APPLIED to this run, not the ones configured — --fast lowers several, and the entry records what the run really used, in the same shape preflight.mjs printed them. This is what makes two runs on one topic comparable, and what extract_resume.mjs reads."
+            },
+            "phases_completed": {
+              "type": "string",
+              "description": "Comma-separated phase names, filled in at the end of the run and at no other time. Absent means the run did not finish, which is worth being able to see — so it is deliberately not required."
+            }
+          }
+        }
+      },
+      "scope": {
+        "type": "object",
+        "description": "This run's plan, replaced when a run is re-planned while identity and run_history outlive it. An empty or absent scope means the plan has not been made yet — a fresh topic, or a deliberate re-plan — and that is the state Extract's resume reads as \"nothing was fetched\".",
+        "required": [
+          "vocabulary",
+          "recurring_names",
+          "deliverables",
+          "angles",
+          "sources",
+          "branches"
+        ],
+        "properties": {
+          "vocabulary": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "From the Scoping agent. Every later branch query inherits this wording."
+          },
+          "recurring_names": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "From the Scoping agent."
+          },
+          "deliverables": {
+            "type": "object",
+            "description": "Every section of the summary, in order. Key is the title as it will appear; value is either a pointer to the file that defines it — \"reference/gtm-teardown.md §1.4\" — or, for a section this run invented, {type, description}. The Run footer is never in here: it is the orchestrator's own bookkeeping, appended at Audit's Record step, and listed here it would be a section the writer is told to produce and cannot fill."
+          },
+          "sections": {
+            "type": "object",
+            "description": "The full spec for each invented enumerable section: csv, row_is, fields, sort, render. Empty when the run invented none, which is why it is not required."
+          },
+          "angles": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueBy": "label",
+            "description": "The Scoping agent's, accepted by the orchestrator in plan_phase_a.md §4. The count is checked against plan.minAngles–plan.maxAngles there rather than here, since this checker cannot read the user's settings.",
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "query",
+                "rationale"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "description": "Short kebab-case name. It names the branch, its log file and its records, so a collision is load-bearing — which is why the array is unique on it."
+                },
+                "query": {
+                  "type": "string"
+                },
+                "rationale": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "The sources available on THIS run. Reddit and Twitter need an API key, so with no key they are absent here rather than listed and later reported missing."
+          },
+          "sources_unavailable": {
+            "type": "array",
+            "description": "Carried through to the summary and the terminal output. A source nobody queried must never read as a source that came back with nothing.",
+            "items": {
+              "type": "object",
+              "required": [
+                "source",
+                "reason"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "branches": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            },
+            "description": "One angle paired with one available source — \"pricing-tiers × websearch\". The unit Extract works in, and the only record of which branches this topic is meant to have."
+          }
+        }
+      }
+    }
+  },
+  "scope": {
+    "description": "Returned by the Scoping agent, once, in Plan (phases/plan_phase_a.md §2). It searches the open web to find out what the subject actually is, then decomposes it into the angles the run will search. The orchestrator writes all of it into research_plan.json under scope, and decides the summary's sections itself — that needs the command's reference file and the user, neither of which this agent has.",
+    "type": "object",
+    "required": [
+      "vocabulary",
+      "recurring_names",
+      "angles"
+    ],
+    "properties": {
+      "queries": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "description": "A search this agent actually ran, so the route to the answer is on the record."
+        }
+      },
+      "vocabulary": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "description": "A term the subject's own people use. Every later branch query inherits this wording."
+        }
+      },
+      "recurring_names": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "description": "A name that came up repeatedly — company, project, product or person."
+        }
+      },
+      "angles": {
+        "type": "array",
+        "minItems": 1,
+        "description": "The research directions the run will search. How many is `plan.minAngles`–`plan.maxAngles` from ~/.digmore/settings.json, printed by preflight.mjs — 3–6 by default, 2 in --fast, and `ask` sets its own. The count is checked against those ceilings by the orchestrator in plan_phase_a.md §4, not here: this checker cannot read the user's settings, and pinning a range into the schema would reject a run from anyone who raised the ceiling.",
+        "items": {
+          "type": "object",
+          "required": [
+            "label",
+            "query",
+            "rationale"
+          ],
+          "properties": {
+            "label": {
+              "type": "string",
+              "description": "Short kebab-case name. It names the branch, its log file and its records, so it is load-bearing."
+            },
+            "query": {
+              "type": "string",
+              "description": "Search-ready phrasing, written in the vocabulary above rather than in generic market language."
+            },
+            "rationale": {
+              "type": "string",
+              "description": "Why this angle matters for this request."
+            }
+          }
+        }
+      }
+    }
+  },
+  "branch-searcher": {
+    "description": "WRITTEN by a Branch Searcher to cache/_returns/branch-searcher-<branch>.json, one per branch — one angle paired with one source. Not returned: the agent returns the word 'done' and this file is the only place its candidates exist. It holds the survivors of its own cut, already sorted by relevance and already reduced to extract.fetchesPerBranch, plus two numbers about what the cut cost. The orchestrator's dedupe reads these files rather than any message, which is what it read in practice even when the list was also returned inline.",
+    "type": "object",
+    "required": [
+      "results",
+      "droppedCount",
+      "lowestSurvivingScore"
+    ],
+    "properties": {
+      "droppedCount": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many candidates the cut discarded — the count alone, never the rows. It is what audit.md's dropped-for-budget record names for this branch. Zero when the search returned no more than the cap."
+      },
+      "lowestSurvivingScore": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "description": "The relevance of the weakest URL that survived the cut, which is what says whether the discarded ones were close. Forty candidates dropped just under a strong cut line is a different finding from forty no-hopers, and neither is visible from the survivors alone."
+      },
+      "results": {
+        "type": "array",
+        "description": "The survivors, highest relevance first, at most extract.fetchesPerBranch of them. The agent sorts and cuts before writing: this is the same cap the orchestrator used to apply one step later, moved to the only actor already holding the scores.",
+        "items": {
+          "type": "object",
+          "required": [
+            "url",
+            "title",
+            "relevance"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            },
+            "title": {
+              "type": "string"
+            },
+            "relevance": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "The branch searcher's 0..1 estimate of how on-topic this URL is for its direction."
+            }
+          }
+        }
+      }
+    }
+  },
+  "page-analyst": {
+    "description": "Returned by a Page Analyst, in Extract and again in Enrichment. An ARRAY, one receipt per URL in the dispatch's batch — the agent reads up to extract.urlsPerDispatch of them in sequence. A receipt is not the extraction: the claims go to <name>-claims.json and are read from there by whoever needs them. Only what the orchestrator acts on comes back — everything else about the page is in the file, and the file is found by reading cache/<source>/ rather than by being handed a path. No maxItems: the batch size is a configuration the user owns, and the check that matters is one receipt per URL sent, which only the orchestrator can make because it built the list.",
+    "type": "array",
+    "uniqueBy": "url",
+    "items": {
+      "type": "object",
+      "required": [
+        "url",
+        "outcome",
+        "claimCount",
+        "pagesRead",
+        "fetchedWith"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Which URL of the batch this receipt is for. A receipt inside an array is no longer identified by the dispatch it came back from — the label names the batch, not the page — so this is what the orchestrator matches against the list it sent, and what it names in audit.md when a page was blocked or a receipt was dropped."
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "blocked",
+            "nothing-found"
+          ],
+          "description": "ok = claims were found. blocked = the page could not be read: walled, paywalled, or refused. nothing-found = the page was read and yielded nothing. The two failures are not the same finding — a walled page is a gap in what the run could reach, an empty one is a fact about the topic — and a blocked page leaves no file, so this is the only trace it was ever tried. Per URL: one blocked page never fails the rest of the batch."
+        },
+        "claimCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pagesRead": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "How many pages were fetched to assemble this document. Every one spends the branch's fetch budget, and only the orchestrator can total them — which is why a batch is one branch's. Zero when the page was already cached or could not be read at all."
+        },
+        "fetchedWith": {
+          "type": "string",
+          "enum": [
+            "script",
+            "fetch.mjs",
+            "WebFetch",
+            "cache",
+            "none"
+          ],
+          "description": "Which tool got the page. WebFetch shortens long pages silently and never says where it cut, so every claim taken from one may be missing a tail nobody can see — the orchestrator records those URLs in audit.md so the limit is visible rather than invisible. 'cache' when the page was already on disk, 'none' when it could not be read at all."
+        },
+        "notes": {
+          "type": "string",
+          "description": "ONLY what changes the orchestrator's next move, and empty on almost every read: the URL served a different document than it promised, the host walled both tools. Nothing else. What a page says about its own reliability — undated, second-hand, sold by the party describing the problem — goes on the claims file as pageNote, where the Source Analyst and the Raw report writer actually read it; the orchestrator never weighs a citation and cannot act on it here. Never a summary of the claims, and never an account of the work. Measured: five of five sampled receipts filled this at 27-78 words, and only the walled-and-redirected kind was anything the orchestrator could act on."
+        }
+      }
+    }
+  },
+  "page-claims": {
+    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. Two things read it: the Source Analyst, which reads every one this source produced to build its three files, and the Player Profiler, which follows the references player_candidates.json gives it. Nothing downstream of Extract opens the directory - the Raw report writer works from the six per-source reports instead.",
+    "type": "object",
+    "required": [
+      "url",
+      "pageQuality",
+      "claims"
+    ],
+    "properties": {
+      "url": {
+        "type": "string",
+        "description": "The document these claims came from. A path under cache/local/ on the local source, which has no URL."
+      },
+      "pageNote": {
+        "type": "string",
+        "description": "OPTIONAL, and about this document's standing rather than its content: what a reader weighing a claim from it would want warned about. Undated. Figures are second-hand and the primary is not linked. The vendor sells the remedy it describes. Most of the surface this page covers sits on pages that were not read, so its coverage is partial. Read by the Source Analyst, which turns a coverage gap into an observation, and by the Raw report writer, which weighs it when two citations compete. It is NOT the receipt's notes field: that one carries only what the orchestrator must act on, and neither of these agents ever sees a receipt. Leave it out where the page is unremarkable."
+      },
+      "pageQuality": {
+        "type": "string",
+        "enum": [
+          "primary-self",
+          "primary-3p",
+          "secondary",
+          "blog",
+          "forum",
+          "internal",
+          "unreliable"
+        ]
+      },
+      "publishDate": {
+        "type": "string",
+        "format": "date",
+        "description": "ISO date if visible on page; omit otherwise."
+      },
+      "claims": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "claim",
+            "quote",
+            "importance",
+            "kind"
+          ],
+          "requiredWhen": [
+            {
+              "field": "kind",
+              "equals": "quantitative",
+              "require": [
+                "value",
+                "unit"
+              ]
+            }
+          ],
+          "properties": {
+            "claim": {
+              "type": "string",
+              "description": "One-line checkable statement."
+            },
+            "quote": {
+              "type": "string",
+              "description": "Verbatim supporting quote from the page."
+            },
+            "handle": {
+              "type": "string",
+              "description": "Who said it, where the source has accounts: 'u/foo', 'hn/foo', 'x/foo', or the forum's own handle. Omit on the open web and on the user's own documents, which have authors rather than accounts. This is the only link between a claim and a person — without it Vet cannot tell whose words carry weight."
+            },
+            "importance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential"
+              ]
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "quantitative",
+                "qualitative"
+              ]
+            },
+            "value": {
+              "type": [
+                "number",
+                "string"
+              ],
+              "description": "Required if kind=quantitative."
+            },
+            "unit": {
+              "type": "string",
+              "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."
+            }
+          }
+        }
+      }
+    }
+  },
+  "source-raw-report": {
+    "description": "The file a Source Analyst writes to full_source_analysis/<source>-raw-report.json, one per source that pulled data. Validated as a file rather than as a return, since it never enters the orchestrator's context. It holds everything one source produced: its claims, deduplicated within that source, and the observations that are not claims. JSON rather than markdown because the verdict join, the citation filter and the scoring downstream are script work, and a script parsing prose fails quietly - a citation written slightly differently yields a dropped one, and a dropped citation looks exactly like a claim nobody made. The Raw report writer reads all six of these and nothing else.",
+    "type": "object",
+    "required": [
+      "source",
+      "claims",
+      "observations"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums",
+          "websearch",
+          "local"
+        ]
+      },
+      "claims": {
+        "type": "array",
+        "description": "Every claim this source produced, deduplicated WITHIN this source only. The same claim made in three of this source's threads is one entry with three citations. Merging ACROSS sources is not this agent's job - the Raw report writer does that, because it is the only actor holding all six files.",
+        "items": {
+          "type": "object",
+          "required": [
+            "claim",
+            "quote",
+            "importance",
+            "kind",
+            "citations"
+          ],
+          "requiredWhen": [
+            {
+              "field": "kind",
+              "equals": "quantitative",
+              "require": [
+                "value",
+                "unit"
+              ]
+            }
+          ],
+          "properties": {
+            "claim": {
+              "type": "string",
+              "description": "One-line checkable statement."
+            },
+            "quote": {
+              "type": "string",
+              "description": "Verbatim supporting quote, exactly as the source wrote it. Compared character by character against a live page when the claim is fact-checked, so it must survive storage unaltered."
+            },
+            "importance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential"
+              ],
+              "description": "On a merged claim, the HIGHEST of the merged set - the same rule source-handles and source-players already use for topImportance."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "quantitative",
+                "qualitative"
+              ]
+            },
+            "value": {
+              "type": [
+                "number",
+                "string"
+              ],
+              "description": "Required if kind=quantitative."
+            },
+            "unit": {
+              "type": "string",
+              "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."
+            },
+            "citations": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every place this claim was made in this source. One entry when it appeared once; three when the same claim was made in three threads. The array is what makes deduplication lossless - nothing is thrown away by merging, and the join downstream drops citations rather than claims.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "cachedPage"
+                ],
+                "properties": {
+                  "cachedPage": {
+                    "type": "string",
+                    "description": "The stored page this citation was read from, relative to the topic directory: cache/websearch/mux.com_pricing.md, cache/reddit/reddit-thread-1a2b3c.json. The PAGE, not the claims file beside it - the claims file is always <stem>-claims.json and so derivable, while the page is not, because its extension varies by source. It is in no file you were given: you are the only agent reading cache/<source>/, where the pair sits side by side, so you work it out. This is the file the fact check reads the claim against, and since nothing re-fetches, it is the whole basis of verification."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Where the claim can be read. A path under cache/local/ on the local source, which has no URL."
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "Who said it, as the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form. Omit on the open web and on the user's own documents, which have authors rather than accounts. This is what the verdict join matches on, per citation - one claim can carry three citations from three people with three different verdicts."
+                  },
+                  "pageQuality": {
+                    "type": "string",
+                    "enum": [
+                      "primary-self",
+                      "primary-3p",
+                      "secondary",
+                      "blog",
+                      "forum",
+                      "internal",
+                      "unreliable"
+                    ],
+                    "description": "The page quality of the document this citation came from. Kept per citation, not per claim, because merged citations can differ."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "observations": {
+        "type": "string",
+        "description": "Markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers, and the coverage gaps this source's own material revealed. The rule that it must not re-list the claims governs THIS FIELD ONLY - it was written when the notes were this agent's only output about content, and does not forbid the claims array beside it."
+      }
+    }
+  },
+  "source-handles": {
+    "description": "Written by the Source Analyst to full_source_analysis/<source>-handles.json, one per handle-bearing source: reddit, hackernews, twitter, forums. Vet reads it instead of ranking for itself — the ranking needs every document that source produced, and the Source Analyst is the only agent that reads the whole pile at once. The array order IS the ranking, so Vet takes from the top and stops at the cap.",
+    "type": "object",
+    "required": [
+      "source",
+      "handles"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums"
+        ]
+      },
+      "handles": {
+        "type": "array",
+        "uniqueBy": "handle",
+        "description": "Ordered: highest topImportance first, then documentCount descending. A handle that produced no claim ranks below every handle that produced one, however often it appeared — there is nothing of theirs to quote, so a verdict on them changes nothing.",
+        "items": {
+          "type": "object",
+          "required": [
+            "handle",
+            "topImportance",
+            "claimCount",
+            "documentCount",
+            "documents"
+          ],
+          "properties": {
+            "handle": {
+              "type": "string",
+              "description": "As the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form."
+            },
+            "topImportance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential",
+                "none"
+              ],
+              "description": "The highest importance of any claim attributed to this handle. 'none' when they appeared but produced no claim."
+            },
+            "claimCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "documentCount": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many of this source's documents they appear in. Documents, not branches — the cache is named per URL and carries no branch, so branch spread is not recoverable here."
+            },
+            "documents": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              },
+              "description": "The cached files this handle appears in, relative to the topic directory. You know them already — you read every file in the directory to build this list — and nowhere else can recover them: the cache is named per URL and says nothing about who posted. The Handle Vetter needs it on forums, where there is no vetting script and the pages are the only evidence, and its one alternative is to open every file in the directory and search for its own handle."
+            },
+            "pageSignals": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Anything the pages already showed that vetting would otherwise pay to fetch: forum post counts, badges, trust levels, accepted-answer marks, whether they are the thread author. Free here, since the pages are already read. Named apart from vettingSignals below, which is what the heuristic actually fired on: this is the Source Analyst's, that is the Handle Vetter's, and they were one word until two different things were found sharing it."
+            },
+            "lastSeen": {
+              "type": "string",
+              "format": "date",
+              "description": "Most recent date this handle appears in the cached material. Not the same as experts.csv's last_active, which is their real last post anywhere."
+            },
+            "verdict": {
+              "type": "string",
+              "enum": [
+                "legit",
+                "unknown",
+                "promoter",
+                "spammer",
+                "throwaway"
+              ],
+              "description": "Written by handle_vetting.mjs, never by the Source Analyst — at two moments inside Vet: the experts.csv auto-promotions before any dispatch, and the merge of the per-handle files after. The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script cached. Absent means this handle fell below the cap and was never vetted, which is different from being vetted and rejected."
+            },
+            "topicalRelevance": {
+              "type": "string",
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "description": "Merged in by handle_vetting.mjs. The Handle Vetter's reading of how much of this topic they actually work on."
+            },
+            "verdictReason": {
+              "type": "string",
+              "description": "Merged in by handle_vetting.mjs. Why the verdict came out that way, in one line — and on an auto-promotion, that it came from experts.csv. This is the only record of a rejection: experts.csv holds legit people only, so without it a promoter verdict is computed and thrown away, and the next run pays to compute it again."
+            },
+            "inExperts": {
+              "type": "boolean",
+              "description": "Whether this handle became a row in experts.csv. Set by experts.mjs when it builds that file from the merged handles files, once every source has been aggregated — so it is the last field written in the phase."
+            },
+            "vettingSignals": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Merged in by handle_vetting.mjs from the Handle Vetter's file. The numbers the verdict rested on — the karma, the account age, the host repeated twelve times — so a reader can disagree with it. verdictReason says what was concluded; this says what it was concluded from, and without it a human questioning a verdict has the sentence and not the evidence. Empty on an auto-promotion from experts.csv, because no heuristic ran."
+            },
+            "lastActive": {
+              "type": "string",
+              "format": "date",
+              "description": "Merged in by handle_vetting.mjs. The person's real most recent post or comment anywhere, never the date they were vetted — and a different field from lastSeen above, which is the last date they appear in THIS run's cached material. experts.csv's last_active column is copied from here; before this it was passed from the orchestrator's memory, so a script reading the merged file instead would have lost the column entirely."
+            },
+            "realName": {
+              "type": "string",
+              "description": "IDENTIFIER — merged in by handle_vetting.mjs from the Handle Vetter's file, and only ever what the PROFILE ITSELF PRINTS, verbatim. Transcription, never inference: a matching username, a similar writing style or the same avatar is a hunch and does not belong in any of these fields. Two handles are joined when one profile named the other, and never because they look alike."
+            },
+            "github": {
+              "type": "string",
+              "description": "IDENTIFIER. The GitHub handle the profile states."
+            },
+            "website": {
+              "type": "string",
+              "description": "IDENTIFIER. The personal site the profile states."
+            },
+            "reddit": {
+              "type": "string",
+              "description": "IDENTIFIER. A Reddit handle the profile states, where this row is not itself Reddit's."
+            },
+            "hn": {
+              "type": "string",
+              "description": "IDENTIFIER. A Hacker News handle the profile states, where this row is not itself Hacker News's."
+            },
+            "twitter": {
+              "type": "string",
+              "description": "IDENTIFIER. A Twitter handle the profile states, where this row is not itself Twitter's."
+            },
+            "otherIdentifiers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labelled fields exist because experts.mjs infers nothing: every column arrives as a flag, so a labelled field is a copy and an unlabelled bag is an interpretation somebody downstream has to make with less information than the agent that read the profile had. This array is the remainder, and a person whose links all land here is a person experts.csv cannot match on. These fields replace an earlier single statedIdentifiers array of strings, which three agents typed three different ways and which put 26 wrong rows into one run's handles files. They are also the only store there is: experts.csv takes legit people alone, so without them a promoter's linked accounts are read and thrown away, and the Raw report writer cannot tell that u/foo, hn/foo and @foo are one person when it builds promoter_network.csv."
+            }
+          }
+        }
+      }
+    }
+  },
+  "handle-vetting": {
+    "description": "Written by the Handle Vetter to cache/<source>/handles/<handle>.json, ONE FILE PER HANDLE, as each handle is finished rather than at the end of the batch. Validated as a file rather than as a return: this agent returns the word `done`, and the file is the artifact. It is checked twice — the agent validates its own file and repairs once before moving on, and handle_vetting.mjs validates each again as it aggregates, discarding the malformed before anything reaches <source>-handles.json. That is what replaced a post-write gate on the shared file, which caught a bad row only once it was already in it. The file existing means that handle has been vetted, which is also the resume check. Its field names are camelCase to match <source>-handles.json, so the merge is a copy; the vetting scripts speak snake_case and are not touched — the agent reads their output and writes these names.",
+    "type": "object",
+    "required": [
+      "handle",
+      "source",
+      "verdict",
+      "verdictReason"
+    ],
+    "properties": {
+      "handle": {
+        "type": "string",
+        "description": "As the source writes it: 'u/foo', 'hn/foo', 'x/foo', or the forum's own form. This is the key the aggregation joins on, so it must match the roster row exactly — the filename is lowercased for the filesystem's sake, and this field is not."
+      },
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "forums"
+        ],
+        "description": "The four sources that carry handles. The open web and the user's own documents have authors rather than accounts, so neither dispatches this agent."
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "legit",
+          "unknown",
+          "promoter",
+          "spammer",
+          "throwaway"
+        ],
+        "description": "The FINAL verdict, after the topical-relevance demotion and any voice judgment — not the raw one the script returned. A verdict other than legit changes how a quote is used, not whether it survives: unknown is kept and marked 'unvetted', promoter is kept and labelled as a promotional signal, and only spammer and throwaway are dropped. A profile that could NOT BE READ is unknown, never throwaway — that is a gap in what the run could see rather than a judgement about the person."
+      },
+      "verdictReason": {
+        "type": "string",
+        "description": "Why the verdict came out that way, in one line. On a throwaway it carries which of the three reasons it was — 'too-small' (new AND tiny, every condition together), 'no-account' (the profile was read and there is nobody behind it: deleted, suspended, private), or 'shadowbanned' (Hacker News only). One verdict word covers three unlike situations because in every one of them the material is dropped and no deeper read is spent; the distinction lives here rather than in a sixth verdict nothing downstream would act on."
+      },
+      "topicalRelevance": {
+        "type": "string",
+        "enum": [
+          "high",
+          "medium",
+          "low"
+        ],
+        "description": "How much of this topic the person actually works on — this agent's own read, because the script cannot judge it and does not know the topic. high: something they work on or return to. medium: they touch it credibly but it is not their subject. low: one or two on-topic posts and no more. Below low — no recent on-topic activity at all — demotes the verdict to unknown, and is why this field is absent on a throwaway: that verdict ends the dispatch before the read happens."
+      },
+      "vettingSignals": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "The numbers the verdict rested on — the karma, the account age, the follower count, the host repeated twelve times — so a reader can disagree with it. verdictReason says what was concluded; this says what it was concluded from. A real run had two verdicts overturned after somebody checked what the links actually were, which is the case this exists for."
+      },
+      "lastActive": {
+        "type": "string",
+        "format": "date",
+        "description": "The person's real most recent post or comment, YYYY-MM-DD — never the date they were vetted. It arrives NESTED inside the script's own signals, as signals.last_active, so writing it here is a move rather than a rename."
+      },
+      "realName": {
+        "type": "string",
+        "description": "IDENTIFIER — only ever what the PROFILE ITSELF PRINTS, verbatim. Transcription, never inference: a matching username, a similar writing style or the same avatar is a hunch and belongs in none of these fields. Read it off the page or leave it empty. Deciding that two handles are one person is not this agent's job and not anyone's — experts.mjs unions two rows only on exact equality of a real name or a handle column, and refuses where a row matches two existing rows by different handles."
+      },
+      "github": {
+        "type": "string",
+        "description": "IDENTIFIER. The GitHub handle the profile states."
+      },
+      "website": {
+        "type": "string",
+        "description": "IDENTIFIER. The personal site the profile states."
+      },
+      "reddit": {
+        "type": "string",
+        "description": "IDENTIFIER. A Reddit handle the profile states, where this row is not itself Reddit's."
+      },
+      "hn": {
+        "type": "string",
+        "description": "IDENTIFIER. A Hacker News handle the profile states, where this row is not itself Hacker News's."
+      },
+      "twitter": {
+        "type": "string",
+        "description": "IDENTIFIER. A Twitter handle the profile states, where this row is not itself Twitter's."
+      },
+      "otherIdentifiers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labels are the point: experts.mjs infers nothing, so a labelled field becomes a column by copying while an unlabelled bag becomes one by interpretation, made downstream with less information than the agent that read the profile had."
+      }
+    }
+  },
+  "source-players": {
+    "description": "Written by the Source Analyst to full_source_analysis/<source>-players.json, one per source — all six, because unlike handles there is no source without players. Validated as a file rather than as a return, since it never enters the orchestrator's context. Read by `players.mjs candidates` alone, which merges the six, joins each claim's handle to its verdict, filters, recounts across sources and applies the inclusion floor. Recording the handle beside the claim is the point: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets Enrichment decide.",
+    "type": "object",
+    "required": [
+      "source",
+      "players"
+    ],
+    "properties": {
+      "source": {
+        "type": "string",
+        "enum": [
+          "reddit",
+          "hackernews",
+          "twitter",
+          "websearch",
+          "forums",
+          "local"
+        ]
+      },
+      "players": {
+        "type": "array",
+        "uniqueBy": "name",
+        "description": "Every company, project, product or service this source's material named. Not pre-filtered: the inclusion floor is applied across all six sources at once, so an entity named twice here and three times elsewhere clears it while neither source could have known.",
+        "items": {
+          "type": "object",
+          "required": [
+            "name",
+            "documentCount",
+            "claimCount",
+            "topImportance",
+            "relevance",
+            "claims"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "As this source's material writes it."
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Every other string seen for the same entity here — 'acme.com', 'Acme Video', 'ACME'. This is what the six sources are merged on, and handles never needed it because a handle is a literal string."
+            },
+            "documentCount": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "How many of this source's documents named it. One document, one count, however many times the name appears inside it — a long thread repeating a name forty times is one document."
+            },
+            "claimCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "topImportance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential",
+                "none"
+              ],
+              "description": "The highest importance of any claim about this entity. 'none' when it was named but produced no claim."
+            },
+            "relevance": {
+              "type": "string",
+              "description": "One line on how it showed up in THIS source's conversation — 'named as the incumbent people are migrating off'. Not what the company is; that is looked up live later. A line that would read identically in an unrelated topic is wrong."
+            },
+            "claims": {
+              "type": "array",
+              "description": "One entry per claim about this entity. Empty when the entity was named and nothing checkable was said about it.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "file",
+                  "index"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "The claims file, relative to the topic directory: cache/<source>/<name>-claims.json."
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Which claim within that file's claims array."
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "Who said it, as the source writes it. Omitted on the open web and the user's own documents, which have authors rather than accounts — those claims are filtered on pageQuality instead of on a verdict."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "player-profile": {
+    "description": "Returned by a Player Profiler, one per players.csv row, in Enrichment. Every cell of one player's row: the orchestrator writes them into the row it already created. Which columns a run actually carries is command-specific and partly per-topic, so the optional ones below are validated only when present.",
+    "type": "object",
+    "required": [
+      "fetch_failed"
+    ],
+    "requiredWhen": [
+      {
+        "field": "fetch_failed",
+        "equals": false,
+        "require": [
+          "marketing_domain",
+          "monthly_visits",
+          "offerings",
+          "positioning",
+          "pricing_model",
+          "entry_tier_price_usd",
+          "funding_stage",
+          "funding_raised_usd",
+          "recent_moves",
+          "top_user_sentiment"
+        ]
+      },
+      {
+        "field": "fetch_failed",
+        "equals": true,
+        "require": [
+          "reason"
+        ]
+      }
+    ],
+    "properties": {
+      "fetch_failed": {
+        "type": "boolean",
+        "description": "True when the look failed — captcha, network, blocked. Then no cells come back at all: a failure is the orchestrator's to retry or skip, and a cell that hides it is worse than no cell."
+      },
+      "reason": {
+        "type": "string",
+        "description": "Required when fetch_failed is true. What stopped it."
+      },
+      "marketing_domain": {
+        "type": "string",
+        "description": "The real marketing site, not the code host. Plenty of open-source projects carry a code-host url and still have one."
+      },
+      "monthly_visits": {
+        "type": "string",
+        "description": "Three forms, and no fourth: the number as SimilarWeb gives it ('1.4M'); 'github-only' when there is no marketing site anywhere; or 'UNAVAILABLE — not-indexed' when the domain and its parent are both unknown to SimilarWeb. A bare 'UNAVAILABLE' is never acceptable. The checker can only confirm this is a string — the three forms are not expressible as an enum, so they are enforced by the agent's own file."
+      },
+      "offerings": {
+        "type": "string",
+        "description": "What it actually ships, semicolon-separated."
+      },
+      "positioning": {
+        "type": "string",
+        "description": "How it sits against THIS topic. A cell that would read identically in an unrelated topic is wrong."
+      },
+      "pricing_model": {
+        "type": "string",
+        "description": "usage-based, seat-based, tiered, and so on — from the vendor's own pricing page."
+      },
+      "entry_tier_price_usd": {
+        "type": [
+          "number",
+          "string"
+        ],
+        "description": "A number, 'free', or 'contact sales'. Never 'POA', and never a model name — the model belongs in pricing_model."
+      },
+      "funding_stage": {
+        "type": "string",
+        "description": "The round, in the command's vocabulary: bootstrapped, seed, A, B, public, acquired. Distinct from the amount, which is funding_raised_usd."
+      },
+      "funding_raised_usd": {
+        "type": "string",
+        "description": "The amount, as the summary's Players table renders it: '$180M total', or 'public', 'none', 'donations', 'foundation: <name>', 'acquired by <buyer>', 'academic: <institution>', 'solo dev'. Never a round name — that is funding_stage."
+      },
+      "recent_moves": {
+        "type": "string",
+        "description": "Last 90 days, semicolon-separated, each carrying its date."
+      },
+      "top_user_sentiment": {
+        "type": "string",
+        "description": "positive / mixed / negative plus the dominant theme. Read from two places together: the claims the agent was pointed at — the run's own evidence, already filtered to the voices it listens to — and a fresh search aimed at sentiment rather than at the company."
+      },
+      "target_segment": {
+        "type": "string"
+      },
+      "deployment_model": {
+        "type": "string"
+      },
+      "key_integrations": {
+        "type": "string"
+      },
+      "notable_customers": {
+        "type": "string"
+      }
+    }
+  },
+  "raw-report-writer": {
+    "description": "Returned by the Raw report writer, once in Synthesize and once more in Audit when the reviewer finds a closable gap. A receipt of counts and of what it deleted - never the claim set, which is on disk in <slug>-raw-report.md and claim_index.json. Two of its lists exist because nothing else can carry them: this agent runs in a phase where audit.md is not yet being written, and it is gone by the time it is.",
+    "type": "object",
+    "required": [
+      "claimsSurviving",
+      "claimsMerged",
+      "sections",
+      "claimsDeletedUnsourced",
+      "droppedSubjects"
+    ],
+    "properties": {
+      "claimsSurviving": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Merged claims written to the raw report and the claim index."
+      },
+      "claimsMerged": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many claims collapsed into another during the cross-source merge."
+      },
+      "sections": {
+        "type": "array",
+        "description": "One entry per enumerable section this agent built - the invented ones, plus promoter_network.csv on gtm runs. Empty when the run declared none.",
+        "items": {
+          "type": "object",
+          "required": [
+            "csv",
+            "rows"
+          ],
+          "properties": {
+            "csv": {
+              "type": "string",
+              "description": "The file written, relative to the topic directory."
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "How many rows it holds. Zero is a real answer and the reviewer acts on it."
+            }
+          }
+        }
+      },
+      "claimsDeletedUnsourced": {
+        "type": "array",
+        "description": "Every claim deleted for carrying no URL. Cite-or-drop means one cannot legitimately exist, so each is a defect in this pipeline rather than a finding about the subject - it must never reach the summary's refuted section, which is for claims that had a source and lost an argument. The deletion leaves no trace on disk, by definition, so this list is the only route to audit.md.",
+        "items": {
+          "type": "object",
+          "required": [
+            "claim",
+            "sourceReport"
+          ],
+          "properties": {
+            "claim": {
+              "type": "string"
+            },
+            "sourceReport": {
+              "type": "string",
+              "description": "Which <source>-raw-report.json it arrived on."
+            }
+          }
+        }
+      },
+      "droppedSubjects": {
+        "type": "array",
+        "description": "What the verdict filter and the page-quality filter removed, by subject, with the reason. It travels into the Final report reviewer's dispatch so that agent does not report a gap the run already found and deliberately discarded - otherwise its most confident finding is one that is not a finding.",
+        "items": {
+          "type": "object",
+          "required": [
+            "subject",
+            "reason"
+          ],
+          "properties": {
+            "subject": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "claimIndexError": {
+        "type": "string",
+        "description": "Present only when claim_index.json still failed its check after the one repair attempt. A malformed index is not a bad section - it is a fact check that silently checks nothing, so the failure is reported rather than swallowed."
+      }
+    }
+  },
+  "merge-manifest": {
+    "description": "What the Raw report writer hands back instead of claim_index.json, written to cache/_returns/raw-report-writer-manifest.json. `synthesis.mjs index` expands it into the index. It exists because every field of claim_index.json except the merged claim text and the refutation is a copy, a maximum or a counter: the citations are the bulk of that file and each one is copied verbatim from <source>-joined.json. A run measured twelve minutes emitting the index as model output, hitting the output limit part-way and restarting in batches — dozens of write calls with no heartbeat between them, against a stuck-agent check that kills at ten. Retyping the quotes was also a correctness risk, since the fact check compares the report against the cached page and a drifted quote sends it to the wrong evidence. What stays the agent's is the judgement: which source claims are one claim, what that claim says, and which of two contradicting claims won.",
+    "type": "object",
+    "required": [
+      "claims"
+    ],
+    "properties": {
+      "claims": {
+        "type": "array",
+        "description": "One entry per MERGED claim, in the order the ids will be assigned. Position is identity here: `refutedByIndex` addresses this array, because the ids do not exist until the script has run.",
+        "items": {
+          "type": "object",
+          "required": [
+            "from"
+          ],
+          "properties": {
+            "claim": {
+              "type": "string",
+              "description": "The merged one-line checkable statement, **only where several source claims merged into one**. Leave it out where nothing merged: the source claim already says what it says, and `synthesis.mjs index` copies its text across. Making the agent retype every unmerged claim was 80% of what the manifest cost, and the fact check uses this as the KEY to find which sentence of the summary renders it, never as the text being checked."
+            },
+            "from": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every source claim that merged into this one. A single-source claim has one entry; a claim corroborated across three sources has three. The script copies each referenced claim's citations in, takes the highest importance and the canonical page quality, and numbers the result.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "source",
+                  "index"
+                ],
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "enum": [
+                      "reddit",
+                      "hackernews",
+                      "twitter",
+                      "websearch",
+                      "forums",
+                      "local"
+                    ],
+                    "description": "Which <source>-joined.json the claim is in."
+                  },
+                  "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Its position in that file's `claims` array. Position rather than an id because source claims have none — and the file is written once by `synthesis.mjs join` and never rewritten, so the position is stable for the rest of the run. The script fails on a reference that does not resolve, naming it, which is a check no shape could make."
+                  }
+                }
+              }
+            },
+            "refutedByIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Where this claim lost a factual contradiction, the POSITION in this manifest of the claim that beat it. The script turns it into the winner's claimId. An index rather than an id because the ids are assigned after this file is written; pointing at itself is refused. Only factual contradictions — one of the two is wrong — never disagreements, where both positions are real and both belong in the report."
+            },
+            "refutedReason": {
+              "type": "string",
+              "description": "One line on why the winner was stronger. Written here because the agent's own dispatch dies before audit.md is written, so a refutation held anywhere else dies with it."
+            }
+          }
+        }
+      }
+    }
+  },
+  "claim-index": {
+    "description": "claim_index.json at the topic root, written by `synthesis.mjs index` from the Raw report writer's merge manifest, alongside <slug>-raw-report.md. Validated as a file rather than as a return, since it never enters the orchestrator's context whole. It and the raw report still cannot drift: both come out of one agent, one merge and one context, and the only change is that this one is expanded from the manifest by a script rather than typed out. It is the one new file in a run that a script can check, and it is the one most worth checking: the fact check's dispatches are built from it, the claim texts split the summary's paragraphs, and the refuted section renders off it. Never edited after it is written, with one exception - the repair pass appends, continuing the counter from the highest id already there rather than restarting.",
+    "type": "object",
+    "required": [
+      "claims"
+    ],
+    "properties": {
+      "claims": {
+        "type": "array",
+        "uniqueBy": "claimId",
+        "items": {
+          "type": "object",
+          "required": [
+            "claimId",
+            "claim",
+            "importance",
+            "pageQuality",
+            "citations"
+          ],
+          "properties": {
+            "claimId": {
+              "type": "string",
+              "description": "A counter over the merged set: claim-001, claim-002. Assigned AFTER the merge - assign it first and two claims that become one leave two ids behind, so a marker in the summary points at something that no longer exists as a unit. It travels into the raw report, into the summary as the paragraph marker, and back on every verdict."
+            },
+            "claim": {
+              "type": "string",
+              "description": "One-line checkable statement. The fact check uses this as the KEY to find which sentence renders it, never as the text being checked - the summary phrased it in its own words and the copy editor may have rewritten it, and the report's wording is what has to be supported."
+            },
+            "importance": {
+              "type": "string",
+              "enum": [
+                "central",
+                "supporting",
+                "tangential"
+              ],
+              "description": "The HIGHEST of the set this claim was merged from."
+            },
+            "pageQuality": {
+              "type": "string",
+              "enum": [
+                "primary-self",
+                "primary-3p",
+                "secondary",
+                "blog",
+                "forum",
+                "internal",
+                "unreliable"
+              ],
+              "description": "The canonical citation's - the best-evidence selection the merge already makes. The score is NOT stored: importance x page-quality is multiplied when contradiction strength needs it and nowhere else, because nothing ranks claims any more."
+            },
+            "citations": {
+              "type": "array",
+              "minItems": 1,
+              "description": "Every citation that survived the verdict join. A claim survives while any citation does, so the fact check is sent all of them - the canonical one is only the highest-quality page, not necessarily the one carrying the sentence in the report.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "quote",
+                  "url",
+                  "cachedPage",
+                  "status"
+                ],
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "description": "Verbatim, exactly as the source wrote it."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Where the evidence is on the web. This is what the report cites and what a reader clicks. A path under cache/local/ on the local source, which has no URL."
+                  },
+                  "cachedPage": {
+                    "type": "string",
+                    "description": "The stored page the run actually read, relative to the topic directory. This is what the fact check opens. Neither this nor url is derivable from the other - on reddit, hackernews and twitter the script names the file and the URL is not in it."
+                  },
+                  "handle": {
+                    "type": "string",
+                    "description": "Who said it. Omitted on the open web and the user's own documents, which have authors rather than accounts."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "legit",
+                      "unknown",
+                      "unvetted",
+                      "promoter",
+                      "no-handle"
+                    ],
+                    "description": "The citation's handle verdict. 'unvetted' means no verdict exists - the handle fell below vet.handleCapPerSource, or first appeared in expert material after Vet had finished. 'unknown' means a verdict was written and it was inconclusive. Both print 'unvetted' beside the quote, which is the one place the value and the label do not line up, and a renderer that prints the caveat only for 'unvetted' drops it off every 'unknown' quote. 'unvetted' and 'no-handle' are the majority; treating them as absent would gut the run. 'spammer' and 'throwaway' citations were dropped at the join and never appear - their rejection is already in <source>-handles.json."
+                  },
+                  "pageQuality": {
+                    "type": "string",
+                    "enum": [
+                      "primary-self",
+                      "primary-3p",
+                      "secondary",
+                      "blog",
+                      "forum",
+                      "internal",
+                      "unreliable"
+                    ],
+                    "description": "This citation's own page, which can differ from the merged claim's."
+                  }
+                }
+              }
+            },
+            "refutedBy": {
+              "type": "string",
+              "description": "The claimId of the claim that beat this one. Written onto the LOSER, here, at the moment the contradiction is settled - the file is written once and never edited, so a refutation held anywhere else dies with the dispatch. Only factual contradictions, where one side is simply wrong. Two real positions disagreeing is not a contradiction and both belong in the report."
+            },
+            "refutedReason": {
+              "type": "string",
+              "description": "One line on why the other claim was stronger. Refuted is not unsupported: this claim had a source and lost an argument, which is a finding about the subject and is shown to the reader."
+            }
+          }
+        }
+      }
+    }
+  },
+  "final-report-writer": {
+    "description": "Returned by the Final report writer - once for the draft in Synthesize, and once per redraft in Audit. A receipt, not the findings: the summary is on disk and the orchestrator reads it whole before the fact check. The drop list is what earns the return. This agent decides what does not reach the summary - too thin, contradicted, no room in its section - and the raw report still carries those claims unmarked, so the discard leaves no trace anywhere else. Every other actor records what it discarded; without this, drafting is the one place in the run where evidence disappears silently.",
+    "type": "object",
+    "required": [
+      "sectionsDrafted",
+      "findingsWritten"
+    ],
+    "properties": {
+      "sectionsDrafted": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "findingsWritten": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "sectionsWithNoVettedVoice": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "Sections carrying no citation with a legit verdict. Each opens with a line saying so in the summary itself, and the same fact reaches the terminal in the run's Issues. The word is 'vetted', never 'verified': every claim in the report IS verified, and writing 'unverified' would tell the reader we shipped claims we had not checked."
+      },
+      "unresolved": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What the agent's own closing check found and could not fix in its one pass - an enumerable section that will not match its CSV, a paragraph it could not mark. The orchestrator records these in audit.md. Present on every dispatch, the redrafts included."
+      }
+    }
+  },
+  "final-report-reviewer": {
+    "description": "Returned by the Final report reviewer, once in Audit and once more if a repair ran. Unlike the Handle Vetter's return this one IS the artifact - audit.md's Unanswered section is written from it and nothing else checks it - so it earns a shape rather than a gate on a file downstream. Without one, a verdict per item and a paragraph of commentary are both valid returns.",
+    "type": "object",
+    "required": [
+      "items",
+      "unsourced"
+    ],
+    "properties": {
+      "items": {
+        "type": "array",
+        "description": "One entry per item across all three lists the agent was given: each thing the user's request asked for, each section in scope.deliverables, and each angle in scope.angles. An angle is a question the run committed to, so one the summary reflects nowhere is a gap as real as a missing section - and no other pass is positioned to notice, since everything upstream works one branch at a time and never looks at the set.",
+        "items": {
+          "type": "object",
+          "required": [
+            "kind",
+            "asked",
+            "status"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "request",
+                "section",
+                "angle"
+              ],
+              "description": "Which of the three lists this item came from."
+            },
+            "asked": {
+              "type": "string",
+              "description": "What was asked, as that list states it."
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "present",
+                "unusable",
+                "missing",
+                "unjudged"
+              ],
+              "description": "'present' is here and usable as asked. 'unusable' is named but not in the form requested - a list whose entries cannot be reached, a comparison with nothing to compare, a 'who' question answered without naming anyone. 'unjudged' is an item the agent could not rule on, and it needs a reason: an empty verdict set and a draft that answers nothing look identical from outside, so nothing is ever reported as present by default."
+            },
+            "quote": {
+              "type": "string",
+              "description": "The part of the draft that serves this item. Required in spirit on 'present' and 'unusable' - a claim that something is there, with nothing quoted, is the answer this shape exists to prevent."
+            },
+            "reason": {
+              "type": "string",
+              "description": "Why, on anything not 'present'."
+            }
+          }
+        }
+      },
+      "unsourced": {
+        "type": "array",
+        "description": "One entry per fact the draft states and cannot back. This is the only place a fabrication by the writer can be caught: the Raw report writer deletes unsourced claims, but that guards the INPUT to drafting, and a sentence composed from nothing arrives after it. Judged per paragraph, never per sentence - the citation sits at the end of the sentence OR the paragraph, so a correctly cited three-sentence paragraph read sentence by sentence comes back with two false flags every time.",
+        "items": {
+          "type": "object",
+          "required": [
+            "sentence"
+          ],
+          "properties": {
+            "sentence": {
+              "type": "string",
+              "description": "Quoted as the draft has it."
+            },
+            "section": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "final-report-copy-editor": {
+    "description": "Returned by the Final report copy editor, once, in Audit. It records what the pass changed, which is the only trace of a citation lost with a deleted duplicate - audit.md has no other way to say which claims left the report here rather than failing the fact check. It is NOT what tells the fact check its scope; that comes from the markers in the file.",
+    "type": "object",
+    "required": [
+      "removals",
+      "rewrites",
+      "flagsRaised",
+      "flagsFixed"
+    ],
+    "properties": {
+      "removals": {
+        "type": "array",
+        "description": "Every idea removed as a duplicate. Reported by claimId rather than as prose, now that each paragraph carries the ids it renders: a list of ids is exact where a description of a deleted sentence is not.",
+        "items": {
+          "type": "object",
+          "required": [
+            "claimId",
+            "cutFrom",
+            "keptIn"
+          ],
+          "properties": {
+            "claimId": {
+              "type": "string"
+            },
+            "cutFrom": {
+              "type": "string",
+              "description": "The section the rendering was deleted from. Priority follows section order, so the later instance goes."
+            },
+            "keptIn": {
+              "type": "string",
+              "description": "The earlier section that keeps it."
+            }
+          }
+        }
+      },
+      "rewrites": {
+        "type": "array",
+        "description": "One entry per sentence rewritten, so a change can be traced to this pass rather than to the drafting before it.",
+        "items": {
+          "type": "object",
+          "required": [
+            "section",
+            "sentence"
+          ],
+          "properties": {
+            "section": {
+              "type": "string"
+            },
+            "sentence": {
+              "type": "string",
+              "description": "The sentence as it now reads."
+            }
+          }
+        }
+      },
+      "flagsRaised": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many the cold read raised in stage 1."
+      },
+      "flagsFixed": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many stage 2 repaired. Where the two numbers differ, the summary still holds a sentence nobody could follow - a flag the raw report did not explain is left alone rather than guessed at, because rewriting what it did not understand is the failure the two-stage design exists to prevent."
+      }
+    }
+  },
+  "factcheck-paragraph": {
+    "description": "What `factcheck.mjs serve` hands one Claim Fact Checker for its range. The agent is given this so it knows the shape of what it asked for; it returns `claim-fact-checker`, one file per paragraph, which is a different thing. `claimId` and `status` are deliberately absent: nothing comes back keyed on an id, so an id here is an accounting unit the agent cannot use, and `status` is the handle verdict, which decides caveating and has no bearing on text against text.",
+    "type": "object",
+    "required": [
+      "from",
+      "to",
+      "count",
+      "paragraphs"
+    ],
+    "properties": {
+      "from": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "First paragraph of the range, one-based and inclusive."
+      },
+      "to": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Last paragraph asked for. The range may come back short — the last one of a source always does."
+      },
+      "count": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many paragraphs actually came back."
+      },
+      "paragraphs": {
+        "type": "array",
+        "uniqueBy": "paragraph",
+        "items": {
+          "type": "object",
+          "required": [
+            "paragraph",
+            "text",
+            "evidence"
+          ],
+          "properties": {
+            "paragraph": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Its position in the summary, from the frozen work list. The agent names its return file after this — cache/audit/paragraph-factcheck-<nnn>.json, zero-padded — and a resumed run re-dispatches only the numbers with no file, so the numbering has to be the same every time `prepare` runs on an unchanged summary."
+            },
+            "section": {
+              "type": "string",
+              "description": "The heading it sits under, so a reader of the record can find it."
+            },
+            "text": {
+              "type": "string",
+              "description": "The paragraph whole, exactly as the report has it. This is what gets judged — not the claim text in the index, which the writer rephrased and the copy editor may have rewritten again."
+            },
+            "evidence": {
+              "type": "array",
+              "description": "One entry per distinct cached page the paragraph's claims cite. Two claims citing one page make one entry, so the agent opens each file once.",
+              "uniqueBy": "cachedPage",
+              "items": {
+                "type": "object",
+                "required": [
+                  "cachedPage",
+                  "quotes"
+                ],
+                "properties": {
+                  "cachedPage": {
+                    "type": "string",
+                    "description": "The stored page, relative to the topic directory. This is the file to open — nothing here is re-fetched."
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Where it came from on the web. Context only; the check is against the stored copy."
+                  },
+                  "quotes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "quote",
+                        "claim"
+                      ],
+                      "properties": {
+                        "quote": {
+                          "type": "string",
+                          "description": "Verbatim, as the run recorded it when the page was read."
+                        },
+                        "claim": {
+                          "type": "string",
+                          "description": "The claim this quote was drawn for. A key to what to look for, never the text being checked."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "claim-fact-checker": {
+    "description": "One paragraph's verdict, written by the Claim Fact Checker to cache/audit/paragraph-factcheck-<nnn>.json and validated there — the agent returns the word done. One file per paragraph rather than one per dispatch, so a batch killed at its third keeps the two before it, and so a resumed run can tell which numbers are still outstanding. Returned by a Claim Fact Checker, one per paragraph of the summary that carries a claim marker, in Audit. The unit is the paragraph rather than the claim: everything the paragraph asserts is held against everything the paragraph cites, read as one evidence set. That catches a sentence composed from nothing, which a per-claim check never examined because it carried no id, and it dissolves the stale-marker case rather than needing a rule for it. Only failures come back - nothing downstream reads a pass, and a few hundred entries mostly saying 'fine' is the payload the receipts elsewhere exist to avoid.",
+    "type": "object",
+    "required": [
+      "unsupported",
+      "statementsJudged",
+      "pagesRead",
+      "evidenceUnreadable"
+    ],
+    "properties": {
+      "unsupported": {
+        "type": "array",
+        "description": "One entry per statement the paragraph's pages do not carry. Support has to be POSITIVELY found: a statement located in none of them is unsupported, never 'probably fine'. Empty is the expected result. Each one is deleted from the report, so this is the run naming its own defects - unsupported is not refuted, which is a claim that had a source and lost an argument and is shown to the reader.",
+        "items": {
+          "type": "object",
+          "required": [
+            "statement",
+            "reason"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "description": "The sentence quoted exactly as the report has it. Quoted rather than keyed on a claimId, because what has to be removed is text, and because a statement carrying no marker can fail too."
+            },
+            "reason": {
+              "type": "string",
+              "description": "What the pages actually said instead, in a line - 'the pricing page gives $0.01/min, the sentence says $0.005'. That is what makes the entry checkable by a person reading audit.md later."
+            }
+          }
+        }
+      },
+      "statementsJudged": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many statements in the paragraph were held against the evidence."
+      },
+      "pagesRead": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "How many distinct cached pages were opened. With the count above, this is what shows the work happened: a paragraph returning nothing unsupported alongside 7 judged and 3 read was examined and found clean, where one returning 0 and 0 did nothing. It is not what catches a skipped paragraph - a skipped one leaves no return file, which is already how resume finds it."
+      },
+      "evidenceUnreadable": {
+        "type": "boolean",
+        "description": "True only when NONE of the paragraph's cached pages could be read. Then no unsupported statements come back at all: there was no evidence to search, so returning the sentences as unsupported would blame the report for a file we lost. The paragraph is still removed - nothing unverified reaches the user - but the orchestrator removes it as 'we could not check this' and records it apart from the statements the check found unsupported. One absent page among several is not this: judge on the rest, and where the absence costs a statement, that statement is unsupported with the missing page as its reason."
+      }
+    }
+  }
+}

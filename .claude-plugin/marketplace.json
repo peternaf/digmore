@@ -10,7 +10,7 @@
     {
       "name": "digmore",
       "description": "An LLM plugin that turns AI research into decision-ready data.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "source": "./plugin"
     }
   ]
