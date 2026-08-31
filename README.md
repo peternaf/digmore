@@ -164,7 +164,11 @@ Four things worth knowing before you edit it:
   what exists without having to know what to look for. When an update adds a new one, it is filled
   into your file the next time Digmore runs and your own values are left alone.
 - **`--fast` never loosens what you tightened.** It takes the lower of the two, so if you set a
-  full-mode number below the fast one you get yours in both modes.
+  full-mode number below the fast one you get yours in both modes. **One setting reads the other way
+  round**, and says so in the file: `enrich.minPlayerDocuments` is a floor rather than a budget — how
+  many documents must mention a company before it earns a row — so the lower fast value admits more
+  companies, not fewer. A fast run gathers far less material, and a floor sized for a full run would
+  make it report no companies at all.
 - **A `0` under `fast` means that step is skipped**, deliberately, and it wins over the full-mode
   value.
 - **A value Digmore cannot use falls back to its default** rather than being carried into a run — a

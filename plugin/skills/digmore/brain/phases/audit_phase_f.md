@@ -285,10 +285,25 @@ only the numbers with no file.
 
 ## `[6.6/6]` Redraft · claims removed
 
-One Final report writer dispatch over the sections holding the removed text, **naming the sentences to
-leave out**. Do not cut them yourself: a `competitor` Verdict bullet keeps its conclusion after the
-only claim supporting it has gone, and reads as confident as it did before. The writer re-composes the
-section around the gap, which keeps one writer on the file.
+One Final report writer dispatch over the sections holding the removed text. Do not cut the sentences
+yourself: a `competitor` Verdict bullet keeps its conclusion after the only claim supporting it has
+gone, and reads as confident as it did before. The writer re-composes the section around the gap,
+which keeps one writer on the file.
+
+**The dispatch carries the path to `cache/audit/`, and the sections. Not the sentences.** The writer
+lists that directory itself: every `paragraph-factcheck-*.json` with a non-empty `unsupported` array
+is one it has to act on, and `worklist.json` beside them turns each file's number into the paragraph
+and section it judged — a verdict file carries neither. **Do not name the file numbers**; it does not
+need them, and working them out would mean opening the files you are trying not to read. This is
+`factcheck.mjs serve`'s own shape — the agent fetches its own work — and the writer is being
+dispatched either way.
+
+**You read those files for the section names alone**, through `worklist.json`, so you know which
+sections this dispatch covers. **Never the `unsupported` text.** The Claim Fact Checker already returns the
+word `done` for exactly this reason, *"a range that returned its findings inline would put every
+deleted sentence through the orchestrator on the way to a file"* — and reading them back here to
+compose the prompt would put them through anyway, at the end of the run, when your context is
+fullest. A measured run had 28 of them.
 
 **This redraft is never copy edited, and that is accepted.** The copy editor runs before the fact check
 by necessity, because the fact check needs a claim set that has stopped changing. So these sections are

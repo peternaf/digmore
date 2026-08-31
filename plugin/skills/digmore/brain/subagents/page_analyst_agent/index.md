@@ -360,6 +360,26 @@ Four things differ, and nothing else does:
 same receipt per URL, the same batch worked through one at a time. Which budget the fetch is charged
 to and what the batch is labelled are the orchestrator's business, not yours.
 
+### The vetting cache is one document
+
+**One claims file for the whole cache** — `<source>-vet-<handle>-claims.json`, beside it — holding
+every claim you took from any of that handle's comments. **`cachedPage` is the cache.** Never one file
+per comment.
+
+Everywhere else a document is one URL, and a vetting cache is not: it holds comments from many threads,
+each with its own permalink, so splitting it per comment reads like the better fit. It is not, and the
+reason is mechanical — **`cachedPage` has to name a file that exists and whose stem gives the claims
+file**, because that is how every quote in the run is looked up afterwards. There is no per-comment
+page to name, so a split has nothing to point at. A real run split one handle that way and its eleven
+citations resolved to nothing: the claims were written, correctly attributed, and unreachable.
+
+**Nothing is lost by grouping.** Each claim still carries its own `citeId`, and each citation still
+carries the comment's own permalink in `url` — which is what the report links and what a reader clicks.
+Only the file the claims sit in changes.
+
+**The cost, stated:** `cachedPage` now names a hundred comments rather than one, so a checker opening
+it reads more to verify less. That is the trade against citations that resolve to nothing at all.
+
 ## Per-source files
 
 Read the one for your source before you start.

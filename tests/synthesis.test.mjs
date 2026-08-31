@@ -958,6 +958,50 @@ test('a bare-array claims file still yields its quotes', async () => {
   assert.deepEqual(resolve.misses, []);
 });
 
+// In Enrichment the Page Analyst extracts from a Handle Vetter's cached comments. The cache is one
+// document — one claims file beside it — because cachedPage has to name a file whose stem gives the
+// claims file, and there is no per-comment page to name. A real run split one handle per comment and
+// its eleven citations resolved to nothing.
+test('a vetting cache resolves through one claims file beside it', async () => {
+  const { quoteResolver } = await import('../skill/scripts/synthesis.mjs');
+  const root = join(sandbox.cwd, 'digmore', 'demo');
+  mkdirSync(join(root, 'cache', 'reddit'), { recursive: true });
+  writeFileSync(
+    join(root, 'cache', 'reddit', 'reddit-vet-someone-claims.json'),
+    JSON.stringify({
+      url: 'https://reddit.com/user/someone',
+      pageQuality: 'forum',
+      // Both comments in the one file, each keeping its own permalink on the citation.
+      claims: [
+        { citeId: 'reddit_aaa', quote: 'what they said in one thread' },
+        { citeId: 'reddit_bbb', quote: 'what they said in another' },
+      ],
+    }),
+  );
+  const resolve = quoteResolver(root);
+  const cachedPage = 'cache/reddit/reddit-vet-someone.json';
+
+  assert.equal(resolve({ citeId: 'reddit_aaa', cachedPage }), 'what they said in one thread');
+  assert.equal(resolve({ citeId: 'reddit_bbb', cachedPage }), 'what they said in another');
+  assert.deepEqual(resolve.misses, []);
+});
+
+// A per-comment split has nowhere to point cachedPage, and the failure has to be loud rather than an
+// empty quote nobody notices.
+test('a per-comment claims file is a recorded miss, not a silent empty quote', async () => {
+  const { quoteResolver } = await import('../skill/scripts/synthesis.mjs');
+  const root = join(sandbox.cwd, 'digmore', 'demo');
+  mkdirSync(join(root, 'cache', 'reddit'), { recursive: true });
+  writeFileSync(
+    join(root, 'cache', 'reddit', 'reddit-vet-someone-o0up9mm-claims.json'),
+    JSON.stringify({ url: 'x', pageQuality: 'forum', claims: [{ citeId: 'reddit_aaa', quote: 'lost' }] }),
+  );
+  const resolve = quoteResolver(root);
+
+  assert.equal(resolve({ citeId: 'reddit_aaa', cachedPage: 'cache/reddit/reddit-vet-someone.json' }), null);
+  assert.equal(resolve.misses[0]?.reason, 'missingFile');
+});
+
 // Null, never '': an empty string reads as a quote that says nothing, and the checker judges the
 // quotes first and the page only where they fall short.
 test('an unresolved quote is null, and the miss is recorded', async () => {

@@ -6,8 +6,8 @@
 | **Purpose** | Turn the claim set and the finished enumerable sections into the executive summary, in the section list Plan settled and in that order — deciding what is corroborated, what is a surprise, and what does not survive |
 | **Input text** | **`scope.deliverables` first — the whole section list, in order, exactly as Plan settled it.** Then the format spec for each of those sections, **inlined verbatim**: from the command's reference file for a predefined one, from `scope.sections` for an invented one. **On a redraft**, only what changed: the sections a repair touched, the paragraphs that came back unmarked, or the sentences the fact check found unsupported |
 | **Input rule files** | `output.md` · `sections.md` · `vetting.md`, for the confidence tag |
-| **Input data files** | the printed listing from `synthesis.mjs read_claims_for_report` · `observations.md`, which it copies verbatim into the last section · every CSV it renders an enumerable section from — `players.csv`, `experts.csv`, and any invented one. **Not `claim_index.json` raw** and **not the per-source files**: the listing is the claim set with what this agent cannot use already left out |
-| **Runs** | `synthesis.mjs read_claims_for_report`, which is how it sees the claims at all — with `--match` on a redraft, so a repair over one gap does not re-read every claim in the run · `validate.mjs` on the receipt it writes, one repair and one re-check. No network. It writes one document |
+| **Input data files** | the printed listing from `synthesis.mjs read_claims_for_report` · `observations.md`, which it copies verbatim into the last section · every CSV it renders an enumerable section from — `players.csv`, `experts.csv`, and any invented one. **Not `claim_index.json` raw** and **not the per-source files**: the listing is the claim set with what this agent cannot use already left out. **On the `[6.6/6]` redraft, also `cache/audit/`** — every `paragraph-factcheck-*.json` in it, plus `worklist.json`, which is what turns each file's number into the paragraph and section it judged. The sentences to leave out are read from there rather than named in the dispatch, so they never pass through the orchestrator |
+| **Runs** | `synthesis.mjs read_claims_for_report`, which is how it sees the claims at all — with `--match` on a redraft, so a repair over one gap does not re-read every claim in the run · **on the `[6.6/6]` redraft it lists `cache/audit/` and reads the fact check's per-paragraph files instead** — no script and no network — taking each one's `unsupported` entries from the file rather than from its dispatch · `validate.mjs` on the receipt it writes, one repair and one re-check. No network. It writes one document |
 | **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the claim listing — measured at ~296KB on a real run — plus `observations.md` and every CSV it renders from. The summary it composes goes to disk; nothing of the evidence comes back with it |
 | **Returns to main context** | the `final-report-writer` shape — sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. **Not the claims it left out**: they are still in `claim_index.json`, and `factcheck.mjs unused_claims` computes the list exactly from the markers, which is better evidence than an agent recalling it. Not the findings either: the summary is on disk |
@@ -146,7 +146,20 @@ and recorded rather than sent round again.
 |---|---|---|
 | after a repair | the reviewer found a gap, and the claim behind it is in `claim_index.json` | the sections that gap touches |
 | markers | the orchestrator found prose paragraphs with no claim marker | only those paragraphs — marked, cut, or confirmed as asserting nothing |
-| after the fact check | statements were found unsupported | only the sections whose text was removed |
+| after the fact check | statements were found unsupported | only the sections whose text was removed. **You read which sentences those are yourself** — see below |
+
+**After the fact check, the sentences come off disk, not out of the dispatch.** You are given the path
+to `cache/audit/` and the sections this redraft covers. **List the directory** — you are not told
+which numbers to open, and you do not need to be:
+
+- every `paragraph-factcheck-*.json` in it is one paragraph's verdict, and the ones with a non-empty
+  `unsupported` array are the only ones that concern you. Each entry is a `statement` and the `reason`
+  it failed;
+- `worklist.json` beside them maps each file's number to the `paragraph` and `section` it judged, which
+  is how you know where in the summary the statement sits. A verdict file carries neither.
+
+The orchestrator reads the same files for the section names alone, so that the deleted sentences never
+pass through the one context that has to survive the whole run.
 
 **On a redraft you read narrowly, and you get one search.** `read_claims_for_report --match` takes
 several terms at once, comma separated, ORed. **One call, and there is no second one** — a search that

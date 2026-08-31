@@ -916,3 +916,27 @@ invisible HTML comment. §Four sections of the report carry no links
 ## P. Repairing the existing run
 
 - [ ] 126. **Add the missing links with a script, not a writer pass.** Ids are in the markers, `claim_index.json` holds every URL and `pageQuality`, so the transform is mechanical. An agent rewriting 35 paragraphs re-words some, and a wording change reopens the fact check. §Repairing this run
+
+## Q. The deleted sentences stop passing through the orchestrator
+
+The checker already returns `done` and writes its verdicts to disk; `[6.6/6]` then reads them back to
+name the sentences, so they reach the orchestrator anyway — at the end of the run, when its context is
+fullest. §The deleted sentences stop passing through the orchestrator
+
+- [ ] 127. **`audit_phase_f.md` `[6.6/6]` — the dispatch carries the path to `cache/audit/`, not the sentences.** The writer opens the `paragraph-factcheck-<nnn>.json` files itself and re-composes each section around the gaps it finds. Same pattern as `factcheck.mjs serve`: the agent fetches its own work.
+- [ ] 128. **The orchestrator reads those files for the section names only** — it needs to know which sections the dispatch covers, and nothing else. One field per file, never the `unsupported` text.
+- [ ] 129. **`final_report_writer_agent.md`** — its *Input data files* row gains `cache/audit/paragraph-factcheck-<nnn>.json` on the `[6.6/6]` dispatch, and its *Runs* row says it reads them. The row already differs by dispatch, per item 44's precedent.
+- [ ] 130. **Nothing else changes**: the writer re-composes rather than cuts, one writer still owns the summary, and this redraft is still not copy edited.
+- [ ] 131. Tests — the orchestrator's read returns section names and no sentence text.
+
+## R. A vetting cache is one document
+
+11 of 932 citations in `plugin-skill-eval-tooling` resolve to nothing, all into one vetting cache: the
+Page Analyst split it per comment and pointed `cachedPage` at the container. §A vetting cache is one
+document
+
+- [ ] 132. **`page_analyst_agent/index.md` §Enrichment mode — say what a document is here.** The vetting cache is **one document**: one claims file, `<source>-vet-<handle>-claims.json`, beside it, and `cachedPage` is the cache. Never one file per comment. §The rule
+- [ ] 133. **State why**, in one line: `cachedPage` has to name a file that exists and whose stem yields the claims file, and there is no per-comment page to name. Every quote lookup in the run rests on that.
+- [ ] 134. **Say what is not lost** — the per-comment permalink is already each citation's `url`, so only the grouping changes.
+- [ ] 135. **All three vetting caches, not just Reddit** — `hackernews-vet-<name>.json` and `twitter-vet-<handle>.json` follow the same rule.
+- [ ] 136. Tests — a claims file written beside a vetting cache resolves; a per-comment name does not silently pass.
