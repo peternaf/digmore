@@ -933,7 +933,7 @@
     }
   },
   "player-profile": {
-    "description": "Returned by a Player Profiler, one per players.csv row, in Enrichment. Every cell of one player's row: the orchestrator writes them into the row it already created. Which columns a run actually carries is command-specific and partly per-topic, so the optional ones below are validated only when present.",
+    "description": "Written by a Player Profiler to cache/players/profiles/<player>.json, one per players.csv row, in Enrichment. Validated as a file rather than as a return: this agent returns the word `done`, and the file is the artifact. It is checked twice - the agent validates its own file and repairs once before returning, and players.mjs profiles validates each again as it merges, discarding the malformed before anything reaches players.csv. That is what keeps a bad row out of the shared file rather than catching it once it is already in. Which columns a run actually carries is command-specific and partly per-topic, so the optional ones below are validated only when present, and the agent returns the columns its dispatch names rather than every field here. Every field here is a column name and the merge writes it verbatim - there is no field whose column is called something else. Only `name` reaches the agent from the dispatch and does not come back; the row's `url` is a hint the profiler overrides.",
     "type": "object",
     "required": [
       "fetch_failed"
@@ -943,7 +943,8 @@
         "field": "fetch_failed",
         "equals": false,
         "require": [
-          "marketing_domain",
+          "url",
+          "repo_url",
           "monthly_visits",
           "offerings",
           "positioning",
@@ -972,9 +973,13 @@
         "type": "string",
         "description": "Required when fetch_failed is true. What stopped it."
       },
-      "marketing_domain": {
+      "url": {
         "type": "string",
-        "description": "The real marketing site, not the code host. Plenty of open-source projects carry a code-host url and still have one."
+        "description": "The marketing site, as a full URL. The `url` on the dispatched row is a hint and is often empty - what you return wins. A domain is what step 3 finds and what steps 4 and 5 need; this field is the URL the column holds, and deriving one from the other is yours."
+      },
+      "repo_url": {
+        "type": "string",
+        "description": "The code host, as a full URL, where the player has one. A separate fact from `url`: plenty of open-source projects carry a repo AND a marketing site - Frigate's repo is on GitHub, its site is frigate.video - and one column made the repo disappear. Optional: absent on a player that has no public repo, and its column is absent on a topic with no open-source players."
       },
       "monthly_visits": {
         "type": "string",

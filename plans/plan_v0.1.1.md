@@ -839,18 +839,29 @@ Peter's, at the end.
 leaves the orchestrator's context
 
 - [ ] 88. **New `players.mjs profiles --topic <slug>`** — reads every `cache/players/profiles/<player>.json`, validates each, writes its cells into the row already in `players.csv`. Prints rows filled, rows still empty, rows failed. §The fix
+- [ ] 88a. **Every column is written verbatim, matched on name — no mapping.** `COLUMN_FROM_FIELD` and `asUrl` were built against the old one-column design and are **deleted**. **`name` is the only column the merge never writes.** §And with two columns
+- [ ] 88b. **The header decides the columns.** A returned field with no column in the header is not written and not added — which optional columns a run carries is recorded nowhere but the header. §Three things tell the profiler its columns
+- [ ] 88c. **The summary reports fields it did not write**, per player, so agent drift is visible rather than absorbed. §Three things tell the profiler its columns
 - [ ] 89. **It discards a malformed file rather than writing it**, naming the player — the second of the two checks, as `handle_vetting.mjs aggregate` does. §The fix
 - [ ] 90. **The merge is idempotent** — running it twice fills the same rows and does not duplicate or blank one. Resume runs it before dispatching anything. §Resume gets better
 - [ ] 91. `players.mjs` usage header and docstrings for the new verb.
+- [ ] 91a. **`experts.mjs` — split the record reader out as `parseCsvRecords`**, header included and no column coerced; `parseCsv` calls it. Its current form narrows every row to `experts.csv`'s own COLUMNS, so it silently returns nothing for `players.csv`. **DONE** — needed to build 88.
+- [ ] 91b. `enrich_phase_d.md` — **the orchestrator records `failed`, `malformed` and `orphans` with `runlog.mjs finding`** as it reads the summary. The summary is stdout and nothing else; every other discard in the run is written to `audit.md`. §The summary is read
 
 - [ ] 92. `subagent_returns.json` — `player-profile`'s description becomes **"validated as a file rather than as a return"**, with the two-checks note, matching `handle-vetting`. The fields do not change. §The fix
 
 - [ ] 93. `player_profiler_agent.md` ***Returns to main context*** — **the word `done`, or `fetch_failed` naming the player.** Not the sixteen fields. §The failure path is unchanged
+- [ ] 93a. **`player_profiler_agent.md:7, 13` and the `player-profile` shape description** — delete *"`url` came in with the dispatch and does not come back."* It does come back. `player_candidates.json` has no `url` field, so nothing reliably supplies one; **`name` alone arrives with the dispatch.** §`url` is `marketing_domain`
+- [ ] 93c. **`player-profile`: rename `marketing_domain` → `url`**, holding the URL rather than the domain. The field was named for the concept only because one column could not say which link it held. §And with two columns
+- [ ] 93d. **`player-profile`: new optional `repo_url`**, the code host, returned as a full URL. §They are two facts
+- [ ] 93e. **`player_profiler_agent.md` §3** — *"look at the front page before defaulting to 'code host only'"* becomes **find both where both exist**. The Frigate example already carries it: repo on GitHub, site `frigate.video`. Keep "marketing domain" as prose describing the step; it is no longer a field name. §And with two columns
+- [ ] 93b. **§"What you return" — the dispatch wins.** A column your dispatch does not name is not returned, whatever the reference file or the shape lists. Two of 21 profilers returned `notable_customers` because `landscape.md` names it and the dispatch did not. §Three things tell the profiler its columns
 - [ ] 94. Its ***Writes to disk*** — **`cache/players/profiles/<player>.json`**, not `cache/_returns/player-profiler-<player>.json`. A `_returns/` file for an agent that returns one word is what the Handle Vetter's file already forbids. §The file moves
 - [ ] 95. Its ***Runs*** row gains `validate.mjs player-profile` on its own file, one repair and one re-check. §The fix
 - [ ] 96. It still returns `fetch_failed` **with no cells** — unchanged, and it now writes no file either, so nothing is merged for that row.
 
 - [ ] 97. `enrich_phase_d.md` §"Fill the cells" → **§"Merge the cells"**: one `players.mjs profiles` call after the last row returns, replacing the write-per-return. §The fix
+- [ ] 97a. `enrich_phase_d.md:249` — **the dispatch stops claiming to carry a url.** It carries the name, the topic, the columns and the path to `player_candidates.json`. §`url` is `marketing_domain`
 - [ ] 98. Its completion test — the `ls` becomes `cache/players/profiles/`. **The rule is unchanged** — read the count off disk, never keep a tally. §The file moves
 - [ ] 99. **Say what does not change**, in one line: concurrency and continuous refill, the `[4.5/6]` marker and its count, the retry-and-ask failure path, and that a bare `UNAVAILABLE` is still never acceptable. §What does not change
 - [ ] 100. §"Incremental persistence" — the cells are no longer written as each row returns; the profile files are the durable artifact and the merge is what fills the CSV. §Resume gets better
@@ -861,8 +872,16 @@ leaves the orchestrator's context
 - [ ] 104. `resuming.md` Enrichment entry — **run the merge first, then dispatch only the rows still empty.** §Resume gets better
 - [ ] 105. Grep `player-profiler-` and `_returns/player-profiler` across `skill/` — the progress log keeps its label, the returns file is gone.
 
+- [ ] 104a. **`landscape.md` §2** — `repo_url` joins the **optional** columns, with one line: add it when the topic has open-source players. Required would leave a dead column on a vendor-only topic. §They are two facts
+- [ ] 105a. **`general-inquiry.md` and `gtm-teardown.md`** — both reference `players.csv` and neither says what is in it. One sentence each pointing at `landscape.md` §2, as `competitor.md` already does. §Three things tell the profiler its columns
 - [ ] 106. The merge fills rows from profile files.
 - [ ] 107. A malformed profile file is discarded and named; the row stays empty.
 - [ ] 108. A row with no profile file stays empty and is counted.
 - [ ] 109. The merge is idempotent.
 - [ ] 110. Update anything asserting the old `_returns/` path.
+- [ ] 110a. A player with both links fills `url` and `repo_url`; one with only a marketing site leaves `repo_url` empty. **The old mapping test goes** — there is no transform left to prove.
+- [ ] 110b. A returned field with no column is not written, and is named in the summary.
+- [ ] 110c. `parseCsvRecords` returns the header and coerces no column.
+
+**Settled, not deferred:** `marketing_domain` stops being a field. Two columns remove the ambiguity
+that named it, so the field is `url` and there is no transform to keep. See §And with two columns.

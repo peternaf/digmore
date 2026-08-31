@@ -97,6 +97,7 @@ Required columns (in this order):
 - `funding_raised_usd` — the amount: `$180M total`, or `public`, `none`, `donations`, `foundation: <name>`, `acquired by <buyer>`, `academic: <institution>`, `solo dev`. Never a round name; that is `funding_stage`. Two columns because they are two facts and a CSV is sorted and filtered on them separately — the summary's Players table renders both in one cell (§1.1).
 
 Optional columns the run may add when surfaced (decide per-topic):
+- `repo_url` — the code host, where the player has one. A separate fact from `url`, which is the marketing site: an open-source project often has both, and one column loses the repo. Add it when the topic has open-source players; leave it out where every player is a vendor.
 - `target_segment` (B2B / B2C / B2B-prosumer)
 - `deployment_model` (SaaS / self-hosted / hybrid)
 - `key_integrations`

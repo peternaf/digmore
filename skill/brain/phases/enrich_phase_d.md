@@ -284,7 +284,7 @@ the only one where the user can see progress in units they recognise. **The mark
 message**, and the next one follows it in the same turn (`../reporting.md`).
 
 **Read that number off disk; never keep a tally.** One `ls` of
-`cache/_returns/player-profiler-*.json` is how many have returned, and the step is finished when
+`cache/players/profiles/` is how many have returned, and the step is finished when
 every dispatched row has a file there or a recorded skip. **A count you maintain in your head is
 wrong by the end of this step**: completion notifications arrive several to a message, and a run that
 writes three rows in one turn and advances the count by one is then short by two for the rest of the
@@ -294,17 +294,49 @@ waited on two agents that had finished an hour earlier.
 **Waiting is unchanged, and is not the thing that goes wrong.** Dispatch, refill as each returns, wait
 for the rest. What changes is that the answer to *is this step done* comes from looking rather than
 from arithmetic — which is how Extract's readers and Audit's fact check already work, and why neither
-has this failure. A row dispatched with no return file and no skip is named with
+has this failure. A row dispatched with no profile file and no skip is named with
 `runlog.mjs finding known-gap` rather than waited on.
 
-## Fill the cells
+## Merge the cells
 
-As each row returns, write its cells into the row already in `players.csv`. One return, one write —
-not a batch held until the end, which is what a run killed mid-phase then loses.
+Once the last row has returned, one call:
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/players.mjs" profiles --topic <slug>
+```
+
+It reads every `cache/players/profiles/<player>.json`, validates each, and writes the cells into the
+rows already in `players.csv`. **No cell passes through your context** — the profilers hand back a
+word, and this reads the files they wrote. That is the whole reason the step is shaped this way:
+sixteen fields per row arriving as a return and going out again as a write was the largest draw on
+your context in this phase, and `experts.csv` was moved off the same pattern for the same reason
+(`index.md` §"Where a run writes").
+
+**The header decides the columns.** A returned field with no column in this topic's header is
+reported, never added — which optional columns a run carries was decided when you wrote the rows.
+Every field is a column name and is written verbatim; nothing is renamed on the way in.
+
+**Record what the summary names, the moment you read it** — one `runlog.mjs finding` call per
+category, with the player and the reason:
+
+| Summary field | What it is |
+|---|---|
+| `failed` | the profiler could not build a row. Already handled below, per mode |
+| `malformed` | its file did not survive the check, so the row is still empty — `known-gap` |
+| `missing` | a row nobody profiled — `known-gap` |
+| `unwritten` | fields the profiler sent that this run has no column for — `known-gap`, one line for the lot |
+| `orphans` | a profile file matching no row |
+
+The summary is stdout and nothing else. Every other discard in the run reaches `audit.md`, and a row
+that never received its cells is the same kind of fact.
 
 A row that comes back with no identifiable presence at all is a research error: record it in
 `audit.md` and name it in the run's Issues. A bare `UNAVAILABLE` in a cell is never acceptable — it
 carries its reason or it is `—`.
+
+**None of this changes how the step runs.** Concurrency stays at `min(20, the harness limit)` with a
+new row dispatched the moment one returns, the `[4.5/6]` marker still counts them down, and a failed
+row still reaches the retry-or-ask path below.
 
 **These cells never become claims.** The Player Profiler turns pricing pages and funding
 announcements into facts that exist nowhere else in the run, and they carry citations that nothing
@@ -314,12 +346,16 @@ rather than left to be discovered.
 ## Incremental persistence
 
 `player_candidates.json` is written by the script and `players.csv` by you, both before any profiling
-starts. If the phase is interrupted, a resumed run reads both, works out which rows still have empty
-fetched cells, and dispatches only those. It does not re-run the script and does not re-choose: the
-selection is a decision this run already made and recorded.
+starts. **The profile files are the durable artifact from then on**, written one per row as each
+finishes; the CSV is filled once, at the end, by the merge.
+
+If the phase is interrupted, a resumed run **runs the merge first** — every profile already on disk
+becomes a row — and then dispatches only the rows still empty. Nothing that returned before the kill
+is lost, and the merge is safe to run twice. It does not re-run the candidate script and does not
+re-choose: the selection is a decision this run already made and recorded.
 
 ## End of Enrichment
 
 Enrichment is complete when the expert step has finished appending, and either the run needed no
-players and said so, or `players.csv` exists with a row per selected player and every row has been
+players and said so, or `players.csv` exists with a row per selected player, the merge has run, and every row has been
 profiled or recorded as skipped. No marker file — resume infers state from the files.

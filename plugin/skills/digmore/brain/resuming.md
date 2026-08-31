@@ -91,8 +91,10 @@ is yours to apply, and the entry is in `research_plan.json` where you already ar
 
   Then aggregate and build `experts.csv` as an unbroken run would (`phases/vet_phase_c.md`).
 - **Enrichment failure** → `player_candidates.json` records who qualified and `players.csv` the rows
-  already chosen. Resume reads both, dispatches only the rows whose fetched cells are still empty,
-  and does not re-choose: the selection is a decision this run already made and recorded.
+  already chosen. **Run `players.mjs profiles` first** — every profile file already on disk becomes a
+  row, so nothing that returned before the interruption is lost and the merge is safe to run twice.
+  Then dispatch only the rows whose fetched cells are still empty. Resume does not re-choose: the
+  selection is a decision this run already made and recorded.
 - **Synthesize failure** → the per-source reports are settled and nothing in this phase touches
   them. **Either `claim_index.json` or a declared section CSV missing means the pass did not
   finish**, so resume rebuilds from those reports — cheap, because the expensive reading happened in

@@ -45,6 +45,7 @@ digmore/<topic-slug>/
   cache/<source>/vetting-worklist.json      # who Vet is going to dispatch, frozen before it starts
   cache/<source>/handles/<handle>.json      # one Handle Vetter's verdict on one handle
   cache/players/<file>           # pages the Player Profiler fetched, kept out of the source piles
+  cache/players/profiles/<player>.json      # one profiler's finished row, before the merge
   cache/audit/worklist.json      # the fact check's paragraphs, frozen and numbered
   cache/audit/unmarked.md        # the prose the writer has to mark, set aside by the same pass
   cache/audit/paragraph-factcheck-<nnn>.json  # one paragraph's verdict, written as each is finished
@@ -65,7 +66,7 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `run_log.log` | the orchestrator, through `scripts/runlog.mjs`, two lines per step as they happen. Appended across runs, never replaced |
 | `experts.csv` | `experts.mjs build`, **once, at the end of Vet**, from the merged `<source>-handles.json` rosters. It used to be written per batch from what the orchestrator was holding; reading the rosters instead means the file is built from what is on disk rather than from what survived a context |
 | `player_candidates.json` | `players.mjs candidates`, once, in Enrichment |
-| `players.csv` | the orchestrator, in Enrichment — the rows before profiling, the returned cells after. Everyone else only reads it |
+| `players.csv` | the orchestrator writes the rows in Enrichment, before profiling; **`players.mjs profiles` fills the cells, once, at the end of it**, from the per-player profile files. It used to be written cell by cell from what the orchestrator was holding — the same change `experts.csv` had, for the same reason. Everyone else only reads it |
 | `observations.md`, `promoter_network.csv`, any `<section-name>.csv` | the Source aggregator, in Synthesize. **The CSVs again if the reviewer finds a gap in one** — never for a claim, which is either in `claim_index.json` for the writer to draft or dropped |
 | `claim_index.json` | `synthesis.mjs index`, from the merge manifest the Source aggregator hands it. The agent decides which source claims are one claim and what it says; every other field of the file is a copy, a maximum or a counter |
 | the summary | the Final report writer in Synthesize, then the copy editor and two redrafts in Audit — one at a time, each renaming a complete file over the last |

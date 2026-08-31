@@ -71,5 +71,5 @@ Sections in this exact order.
 
 ## 2. The rest
 
-- `players.csv` — built from every entity mentioned ≥5 times. Its role here is a credibility filter for the evidence and a reference for any comparison table in §2. If the question genuinely has no players ("what do people ask about computer vision benchmarks"), write the file with the header row plus a single `# no players in scope` comment line.
+- `players.csv` — **same columns as `landscape.md` §2.** Built from every entity mentioned ≥5 times. Its role here is a credibility filter for the evidence and a reference for any comparison table in §2. If the question genuinely has no players ("what do people ask about computer vision benchmarks"), write the file with the header row plus a single `# no players in scope` comment line.
 - `experts.csv`, `observations.md`, `audit.md` — the brain's, unchanged.

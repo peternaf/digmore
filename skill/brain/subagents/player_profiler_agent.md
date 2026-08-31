@@ -4,15 +4,15 @@
 |---|---|
 | **Phase** | Enrichment `[4/6]`, at its profiling sub-step |
 | **Purpose** | Fill one player's row — every cell of it. One agent owns everything the run says about one company, so no cell falls between two actors |
-| **Input text** | one player's name and url · the topic · **the columns this run's `players.csv` carries**, since the optional ones are decided per topic and cannot be inferred · the topic-lens rule: a cell that would read identically in an unrelated topic is wrong |
+| **Input text** | one player's name · the topic · **the columns this run's `players.csv` carries**, since the optional ones are decided per topic and cannot be inferred · the topic-lens rule: a cell that would read identically in an unrelated topic is wrong |
 | **Input rule files** | `subagents/player_profiler_agent.md` · `fetching.md` · the command's reference file, for the column list and the price and funding vocabularies · `output.md` |
 | **Input data files** | **the path to `player_candidates.json`** — it finds its own entry there and follows the claim references, already filtered to the voices the run listens to. It opens those claims files itself; the text never reaches the orchestrator |
-| **Runs** | reads the claim files it was pointed at, no network · WebSearch then `fetch.mjs` for sentiment · `fetch.mjs` on the front page · `fetch.mjs` on the pricing page · **WebFetch** on SimilarWeb · WebSearch then `fetch.mjs` for funding and recent moves · `validate.mjs` on the cells it hands back, one repair and one re-check. Gathering is ordered; composing and checking are the closing steps |
+| **Runs** | reads the claim files it was pointed at, no network · WebSearch then `fetch.mjs` for sentiment · `fetch.mjs` on the front page · `fetch.mjs` on the pricing page · **WebFetch** on SimilarWeb · WebSearch then `fetch.mjs` for funding and recent moves · `validate.mjs player-profile` on the file it writes, one repair and one re-check. Gathering is ordered; composing and checking are the closing steps |
 | **Settings that control it** | **`extract.fetchesPerBranch` — this agent enforces it**, as the pages one dispatch may open across all six steps. It is the one configuration spent outside the phase it is named for: the quantity is the same one — how many pages an agent may open before it works with what it has — and a second number holding the same value drifts. There is still no cap on rows profiled and no `--fast` reduction; `enrich.minPlayerDocuments` and the claim filter are that bound, and they scale with what the run found. `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure |
-| **Held in its context** | the company's whole surface: the claims, the sentiment search, the front page, the pricing page, SimilarWeb, the funding results. It reads all of that and hands back a dozen short cells |
-| **Returns to main context** | the `player-profile` shape — every column of `players.csv`, plus `fetch_failed` and `reason`. `name` and `url` came in with the dispatch and do not come back |
-| **Writes to disk** | **the pages it fetches**, into `cache/players/` at the name `fetch.mjs` derives — kept out of the source piles on purpose. **Its two searches too**, as `player-profiler-<player>-sentiment-search.md` and `-funding-search.md` beside them, so a re-dispatched row reads them instead of paying for them again. SimilarWeb leaves nothing, since WebFetch writes no file. Plus `cache/_returns/player-profiler-<player>.json`. **It never touches `players.csv`** |
-| **Logs** | `cache/_progress/player-profiler-<player>.log` — `reading <n> claims for <player>` · `searching for what people say about <player>` · `finding the marketing domain for <player>` · `fetching the pricing page for <domain>` · `fetching similarweb for <domain>` · `searching for <player> funding` · `fetching <url>` · `retrying <domain> after <reason>` · `composing the cells for <player>` |
+| **Held in its context** | the company's whole surface: the claims, the sentiment search, the front page, the pricing page, SimilarWeb, the funding results. It reads all of that and writes a dozen short cells to its own file |
+| **Returns to main context** | **the word `done`**, or `fetch_failed` naming the player. **No cells come back** — the file it writes is the artifact, and a row's worth of fields arriving as a return and going out again as a write was the largest remaining draw on the orchestrator's context in this phase. `name` is the only thing that came in with the dispatch and does not come back |
+| **Writes to disk** | **the pages it fetches**, into `cache/players/` at the name `fetch.mjs` derives — kept out of the source piles on purpose. **Its two searches too**, as `player-profiler-<player>-sentiment-search.md` and `-funding-search.md` beside them, so a re-dispatched row reads them instead of paying for them again. SimilarWeb leaves nothing, since WebFetch writes no file. Plus **`cache/players/profiles/<player>.json`, the `player-profile` shape** — validated before it returns, and the only place its cells exist. No `_returns/` copy: that preserves what an agent handed back before a repair rewrote it, and what this one hands back is one word. `players.mjs profiles` merges these into `players.csv` afterwards. **It never touches `players.csv`** |
+| **Logs** | `cache/_progress/player-profiler-<player>.log` — `reading <n> claims for <player>` · `searching for what people say about <player>` · `finding the links for <player>` · `fetching the pricing page for <domain>` · `fetching similarweb for <domain>` · `searching for <player> funding` · `fetching <url>` · `retrying <domain> after <reason>` · `composing the cells for <player>` |
 | **How it reports failure** | `fetch_failed: true` with a `reason`, and **no cells at all** — a failure is the orchestrator's to retry or skip, and a cell that hides one is worse than no cell |
 | **One dispatch per** | one `players.csv` row |
 | **Run instances** | one per selected row. A run whose declared sections need no players dispatches none |
@@ -21,8 +21,9 @@
 | **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
 Where it sits: the run has already decided this company is one of its subjects. **You fill its whole
-row** — every cell of it — and hand the cells back. The orchestrator writes them into the row it
-created; you never touch the file.
+row** — every cell of it — and write it to your own file. `players.mjs profiles` merges the files
+into `players.csv` afterwards; you never touch that file, and no cell of yours passes through the
+orchestrator.
 
 ## What this agent does
 
@@ -36,7 +37,7 @@ people talk about it — it is yours. A column added to `players.csv` later belo
 
 1. **The run's own claims** — what this research already found about the company.
 2. **A sentiment search** — what people say about it more widely.
-3. **Its own site** — what it ships, how it positions itself, the marketing domain.
+3. **Its own site** — what it ships, how it positions itself, and both of its links.
 4. **Its pricing page** — what it charges.
 5. **SimilarWeb** — the traffic.
 6. **A funding search** — the round, the amount, recent moves.
@@ -109,9 +110,16 @@ The `url` on the row is a hint, not the answer, and it is often empty — the ma
 company usually did not link it. Plenty of open-source projects carry a code-host `url` and still
 have a marketing site: Frigate's repo is on GitHub, its site is `frigate.video`.
 
-Find the real marketing domain and look at the front page before defaulting to "code host only". It
-gives you `marketing_domain`, `offerings` — what it actually ships — and the raw material for
+Find the real marketing domain and look at the front page. **Then take both links, not one** —
+`url` is the marketing site and `repo_url` is the code host, and a project with both had its repo
+thrown away when there was only one column. Return each as a full URL; where a player has no public
+repo, leave `repo_url` out.
+
+The front page also gives you `offerings` — what it actually ships — and the raw material for
 `positioning`.
+
+**Steps 4 and 5 want the bare domain**, which you already have from finding it. Keep it for those and
+return the URL.
 
 ## 4. Its pricing page
 
@@ -197,12 +205,29 @@ Coral in an IP-camera landscape: *"Frigate's former recommended accelerator, dro
 
 The test: if the cell would read identically in an unrelated topic, it is wrong. Write it again.
 
-## What you return
+## What you write, and what you return
 
-The `player-profile` shape in `../../scripts/subagent_returns.json`: every column this run's
-`players.csv` carries, which your dispatch names, plus `fetch_failed`.
+**You write a file. You return a word.**
 
-**Cells, not a row.** The orchestrator writes them into the row it already created.
+`digmore/<slug>/cache/players/profiles/<player>.json` holds the `player-profile` shape in
+`../../scripts/subagent_returns.json`: every column this run's `players.csv` carries, which your
+dispatch names, plus `fetch_failed`. Validate it with `validate.mjs player-profile`, repair once,
+re-check — then return **`done`**, or **`fetch_failed`** naming the player.
+
+**Cells, not a row.** `players.mjs profiles` merges the files into the rows the orchestrator already
+created. Nothing you write passes through the orchestrator on the way.
+
+**Your dispatch decides the columns — not this file, not the reference file, not the shape.** The
+reference file lists every optional column the command allows and the shape holds every field any
+run could ask for; both are wider than what this topic carries, because which optional columns exist
+is decided per topic. **A column your dispatch does not name is not returned.** Two profilers in a
+measured run sent a field nobody asked for because `landscape.md` mentioned it.
+
+**Every field you return is a column name, written verbatim.** Nothing is renamed or transformed on
+the way in, so a field whose name is not a column in your dispatch has nowhere to go.
+
+**The `url` on your row, where there is one, is the hint §3 tells you to override** — what you return
+wins.
 
 Where a cell is genuinely unknowable, `—`. Where it is unknowable for a reason worth stating,
 say the reason — `UNAVAILABLE — not-indexed`, `contact sales`. A guess is worse than either.
@@ -212,12 +237,15 @@ say the reason — `UNAVAILABLE — not-indexed`, `contact sales`. A guess is wo
 The pages you fetched, under `digmore/<slug>/cache/players/`, named by `fetch.mjs` from their URLs.
 SimilarWeb leaves nothing — WebFetch writes no file, and nothing later needs to re-read it.
 
-`digmore/<slug>/cache/_returns/player-profiler-<player>.json` holds a copy of what you returned.
+`digmore/<slug>/cache/players/profiles/<player>.json` is the row itself — not a copy of a return,
+because there is no return to copy. Its existence is how the run knows this player is done, so write
+it only once the cells are composed and validated.
 
 ## When the fetch fails
 
-Return `fetch_failed` with the reason and stop, when there is no profile to be had at all. Do not
-retry, and do not write a cell that hides it.
+Return `fetch_failed` with the reason and stop, when there is no profile to be had at all. **Write no
+file** — a row with no profile file is what the merge counts as still empty. Do not retry, and do not
+write a cell that hides it.
 
 **One page failing is not that.** A walled pricing page, a domain SimilarWeb will not serve, a funding
 search that returns nothing — each is one cell carrying its reason while the rest of the profile

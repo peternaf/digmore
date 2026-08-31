@@ -80,4 +80,4 @@ Written directly, not through `experts.mjs` — that script owns `experts.csv` a
 
 ## 3. The rest
 
-`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `observations.md` and `audit.md` are the brain's, unchanged.
+`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` — **same columns as `landscape.md` §2** — is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `observations.md` and `audit.md` are the brain's, unchanged.
