@@ -15,12 +15,13 @@ The command takes free-form args. The literal flag `--auto` anywhere in the args
 
 You run all scripts via the Bash tool. When something needs the user's judgment, prompt them in chat and wait.
 
-Two things trigger a prompt, and both are about **intent** rather than cost:
+Three things trigger a prompt, and all are about **intent** rather than cost:
 
 1. **Clarifying questions on an underspecified topic.** Ask 2–3 questions before slugging.
 2. **Something detected that the user did not say** — a parent picked between candidates, a re-run or branch they did not ask for, a topic still underspecified. State the reading and wait. When the detection only repeats what they typed, say it and carry on without stopping. See `phases/plan_phase_a.md` §1.
+3. **The plan, before any of it runs** — the angles, the sources and the sections, as one `AskUserQuestion` call with everything pre-selected. `phases/plan_phase_a.md` §3.1 owns its shape. This one always fires in manual mode; the first two fire only when their condition holds.
 
-**Those two are the only places a run stops on its own, and both are in Plan** — the draft gate below is the third and belongs to one mode combination. Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
+**Those three are the only places a run stops on its own, and all are in Plan** — the draft gate below is the fourth and belongs to one mode combination. Once the plan is agreed the run goes to the end on its own: every step follows the last without a break, and you do not end your turn between them. Nothing finishing is a place to hand back — not a sub-step, not a phase — and the only thing that ends a run is the four end-of-run sections in `reporting.md`. **Ending a turn hands control back whether or not you asked anything**, so a status report between two steps stops the run as surely as a question would.
 
 **A message from the user mid-run is an instruction, not a stop.** Carry it out and keep going in the same turn. What changed goes in one line before the next marker — never a block that sets out the consequences and closes on what comes next, which is the sign-off `reporting.md` forbids and costs the user the same restart as a question would. **Answering someone is not handing back to them**, and this is the case the rule above does not cover: it is written about the run's own boundaries, and nothing finishing is what prompts this one. A real run dropped a source on request, recorded it correctly, then wrote three paragraphs on what the loss cost and ended the turn — the last line of which promised not to stop again.
 

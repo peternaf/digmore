@@ -4,7 +4,7 @@
 |---|---|
 | **Phase** | Plan `[1/6]` |
 | **Purpose** | Find out what the subject actually is before the run commits to searching it — the words its own people use, the names that keep coming up — and turn that into the angles every later search is built on |
-| **Input text** | the topic as the user phrased it · the mode's angle count · the job: find what this subject actually is, then decompose it into angles. **Explicitly not the sections** |
+| **Input text** | the topic as the user phrased it · the mode's angle count · **what one angle costs this run** — the source count and `extract.fetchesPerBranch`, multiplied out, since an angle becomes one branch per source and the ceiling is several times the work of the floor · the job: find what this subject actually is, then decompose it into angles. **Explicitly not the sections** |
 | **Input rule files** | `subagents/scoping_agent.md` · `output.md` |
 | **Input data files** | none |
 | **Runs** | WebSearch, up to `plan.scopingSearches` calls · `validate.mjs` on the return it writes, one repair and one re-check. No other scripts, and it reads no files |
@@ -41,6 +41,12 @@ Two things, in that order:
    with three real directions gets three, and padding it to the ceiling invents angles nobody asked
    about, spends a branch on each of them against every source, and dilutes the report with material
    the reader did not want. Reach the maximum only where the topic genuinely splits that many ways.
+
+   **Your dispatch tells you what one angle costs**, because an angle is not one unit of work: it
+   becomes one branch per source, and each branch reads up to `extract.fetchesPerBranch` pages. At
+   five sources and ten fetches that is about fifty pages per angle, so six angles is roughly twice
+   the run three angles is. **Ask of each angle whether it is worth that**, and return the ones that
+   are. An angle that would only restate another is the clearest thing to drop.
 
 ## Search budget
 
