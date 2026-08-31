@@ -8,7 +8,7 @@ checks it and fixes it. That is the whole seam, and it is why this phase holds t
 review passes: everything that examines the draft is in `audit_phase_f.md`, where a finding can still
 be acted on.
 
-Two agents, in order. The **Raw report writer** decides what survives and builds the evidence record;
+Two agents, in order. The **Source aggregator** decides what survives and builds the evidence record;
 the **Final report writer** turns that record into the summary. They were one agent, which read every
 claims file *and* wrote the summary in a single dispatch — so a dispatch that died took the reading
 with it, and nothing bounded either half. Splitting them pays the expensive read once and leaves it
@@ -21,7 +21,7 @@ named for the step that wrote it, never `/tmp`. The rule is in `index.md` §"Whe
 you read at the start of the run and are a long way from by now; `audit_phase_f.md` §"How you write"
 carries it too, along with the rule about getting text into a file without a shell parsing it.
 
-## `[5.1/6]` The raw report
+## `[5.1/6]` The source aggregate
 
 ### First, join the verdicts — a script
 
@@ -29,11 +29,11 @@ carries it too, along with the rule about getting text into a file without a she
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/synthesis.mjs" join --topic <slug>
 ```
 
-Each Source Analyst wrote `full_source_analysis/<source>-raw-report.json` with every claim carrying
+Each Source Analyst wrote `full_source_analysis/<source>-preliminary-results.json` with every claim carrying
 the handles that said it; Vet then produced a verdict per handle. This is the join between them, and
 the filter that follows: a `status` on every citation, `spammer` and `throwaway` citations dropped,
 `unreliable` pages dropped, and any claim left with nothing behind it dropped with them. It writes
-`<source>-joined.json` beside each report and leaves the reports untouched.
+`<source>-final-results.json` beside each report and leaves the reports untouched.
 
 **A script rather than the agent**, because none of it is judgement — a join, a lookup and a filter
 give the same answer every run, and an agent handed arithmetic drifts off it. What genuinely needs the
@@ -46,11 +46,11 @@ somewhere upstream. They travel on the agent's receipt and into `audit.md`, and 
 the summary's "Refuted / unsubstantiated" section: refuted means a claim had a source and lost an
 argument, which a reader learns from; unsourced is a defect in us.
 
-### Then dispatch ONE Raw report writer
+### Then dispatch ONE Source aggregator
 
 Per `../subagents/dispatch_structured_subagent.md`, which is also where the rule that the dispatch
 **names the path to the agent's own file** lives — §"Send the agent its own files". Here that file is
-`../subagents/raw_report_writer_agent.md`. It returns the `raw-report-writer` shape; name the shape
+`../subagents/source_aggregator_agent.md`. It returns the `source-aggregator` shape; name the shape
 rather than pasting it, and the agent prints its own.
 
 **Task text:** the topic, the research question, and the spec for every enumerable section this run
@@ -61,16 +61,36 @@ which is what "pick the canonical citation by best evidence" means in the merge.
 `../vetting.md`** — the verdict rules are the script's, and an agent sent them would be a second place
 they could be applied differently.
 
-**Data files:** every `full_source_analysis/<source>-joined.json` · `players.csv`, finished. On `gtm`
-runs only, also the four `<source>-handles.json`, which `promoter_network.csv` needs for its
-`person_verdict` column and for the labelled identifiers its identity join rests on.
+**Task text:** the topic and **the run's whole scope** — the research question, the angles, every
+output section and the deliverables, from `research_plan.json.scope` — plus `row_is`, fields, sort and
+render for each enumerable section. It merges and selects against what the research is for. **The
+scope does not settle contradictions**: when two claims disagree the winner is picked on evidence
+strength and page quality alone, because an agent that knows what the report should cover has a
+reason to prefer the claim that fits it.
 
-**It writes, in this order:** each declared enumerable section's CSV, then `<slug>-raw-report.md` and
-its merge manifest together at the end, and then runs `synthesis.mjs index`, which expands the manifest
-into `claim_index.json`. The order is the partial-progress path — **either the raw report or the index
-missing means the pass did not finish** — and it is also the right order for the work: filling a table
-forces a structured pass over the evidence with a specific question, which settles sequence and
-completeness that a prose pass blurs.
+**Data files:** the listings from `synthesis.mjs read_source_claims` and `read_observations` ·
+`players.csv`, finished. On `gtm` runs only, also the `<source>-handles.json` files, which
+`promoter_network.csv` needs for its `person_verdict` column and for the labelled identifiers its
+identity join rests on.
+
+**Read `dropped` off its receipt.** `synthesis.mjs index` drops a manifest entry it cannot resolve
+rather than failing — a run does not stop over bookkeeping with every fetch already paid for. But a
+dropped entry is evidence loss: those claims never reach `claim_index.json`, so nothing renders them
+and nothing checks them.
+
+**Record every one — `runlog.mjs finding claim-malformed`, all of them in one call — and name the
+count in the run's Issues.** Not in the summary: it is a fact about the run rather than about the
+subject, the same line drawn for coverage gaps.
+
+**It writes, in this order:** its merge manifest · `validate.mjs` on it · `synthesis.mjs index`, which
+expands the manifest into `claim_index.json` · then `observations.md` · then each declared enumerable
+section's CSV.
+
+**Everything after `index` can carry real claim ids**, rather than ids the agent derived by counting
+manifest positions — which is the class of bookkeeping error the manifest's own `refutedByIndex` note
+warns is caught at the most expensive moment in the run. **The CSVs last also makes them the
+completion test**: their presence means the whole pass finished, where the old order left an artifact
+on disk that proved nothing about the index.
 
 **The index is a script's now, and the manifest is what the agent hands it.** Every field of that file
 but the merged claim text and the refutation is a copy, a maximum or a counter, and a run spent twelve
@@ -103,8 +123,8 @@ pointed at a file instead of given the spec defaults to the shortest plausible c
 
 **Rule files:** `../output.md` · `../sections.md` · `../vetting.md`, for the confidence tag.
 
-**Data files:** the aggregate raw report, and every CSV it must render an enumerable section from —
-`players.csv`, `experts.csv`, and any invented one. **Not the six per-source reports**: their
+**Data files:** the listing from `synthesis.mjs read_claims_for_report` · `observations.md`, copied verbatim into the last section · and every CSV it must render an enumerable section from —
+`players.csv`, `experts.csv`, and any invented one. **Not the per-source reports**: their
 observations are already merged into the aggregate, and the whole point of the split was that this
 agent reads one file instead of several hundred.
 
@@ -119,7 +139,7 @@ closing check could not fix.
 
 **It does not list the claims it left out, deliberately.** It used to, on the argument that drafting
 would otherwise be the one place evidence disappears silently. That argument does not hold: a claim
-not drafted is still in the raw report and still in `claim_index.json`, both of which outlive the run.
+not drafted is still in `claim_index.json`, and `factcheck.mjs unused_claims` names it — both of which outlive the run.
 What the list actually cost was hundreds of entries composed by the agent, carried in your context for
 the rest of the run, and read by nobody — it reached no file, and the `claim-dropped-drafting`
 category that would have received it was never called from anywhere.
@@ -132,13 +152,18 @@ Every pass that examined the draft has moved to Audit, where a finding can still
 critic pass and the brief review are now one reviewer, the readability lint split between the copy
 editor and the writer's own closing check, and the dedup pass is the copy editor's. The expert
 expansion moved the other way, into Enrichment, because its claims have to exist before the candidate
-count and the raw report are taken.
+count and the aggregate are taken.
+
+**And the aggregate raw report itself is gone.** The Final report writer reads `claim_index.json`
+through `read_claims_for_report` and writes the summary from it directly. A quote used to be typed by
+hand into the aggregate and typed again into the summary; it is now typed once, by the agent that
+renders it.
 
 ## End of Synthesize
 
-Synthesize is complete when `<slug>-raw-report.md` and `claim_index.json` both exist, every declared
-enumerable section has its CSV, and the summary exists with every section in `scope.deliverables`
-drafted. There is no incomplete-marker comment: every pass renames a complete file over the original,
+Synthesize is complete when `claim_index.json` and `observations.md` exist, every declared enumerable
+section has its CSV, and the summary exists with every section in `scope.deliverables` drafted plus the
+observation section last. There is no incomplete-marker comment: every pass renames a complete file over the original,
 so a draft that stopped early never replaced anything and the state is unambiguous either way.
 
 No marker file. Resume infers state from these artifacts.

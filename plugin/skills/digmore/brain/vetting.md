@@ -5,7 +5,7 @@ Two independent dimensions are tagged per datapoint:
 2. **Page quality** — the URL itself. In `page_quality.md`.
 
 Both get tagged, and they feed different decisions. Credibility decides **how a quote is used** —
-freely, caveated, labelled as promotion, or dropped — when the Raw report writer joins verdicts to
+freely, caveated, labelled as promotion, or dropped — when the Source aggregator joins verdicts to
 claims. Page quality decides **which citation is canonical** when several say the same thing, and
 drops `unreliable` pages outright.
 
@@ -72,7 +72,7 @@ Each finding in the summary gets a `high` / `medium` / `low` confidence tag:
 
 - `high` — `primary-3p`, OR multi-source corroboration (different domain AND different source AND
   different expert — any 2 of 3 axes, counted from the citations that survived the verdict join, per
-  `subagents/raw_report_writer_agent.md`).
+  `subagents/source_aggregator_agent.md`).
 - `medium` — single `primary-self` or `secondary` source, or split signal.
 - `low` — blog/forum single source.
 

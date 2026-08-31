@@ -80,6 +80,10 @@ this, not none.
 
 ## 3. The sections the summary will have — yours, not the agent's
 
+**Do not plan the observation section.** Every summary ends with "LLM free-flow observations", it is
+the same in every command, and it is not in `scope.deliverables` — `sections.md` states it and the
+Final report writer adds it. Planning it would put it in the section list twice.
+
 Decide the whole section list, in order, and record it as `scope.deliverables` — the key is the
 section's title, the value says what belongs in it. Rules and types in `../sections.md`.
 
@@ -93,7 +97,7 @@ it, and nothing about its shape is repeated: `"Tactics inventory": "reference/gt
 
 **The Run footer is not a deliverable and never appears here.** It is the orchestrator's own
 bookkeeping — WebSearch queries run, caps hit, sources the run could not reach, the mode tags — and
-none of it exists in the raw report. It is appended to the finished summary at Audit's Record step,
+none of it exists in the claim set. It is appended to the finished summary at Audit's Record step,
 after the last agent has touched the file (`../reporting.md` §"The Run footer"). Listed as a
 deliverable it would be a section the Final report writer is told to write and cannot fill, and one
 the Final report reviewer then reports missing on every run. The command reference files still list

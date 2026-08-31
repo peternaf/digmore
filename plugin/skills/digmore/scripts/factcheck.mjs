@@ -24,8 +24,9 @@ import { writeFileSync, existsSync, readFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs, readJson, topicDir } from './players.mjs';
+import { quoteResolver } from './synthesis.mjs';
 
-/** One comment at the end of a paragraph, naming the claims it renders: `<!-- claims: 001, 004 -->`. */
+/** One comment at the end of a paragraph, naming the claims it renders: `<!-- claims: 001, 004* -->`. */
 const MARKER = /<!--\s*claims:([^>]*?)-->/g;
 
 /**
@@ -37,22 +38,61 @@ const MARKER = /<!--\s*claims:([^>]*?)-->/g;
 export const WORKLIST_PATH = 'cache/audit/worklist.json';
 export const UNMARKED_PATH = 'cache/audit/unmarked.md';
 
+/**
+ * Sections the fact check does not touch, by title.
+ *
+ * **This script owns these names and `brain/sections.md` points at it**, the way `runlog.mjs` owns
+ * the `finding` categories. Two copies would drift, and the drift is silent in the worst direction:
+ * a title reworded in `sections.md` alone puts the section back into `unmarked.md`, where the
+ * writer cuts it as prose with no claim behind it — a failure that reads as an agent exercising
+ * judgement rather than a stale string.
+ *
+ * The observation section carries no citations by design, so there is nothing for the fact check to
+ * check and nothing for the writer to mark. A prose rule would have to be obeyed twice, since
+ * `prepare` runs twice in Audit; a filter here is obeyed once and cannot be forgotten.
+ */
+export const UNCHECKED_SECTIONS = Object.freeze(['LLM free-flow observations']);
+
+const isUncheckedSection = (section) =>
+  UNCHECKED_SECTIONS.some((name) => name.toLowerCase() === String(section ?? '').trim().toLowerCase());
+
 function markersIn(text) {
   return text.match(MARKER) ?? [];
 }
 
-/** `<!-- claims: 001, claim-004 -->` → ['claim-001', 'claim-004']. Both spellings appear in drafts. */
+/**
+ * `<!-- claims: 001, claim-004* -->` → ['claim-001', 'claim-004']. Both spellings appear in drafts.
+ *
+ * **A trailing `*` means the paragraph renders that claim's quote**, against a bare id meaning it
+ * asserts the claim without quoting. The flag is stripped here: everything downstream addresses
+ * claims by id, and the distinction is only read by `quotedIdsIn`.
+ *
+ * It is a flag rather than a `citeId` because the writer is shown one quote per claim — the
+ * representative's — so an id in the marker would carry nothing the claim id does not already reach.
+ */
 export function claimIdsIn(text) {
-  const ids = [];
+  return markedTokens(text).map((token) => token.id);
+}
+
+/** The ids whose quote the paragraph actually renders — the tokens carrying the `*`. */
+export function quotedIdsIn(text) {
+  return markedTokens(text).filter((token) => token.quoted).map((token) => token.id);
+}
+
+function markedTokens(text) {
+  const tokens = [];
   for (const marker of markersIn(text)) {
     const inside = marker.replace(/<!--\s*claims:/, '').replace(/-->$/, '');
     for (const raw of inside.split(',')) {
       const token = raw.trim();
       if (!token) continue;
-      ids.push(/^claim-/.test(token) ? token : `claim-${token}`);
+      const quoted = token.endsWith('*');
+      const bare = quoted ? token.slice(0, -1).trim() : token;
+      if (!bare) continue;
+      tokens.push({ id: /^claim-/.test(bare) ? bare : `claim-${bare}`, quoted });
     }
   }
-  return ids;
+  return tokens;
 }
 
 /**
@@ -77,7 +117,7 @@ function isStructure(block) {
  * Cut the summary into the units the fact check judges.
  *
  * **Blank lines first, then any piece carrying more than one marker again at every line break.** A
- * bullet list has no blank line inside it, so a Hubs or Jargon section arrives as one piece with a
+ * bullet list has no blank line inside it, so a Hubs section arrives as one piece with a
  * marker per bullet — and a block-level split checks the first bullet's claim and silently skips the
  * rest. Measured on one real summary: two blocks held 25 of its 80 markers between them.
  */
@@ -103,7 +143,7 @@ export function splitUnits(summary) {
       marked.push({ section, text: block.trim() });
       continue;
     }
-    if (!isStructure(block)) unmarked.push({ section, text: block.trim() });
+    if (!isStructure(block) && !isUncheckedSection(section)) unmarked.push({ section, text: block.trim() });
   }
 
   return { marked, unmarked };
@@ -183,6 +223,7 @@ export function serve(topicSlug, { from, to }) {
   }
   const all = readJson(worklistPath)?.paragraphs ?? [];
   const byId = new Map((readJson(join(root, 'claim_index.json'))?.claims ?? []).map((c) => [c.claimId, c]));
+  const resolveQuote = quoteResolver(root);
 
   // One-based and inclusive. A range past the end is short rather than an error — the last one
   // always is, exactly as `handle_vetting.mjs serve` has it.
@@ -197,22 +238,58 @@ export function serve(topicSlug, { from, to }) {
         const key = citation.cachedPage;
         if (!key) continue;
         if (!pages.has(key)) pages.set(key, { cachedPage: key, url: citation.url ?? '', quotes: [] });
-        pages.get(key).quotes.push({ quote: citation.quote ?? '', claim: claim.claim ?? '' });
+        pages.get(key).quotes.push({ quote: resolveQuote(citation), claim: claim.claim ?? '' });
       }
     }
     return { paragraph: entry.paragraph, section: entry.section, text: entry.text, evidence: [...pages.values()] };
   });
 
-  return { from, to, paragraphs, count: paragraphs.length };
+  // A quote that did not resolve leaves the checker judging against the page alone, which its own
+  // file calls the weaker test. Named here so the orchestrator can record it rather than the run
+  // silently checking less than it reports.
+  return {
+    from,
+    to,
+    paragraphs,
+    count: paragraphs.length,
+    unresolvedQuotes: resolveQuote.misses,
+  };
 }
 
 // ---------------------------------------------------------------- cli
+
+/**
+ * Claims in the index that no paragraph of the summary renders.
+ *
+ * **The writer used to hand back a drop list**, justified by the aggregate raw report carrying the
+ * claim with no mark on it, so the drop left no trace. That file is gone, its shape never had a
+ * field for the list, and the writer now reads 592 claims rather than curated prose — so the list
+ * is computed here instead, exactly, from files that outlive the run.
+ *
+ * Every other actor records its discards: Enrichment names each excluded player, Vet keeps
+ * rejections in `<source>-handles.json`, Extract logs dropped-for-budget URLs. This is the writer's.
+ */
+export function unusedClaims(topicSlug) {
+  const root = topicDir(topicSlug);
+  const path = summaryPath(root, topicSlug);
+  if (!existsSync(path)) throw new Error(`no summary at ${path} — Synthesize has not finished`);
+
+  const indexPath = join(root, 'claim_index.json');
+  if (!existsSync(indexPath)) throw new Error(`no claim_index.json at ${indexPath}`);
+
+  const rendered = new Set(claimIdsIn(readFileSync(path, 'utf8')));
+  const all = readJson(indexPath)?.claims ?? [];
+  const unused = all.filter((claim) => !rendered.has(claim.claimId)).map((claim) => claim.claimId);
+
+  return { claims: all.length, rendered: rendered.size, unused: unused.length, claimIds: unused };
+}
 
 export function run(argv) {
   const { verb, flags } = parseArgs(argv);
   if (!flags.topic) throw new Error('--topic <slug> is required');
 
   if (verb === 'prepare') return prepare(flags.topic);
+  if (verb === 'unused_claims') return unusedClaims(flags.topic);
   if (verb === 'serve') {
     const from = Number(flags.from);
     const to = Number(flags.to);
@@ -221,7 +298,7 @@ export function run(argv) {
     }
     return serve(flags.topic, { from, to });
   }
-  throw new Error(`unknown command: ${verb ?? '(none)'} — expected prepare or serve`);
+  throw new Error(`unknown command: ${verb ?? '(none)'} — expected prepare, serve or unused_claims`);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

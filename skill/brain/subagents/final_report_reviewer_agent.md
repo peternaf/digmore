@@ -4,9 +4,9 @@
 |---|---|
 | **Phase** | Audit `[6.1/6]`, the first step of it. **Once only** — it is not re-run after a repair |
 | **Purpose** | Read the draft against the three things the run committed to — what the user asked for, the sections the plan promised, and the angles Plan set out to answer — check that every claim in it carries a source, and name what is missing while there is still time to go and get it |
-| **Input text** | **three lists**: `research_plan.json.originating_prompt` verbatim · `scope.deliverables`, every section in order · `scope.angles`, each label and rationale. Plus the subjects the Raw report writer's filter dropped, with reasons |
+| **Input text** | **three lists**: `research_plan.json.originating_prompt` verbatim · `scope.deliverables`, every section in order · `scope.angles`, each label and rationale. Plus the subjects the Source aggregator's filter dropped, with reasons |
 | **Input rule files** | `output.md`, **and deliberately nothing else** |
-| **Input data files** | the draft summary, and nothing else. **Not the raw report**, which would tell it what the run found rather than what it promised |
+| **Input data files** | the draft summary, and nothing else. **Not the claim set**, which would tell it what the run found rather than what it promised |
 | **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It opens the draft summary and writes nothing else |
 | **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
 | **Held in its context** | the draft summary alone. That is what makes a cold read of the whole document cheap enough to run |
@@ -58,7 +58,7 @@ default.
 A fourth pass, over the document rather than a list: **every stated fact that the report cannot
 support**, returned as its own entry with the sentence quoted.
 
-**This is the only place a fabrication by the writer can be caught.** The Raw report writer deletes
+**This is the only place a fabrication by the writer can be caught.** The Source aggregator deletes
 unsourced claims, but that guards the *input* to drafting. A sentence composed from nothing, or one
 whose citation was dropped while rendering, arrives after that check. Running here, first in Audit,
 catches it before it can reach the user at all.
@@ -80,22 +80,27 @@ thing you exist to catch: **a report that answers a question nobody asked.** You
 against what the user asked and what this run planned, not against what a landscape report is supposed
 to contain. `sections.md` is out with it, for the same reason.
 
-**The raw report is excluded too.** It would tell you what the run found, and the question is what the
+**The claim set is excluded too.** It would tell you what the run found, and the question is what the
 run promised.
 
 **The dropped-subject list is included** for the opposite reason: claims cut by the verdict filter are
-gone from the raw report, so without it your most confident finding would be a gap that is not one —
+gone from the index, so without it your most confident finding would be a gap that is not one —
 evidence the run already found and deliberately discarded.
 
 ## What happens to your answer
 
-A gap goes back to the Raw report writer, not out to the network, and it goes once. The orchestrator
+A gap goes back to the Source aggregator, not out to the network, and it goes once. The orchestrator
 sends back what can still be closed and records the rest in `audit.md` under Unanswered.
 
 **Nothing fetches during rework, deliberately.** Closing a gap by searching would mean a searcher, then
 a reader over what it found, then both writers again — a miniature Extract for one gap, late in the run, with a
 new failure surface and a budget nothing bounds. The run says what it did not gather instead.
 
-**So the useful finding is a specific one.** "The pricing angle produced nothing" is actionable
-— the evidence may be in a per-source report and not in the aggregate. "More depth would help" is not.
+**So the useful finding is a specific one, and it is specific in the words the topic uses.** "The
+pricing angle produced nothing" is actionable; "more depth would help" is not.
+
+**Name the subject as a searcher would.** What happens to your gap is a lookup: the Final report
+writer searches `claim_index.json` for it, once, and a claim it cannot find is dropped rather than
+chased. So a gap described in the report's own abstractions may find nothing that exists; one that
+names the vendor, the number or the phrase the sources use will find it.
 

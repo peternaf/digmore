@@ -18,7 +18,7 @@ Three things, and nothing else:
   below names one of them the best evidence — that is what "best-evidence selection" means. It sets
   the claim's single `pageQuality` and the wording the report leads with. **Every other citation is
   kept**: the selection names the best of the set, it does not cut the set
-  (`subagents/raw_report_writer_agent.md`).
+  (`subagents/source_aggregator_agent.md`).
 - **Contradiction strength.** Where two claims say opposite things about one fact, the stronger stands
   and the weaker is marked refuted. Strength is `importance × page-quality`, alongside whether the
   citations are vetted and how many survived. This is the only thing the scores are multiplied for.

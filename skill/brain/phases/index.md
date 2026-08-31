@@ -16,7 +16,7 @@ Re-read `../output.md` before any sub-agent dispatch or before writing any user-
 - `extract_phase_b.md` — **Extract**: one searcher per branch, one reader per batch of URLs, then one report per source.
 - `vet_phase_c.md` — **Vet**: the handles Extract surfaced, ranked and capped, one Handle Vetter each.
 - `enrich_phase_d.md` — **Enrichment**: who the research is about — the expert step, the player candidates, the selection, and one profiler per row.
-- `synthesize_phase_e.md` — **Synthesize**: evidence becomes documents. The Raw report writer builds the enumerable sections and the aggregate raw report; the Final report writer drafts the summary from them.
+- `synthesize_phase_e.md` — **Synthesize**: evidence becomes documents. The Source aggregator builds the enumerable sections, the claim index and the observations; the Final report writer drafts the summary from them.
 - `audit_phase_f.md` — **Audit**: the report is checked and fixed — reviewed, repaired, copy edited, fact checked against the cache, and recorded.
 
 Plan and Extract are separate because they differ in kind and in scale — Plan is one orchestrator pass plus a single sub-agent producing a plan, Extract is hundreds doing bulk work — and because the boundary between them is where a resumed run picks up: `research_plan.json` is the only record of which branches this topic is meant to have.
@@ -28,8 +28,8 @@ Every file written *during* a run lives under `digmore/<topic-slug>/`, resolved 
 ```
 digmore/<topic-slug>/
   <topic-slug>-executive-summary.md   # the user-facing summary
-  <topic-slug>-raw-report.md     # the aggregate evidence record, unsummarised
-  claim_index.json               # the same claims, structured, one entry per claimId
+  observations.md                # the cross-source observations, merged, copied into the summary
+  claim_index.json               # every merged claim, one entry per claimId — what the summary is written from
   research_plan.json             # the topic: identity, run history, and this run's plan
   run_log.log                    # where the run spent its time, appended across runs
   experts.csv                    # curated experts (legit verdict only)
@@ -37,8 +37,8 @@ digmore/<topic-slug>/
   player_candidates.json         # who qualified as a player, and their claim references
   <section-name>.csv             # one per invented enumerable section — ../sections.md
   audit.md                       # the run's own record, across all six phases
-  full_source_analysis/<source>-raw-report.json # one source's claims and observations
-  full_source_analysis/<source>-joined.json     # the same, with a verdict on every citation
+  full_source_analysis/<source>-preliminary-results.json # one source's claims and observations
+  full_source_analysis/<source>-final-results.json     # the same, with a verdict on every citation
   full_source_analysis/<source>-handles.json    # every handle that source produced, ranked
   full_source_analysis/<source>-players.json    # every entity that source named, and who said what
   cache/<source>/<file>          # the stored pages and their claims, per source
@@ -53,7 +53,7 @@ digmore/<topic-slug>/
   cache/_misc/<file>             # scratch that belongs to no source
 ```
 
-Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`. The slug is in the name so it stays findable once it has been moved or shared out of its folder, and so the summary and the raw report read as the pair they are in a folder listing.
+Everywhere these files refer to "the summary", they mean `<topic-slug>-executive-summary.md`. The slug is in the name so it stays findable once it has been moved or shared out of its folder.
 
 **Every pass that writes the summary writes a temp file and renames it over the original.** `<topic-slug>-executive-summary.md.tmp`, renamed when the pass finishes. Three passes rewrite that file in Audit, and a run killed mid-write would otherwise leave a half-written document that looks finished and that resume reads as complete. The file on disk is then always a whole version, the old one or the new one, never half of either; a `.tmp` left behind is a pass that died, and the summary beside it is the last complete version. The same rule covers the Run footer, which is the last write of all.
 
@@ -66,12 +66,12 @@ Everywhere these files refer to "the summary", they mean `<topic-slug>-executive
 | `experts.csv` | `experts.mjs build`, **once, at the end of Vet**, from the merged `<source>-handles.json` rosters. It used to be written per batch from what the orchestrator was holding; reading the rosters instead means the file is built from what is on disk rather than from what survived a context |
 | `player_candidates.json` | `players.mjs candidates`, once, in Enrichment |
 | `players.csv` | the orchestrator, in Enrichment — the rows before profiling, the returned cells after. Everyone else only reads it |
-| `<topic-slug>-raw-report.md`, `promoter_network.csv`, any `<section-name>.csv` | the Raw report writer, in Synthesize, and again if the reviewer finds a closable gap |
-| `claim_index.json` | `synthesis.mjs index`, from the merge manifest the Raw report writer hands it. The agent decides which source claims are one claim and what it says; every other field of the file is a copy, a maximum or a counter |
+| `observations.md`, `promoter_network.csv`, any `<section-name>.csv` | the Source aggregator, in Synthesize. **The CSVs again if the reviewer finds a gap in one** — never for a claim, which is either in `claim_index.json` for the writer to draft or dropped |
+| `claim_index.json` | `synthesis.mjs index`, from the merge manifest the Source aggregator hands it. The agent decides which source claims are one claim and what it says; every other field of the file is a copy, a maximum or a counter |
 | the summary | the Final report writer in Synthesize, then the copy editor and two redrafts in Audit — one at a time, each renaming a complete file over the last |
 | `audit.md` | the orchestrator, **through `runlog.mjs finding`, one tagged line appended at the moment the run makes each finding** — in every phase, not in Audit. `runlog.mjs header` truncates it at the start of a run, which is what "it describes one run" now means. Audit appends only Unanswered, the one thing that cannot be known before the report is finished |
-| `full_source_analysis/<source>-raw-report.json`, `<source>-players.json` | one Source Analyst per source, each to its own files, created in Extract and appended once in Enrichment |
-| `full_source_analysis/<source>-joined.json` | `synthesis.mjs join`, once, at the start of Synthesize |
+| `full_source_analysis/<source>-preliminary-results.json`, `<source>-players.json` | one Source Analyst per source, each to its own files, created in Extract and appended once in Enrichment |
+| `full_source_analysis/<source>-final-results.json` | `synthesis.mjs join`, once, at the start of Synthesize |
 | `full_source_analysis/<source>-handles.json` | **four writers at four different times, never at once**: the Source Analyst creates it in Extract · `handle_vetting.mjs prepare` writes the `experts.csv` auto-promotions in before any vetter is dispatched · `handle_vetting.mjs aggregate` merges the per-handle verdicts in after they have all stopped · the Source Analyst appends handles first seen in expert material during Enrichment. `experts.mjs build` then sets `inExperts`, which is the last field written in Vet |
 | `cache/<source>/vetting-worklist.json` | `handle_vetting.mjs prepare`, once per source. Frozen on purpose: a vetter is dispatched a *range*, so a list that shrank as handles were vetted would leave "handles 11 to 20" addressing what used to be 21 to 30 |
 | `cache/<source>/handles/<handle>.json` | one Handle Vetter per file, written as each handle is finished. A per-handle file is what lets several vetters fan out with no shared file between them — nothing to lose rows, nothing to lock |
@@ -145,15 +145,15 @@ file.
 
 **Claims and source reports live on disk. You hold neither.** Whatever step needs them opens the files itself.
 
-Your context has to survive all six phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, six per-source reports — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
+Your context has to survive all six phases; a sub-agent's dies when it returns. So the material that is large and read once — several hundred claim sets, per-source reports — goes to a file, and the agent that needs it is given the path. What comes back to you is small: a receipt saying what happened and where the file is.
 
 | What | Written by | Read by |
 |---|---|---|
 | `cache/<source>/<name>-claims.json` | each Page Analyst, one per document | the Source Analyst, which reads every one its source produced; the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory |
-| `full_source_analysis/<source>-raw-report.json` | each Source Analyst | `synthesis.mjs join`, which stamps a verdict on every citation and writes the joined copy beside it |
-| `full_source_analysis/<source>-joined.json` | `synthesis.mjs join` | the Raw report writer, which is the only actor that ever holds all six |
-| `full_source_analysis/<source>-handles.json` | the Source Analyst, then `handle_vetting.mjs` twice, then the Source Analyst again — the four writers named in the table above | Vet, to know who to vet and in what order; the Raw report writer on `gtm`, for the promoter network's identity join; every later run, as the record of who was rejected and why |
-| `full_source_analysis/<source>-players.json` | each Source Analyst | `players.mjs candidates` alone. Nobody reads the six files directly — the script merges them, joins the verdicts and hands back candidates |
+| `full_source_analysis/<source>-preliminary-results.json` | each Source Analyst | `synthesis.mjs join`, which stamps a verdict on every citation and writes the joined copy beside it |
+| `full_source_analysis/<source>-final-results.json` | `synthesis.mjs join` | the Source aggregator, which is the only actor that sees every source |
+| `full_source_analysis/<source>-handles.json` | the Source Analyst, then `handle_vetting.mjs` twice, then the Source Analyst again — the four writers named in the table above | Vet, to know who to vet and in what order; the Source aggregator on `gtm`, for the promoter network's identity join; every later run, as the record of who was rejected and why |
+| `full_source_analysis/<source>-players.json` | each Source Analyst | `players.mjs candidates` alone. Nobody reads those files directly — the script merges them, joins the verdicts and hands back candidates |
 | `claim_index.json` | `synthesis.mjs index` | a script, to assemble the fact check's dispatches. Never a sub-agent, and never you, whole |
 
 What you keep across the run: the receipts, the plan, the verdicts, and the run's own record. Never the bodies.

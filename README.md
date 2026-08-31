@@ -97,7 +97,7 @@ the project it belongs to:
 | `<topic>-executive-summary.md` | The report. Fixed sections, every substantive claim carrying an in-text citation |
 | `players.csv` | The companies or people found, one row each, with the fields that matter for the question |
 | `experts.csv` | The voices worth listening to, with why each one qualifies |
-| `<topic>-raw-report.md` | The unsummarized findings, kept whole |
+| `observations.md` | Cross-source patterns the run noticed, merged and unverified |
 | `audit.md` | What the audit deleted, refuted or dropped, and which step did it |
 | `cache/` | Everything fetched, kept as it arrived, so a re-run doesn't re-fetch it |
 

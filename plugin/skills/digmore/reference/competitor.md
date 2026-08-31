@@ -21,7 +21,7 @@ When `parent_slug` points at a landscape topic AND that topic's `players.csv` ha
 
 1. Inherit the parent's `experts.csv`, per `../brain/phases/plan_phase_a.md` §1 "Three flows beyond a fresh topic".
 2. Read the parent's `players.csv` row for this competitor — it becomes Extract's starting frame, saving a rediscovery of positioning, URL, `monthly_visits` and the rest.
-3. Read the parent's summary sections that reference this competitor (the Players row plus any inline insights). These reach the Raw report writer as prior context, not as claims to re-cite.
+3. Read the parent's summary sections that reference this competitor (the Players row plus any inline insights). These reach the Source aggregator as prior context, not as claims to re-cite.
 4. This topic's `players.csv` lists the focal competitor plus its 3–5 nearest peers, drawn from the parent where available.
 
 No parent, or no matching row: research from scratch, no inheritance.
@@ -78,4 +78,4 @@ Same columns and the same player test as `landscape.md` §2. When chained from a
 
 ## 3. The rest
 
-`experts.csv`, `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged. `experts.csv` is inherited at the moment of branching when chained, and augmented during the run.
+`experts.csv`, `observations.md` and `audit.md` are the brain's, unchanged. `experts.csv` is inherited at the moment of branching when chained, and augmented during the run.

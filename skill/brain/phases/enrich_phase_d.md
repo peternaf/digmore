@@ -24,7 +24,7 @@ A search finds pages that match the query. This finds whatever a person worth li
 written, whether or not it matches anything the run thought to ask.
 
 **It runs first, and that is a real dependency rather than tidiness.** It changes the claim set, and
-both the candidate count below and the raw report in the phase after count what it added. Run it
+both the candidate count below and the merge in the phase after count what it added. Run it
 later and its claims land after the count and after the report, in a directory nothing reads again —
 they would reach no report at all.
 
@@ -129,8 +129,8 @@ Each Source Analyst wrote `full_source_analysis/<source>-players.json`: every en
 material named, how many of its documents named it, and one entry per claim with the handle that said
 it. Six files, and none of them has been read by anybody yet.
 
-The script reads all six, joins every claim's handle to its verdict in `<source>-handles.json`, drops
-what the run does not listen to, merges the six lists into one, recounts, and applies the floor. It
+The script reads every one, joins every claim's handle to its verdict in `<source>-handles.json`, drops
+what the run does not listen to, merges them into one, recounts, and applies the floor. It
 writes `digmore/<topic-slug>/player_candidates.json` and prints a summary.
 
 **A player is a candidate at `enrich.minPlayerDocuments` or more documents across all sources**,

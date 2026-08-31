@@ -4,14 +4,14 @@
 |---|---|
 | **Phase** | Extract `[2.2/6]`, and again in Enrichment `[4/6]` at its read sub-step — see §"Enrichment mode" |
 | **Purpose** | Turn one document into evidence: fetch it, strip it to readable text that keeps its structure, and pull out the checkable claims with the words the source used |
-| **Input text** | **the batch's URLs, numbered, in the order to read them** · **which of the six sources they belong to**, one word for the whole batch · the branch label, so the log lines and the fetch tally can be attributed · the sequential instruction. **In Enrichment**, the research question instead of a branch, and the path to that expert's vetting cache where the material is already there |
+| **Input text** | **the batch's URLs, numbered, in the order to read them** · **which source they belong to**, one word for the whole batch · the branch label, so the log lines and the fetch tally can be attributed · the sequential instruction. **In Enrichment**, the research question instead of a branch, and the path to that expert's vetting cache where the material is already there |
 | **Input rule files** | `subagents/page_analyst_agent/index.md` · that agent's `<source>.md` · `fetching.md` · `page_quality.md` · `output.md` |
 | **Input data files** | **none in Extract** — everything it needs it fetches. **In Enrichment**, that expert's vetting cache on Reddit and Hacker News |
 | **Runs** | per URL, one script for its source — `hackernews.mjs story`, `api.mjs twitter tweet`, or `fetch.mjs` on websearch and forums, paginating first and parsing second. WebFetch on a bot wall. One URL finished before the next is started. **Reddit is the one exception, and only for the fetch**: `api.mjs reddit thread` is called once with the whole batch's ids before any reading starts, because the endpoint takes a list — see `reddit.md`. The reading loop after it is the same one URL at a time. **In Enrichment on Reddit and Hacker News it may fetch nothing at all**, extracting from the vetting cache it was handed. Then `validate.mjs` once over the whole batch of receipts, one repair and one re-check |
 | **Settings that control it** | `extract.maxPagesPerDocument` — **this agent enforces it**; it bounds **each document individually, never the batch**, and a document is the one thing it can see. `extract.fetchesPerBranch` — **the orchestrator's**, totalled from the `pagesRead` on every receipt and enforced between waves; an agent holding one batch cannot see the branch's others, so it is never passed. `extract.urlsPerDispatch` — the orchestrator's too: it sizes the batch this agent is handed. `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure |
 | **Held in its context** | **one document at a time**, every page of it, and the claims it pulled out. Both go to disk; neither comes back, and neither is carried into the next URL of the batch |
 | **Returns to main context** | **the word `done`.** The `page-analyst` shape — an array, one receipt per URL — goes to `cache/_returns/page-analyst-<label>.json`, and the orchestrator reads it there |
-| **Writes to disk** | `cache/<source>/` — **two files per document, sharing one name**: the stripped page and its `<name>-claims.json`. Plus `cache/_returns/page-analyst-<label>.json`, one per batch |
+| **Writes to disk** | `cache/<source>/` — **two files per document, sharing one name**: the stripped page and its `<name>-claims.json`. Plus `cache/_returns/page-analyst-<label>.json`, one per batch. **Every claim in a claims file carries a `citeId` you mint** — see §"Every claim gets an id" |
 | **Logs** | `cache/_progress/page-analyst-<source>-<n>.log`, one per batch — `url <n> of <n>: <url>` · `fetching <url>` · `reading cached <filename>` · `fetching page <n> of <url>` · `<source> 429, backing off <n>s (attempt <n> of 3)` · on Reddit, `fetching <n> threads in one call` and `fetched <n> threads: <n> ok, <n> failed` around the batch fetch, so it is never mistaken for a hung agent |
 | **How it reports failure** | `outcome: blocked` on that URL's receipt when the page could not be read by either tool, and `fetchedWith` naming what was tried. **Per URL — the batch carries on.** A blocked page leaves nothing on disk, so its receipt is the only trace it was attempted |
 | **One dispatch per** | **one batch of up to `extract.urlsPerDispatch` URLs, all from one branch** — each a document, one URL or one post from Reddit, Hacker News or Twitter |
@@ -140,11 +140,29 @@ they do.
 
 Every claim carries a verbatim quote. A claim you cannot quote is one you drop.
 
+### Every claim gets an id
+
+**Mint a `citeId` on every claim you write: `<source>_<random hex>`, ten digits.** A *cite* is one
+claim in one page, which is exactly what an entry in your claims file is — so this is where the id is
+created, and nothing downstream mints another.
+
+**It is how the words are found again.** Nothing after you stores quote text: the Source Analyst
+merges on ids, the claim index carries ids, and the fact check resolves an id back to this file to get
+the quote. A claim merged from three pages used to keep one quote and attribute it to all three, and
+that is what these ids remove.
+
+**Never copy an id you have seen written down**, in an example or in another file. Two claims sharing
+one is the failure this replaces. Ten random hex digits, fresh each time.
+
+It only has to be unique inside the file you are writing — everything that resolves one already knows
+which page it came from.
+
 A claim is this shape — `page-claims` in `../../../scripts/subagent_returns.json`, and your source's
 file says what that source's material looks like:
 
 ```json
 {
+  "citeId":     "<source>_<ten random hex digits> — minted here, never copied",
   "claim":      "one checkable statement, one line",
   "quote":      "the words the source used, verbatim",
   "handle":     "u/foo — who said it, where the source has accounts",
@@ -182,7 +200,7 @@ recoverable from the filename; **on reddit, hackernews and twitter it is not in 
 because the script named that file and the name encodes an id. Leave it out there and the claim has no
 route back to the page on the web, which is what the report cites and what a reader clicks.
 
-The Source Analyst copies it onto every citation it draws from your file, and the Raw report writer
+The Source Analyst copies it onto every citation it draws from your file, and the Source aggregator
 carries it onto the merged claim. It travels the whole run on the strength of you writing it down
 once.
 
@@ -251,7 +269,7 @@ walled-and-redirected kind was anything the orchestrator could use.
 ### `pageNote` — what the document's standing is, on the claims file
 
 **On `page-claims`, not on the receipt**, because the two agents who need it never see a receipt: the
-**Source Analyst** reads every claims file its source produced, and the **Raw report writer** weighs
+**Source Analyst** reads every claims file its source produced, and the **Source aggregator** weighs
 citations against each other.
 
 What belongs here is anything that should qualify a claim taken from this page:
@@ -269,7 +287,7 @@ What belongs here is anything that should qualify a claim taken from this page:
 **Two things read your claims file, and nothing after Extract does.** The **Source Analyst** opens
 every one this source produced, to build that source's report, its handles and its entities. The
 **Player Profiler** follows references into a handful of them for one company's cells. Everything
-later works from the six per-source reports instead — the whole point of writing those is that no
+later works from the per-source reports instead — the whole point of writing those is that no
 agent ever opens several hundred claims files in one dispatch. Your **stripped page** has one more
 reader still: the **Claim Fact Checker**, at the very end, checking a rendered claim against the text
 you stored.

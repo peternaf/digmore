@@ -8,7 +8,7 @@ is against what the run already stored, and every repair goes back to evidence a
 
 **Three of the seven are conditional** — the repair and both redrafts run only when something needs
 them, so `[6.1/6]` followed by `[6.3/6]` is a normal run. They get a marker when they
-do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the
+do run because they are the longest silence in the phase: rebuilding the section rows and rewriting the
 summary, with nothing printed, reads as a run that has hung.
 
 **Re-enter at the sub-step, not at the top.** This phase holds up to five dispatch groups and rewrites
@@ -18,7 +18,7 @@ the deliverable three times, so re-running it whole is not cheap. `run_log.log` 
 | | Step | Who |
 |---|---|---|
 | `[6.1/6]` | **Review** — the draft against the request, the planned sections, the planned angles, and every claim carrying a source | the Final report reviewer |
-| `[6.2/6]` | **Repair**, only where the reviewer found a closable gap | the Raw report writer, then the Final report writer |
+| `[6.2/6]` | **Repair**, only where the reviewer found a closable gap | the Source aggregator, then the Final report writer |
 | `[6.3/6]` | **Copy edit** — read cold, flag, then fix with the full context | the Final report copy editor |
 | `[6.4/6]` | **Redraft · markers**, only where prose paragraphs came back unmarked | the Final report writer |
 | `[6.5/6]` | **Fact check** — every rendered claim against the cached text it came from | the Claim Fact Checker, one dispatch per range of paragraphs |
@@ -49,8 +49,8 @@ each as a gap. Judged per paragraph, never per sentence — `../output.md` puts 
 of the sentence **or** the paragraph, so a correctly cited three-sentence paragraph read sentence by
 sentence comes back with two false flags every time.
 
-**Also send it the dropped-subject list** from the Raw report writer's receipt. Claims cut by the
-verdict filter are gone from the raw report, so without it the reviewer's most confident finding is a
+**Also send it the dropped-subject list** from the Source aggregator's receipt. Claims cut by the
+verdict filter are gone from the index, so without it the reviewer's most confident finding is a
 gap the run already found and deliberately discarded.
 
 **Rule files: `../output.md`, and deliberately nothing else.** The command's reference file is
@@ -58,33 +58,52 @@ excluded on purpose — given the spec for what a report of this kind should con
 check conformance to it, which is a different question and would bury the thing it exists to catch: a
 report that answers a question nobody asked. `../sections.md` is out with it, for the same reason.
 
-**Data files: the draft summary, and nothing else.** Not the raw report, which would tell it what the
+**Data files: the draft summary, and nothing else.** Not the claim set, which would tell it what the
 run found rather than what it promised.
 
 **No draft on disk is a stop, not a review of nothing.** An empty verdict set and a draft that answers
 nothing look identical from here.
 
-## `[6.2/6]` Repair — only where a gap can be closed
+## `[6.2/6]` Repair — three outcomes, decided by a lookup
 
-Two outcomes and no third:
+There is one document between the aggregator and the writer now, so which of them owns a gap is
+answerable rather than guessed at.
 
 | The gap | What happens |
 |---|---|
-| the evidence is on disk — in a per-source report, or in the raw report and unused | re-dispatch the Raw report writer with the gap list, then the Final report writer. **One pass** |
-| nothing was ever gathered on it | recorded in `audit.md` under Unanswered and named in Issues. Never chased |
+| **a claim in `claim_index.json`** the draft skipped | re-dispatch the **Final report writer** over the sections it touches. The aggregator is not dispatched |
+| **a claim not in `claim_index.json`** | **dropped.** One `runlog.mjs finding claim-unused` line naming the gap and the terms searched. **Nothing in the report** — not Issues, not Unanswered |
+| **a missing or wrong row** in an invented section CSV or `promoter_network.csv` | re-dispatch the **Source aggregator**, CSV work only. **One pass** |
 
-**Both on-disk cases go down one path, because you cannot tell them apart.** Deciding whether the
-claim was in the raw report and the draft skipped it, or never reached the raw report at all, means
-reading both documents, and you hold neither in detail. The Raw report writer answers it by looking,
-since both are its own inputs. **It finding nothing to repair is a valid outcome, not a failed
-dispatch** — it means the evidence was already in the aggregate and the fault was the draft's. The
-redraft runs either way, over the sections the repair touched.
+**The aggregator is never re-dispatched for a claim.** It used to be, because nobody could tell
+whether the claim had reached the aggregate or the draft had skipped it — and by the step's own
+account the second was the common case, so most repairs paid for a full re-read of every source to
+discover nothing needed doing.
 
-**Repaired claims keep their ids.** The Raw report writer hands back a manifest of them and runs
-`synthesis.mjs index --append`, which continues the counter from the highest id already in the file
-rather than restarting. A repaired claim with no id is
-one the writer cannot mark and the fact check never receives — the newest material in the report would
-be the one part verification structurally could not reach.
+**The test is a search, not a membership check — and say so.** The reviewer describes a gap in prose;
+the Final report writer turns that into `read_claims_for_report --match` terms and runs it **once**.
+So *"not in `claim_index.json`"* means *"one search, with the terms the writer chose, found nothing"*.
+
+That fails differently from the other search in this phase, and the worse case has the quieter trace:
+
+| | a miss means | trace |
+|---|---|---|
+| `[6.4/6]` | a legitimate paragraph is cut | `paragraph-unmarked` records it |
+| `[6.2/6]` | **a gap the reviewer actually found is erased** | one `audit.md` line, and nothing in the report |
+
+That is the accepted trade. What makes it survivable is that the `audit.md` line **names the terms
+that were searched**, so the drop can be reconstructed rather than merely counted.
+
+**The repair introduces no claim.** It rebuilds rows from claims already indexed, so nothing re-runs
+`synthesis.mjs index` — there is no `--append` and the index is never added to after it is written.
+
+**Three things the repair settles, which used to be left to the agent:**
+
+- **Contradictions are not re-settled.** §3's judgement stands; a repair rebuilds rows, it does not
+  reopen which of two claims won.
+- **An enumerable CSV is rewritten whole**, from the claims the `--match` returned plus the rows
+  already in it. The aggregator is that file's only writer, so there is no one else's row to lose.
+- **Only the gap is re-read.** Steps 1 to 3 do not re-run; the merge is done and indexed.
 
 **Nothing fetches during rework.** Closing a gap by searching would mean a Branch Searcher, then a
 Page Analyst over what it found, then both writers again — a miniature Extract for one gap, late in the run, with
@@ -93,13 +112,18 @@ a new failure surface and a budget nothing bounds. The run says what it did not 
 **One pass, then record and stop.** An unbounded validation-and-repair loop is a defect marker in its
 own right, and one pass is the bound every other repair in this run carries.
 
+**`[6.2/6]` and `[6.4/6]` are not merged, and the copy edit between them is why.** `[6.4/6]` runs
+`factcheck.mjs prepare` on the **copy-edited** summary, because the copy editor rewrites prose and can
+lose a marker while doing it. Merging the two would mean moving the repair after the copy edit — and
+then the writer's additions would be the only un-copy-edited prose in the report.
+
 ## `[6.3/6]` Copy edit
 
 Dispatch ONE Final report copy editor. Its own file is
 `../subagents/final_report_copy_editor_agent.md`. It returns the `final-report-copy-editor` shape.
 
 **Two stages, and the order is the whole design.** It reads the summary cold and writes its flags to
-`cache/_misc/copy-editor-flags.md` before opening anything else; only then does it read the raw report
+`cache/_misc/copy-editor-flags.md` before opening anything else; only then does it read the claim listing
 and the CSVs and fix what it flagged. Detecting and fixing need opposite things — an agent with no
 context is the right instrument for "I cannot follow this sentence" and the wrong one for "here is
 what it should say instead".
@@ -128,6 +152,16 @@ index does not have.
 **Then send the writer the unmarked file, by path, once.** Its own file says what to do with each
 paragraph. **Name the path; do not paste the paragraphs** — that is the whole reason a script wrote
 them out.
+
+**It matches on the paragraphs' own distinctive words.** There is no gap description to search with
+here, but the writer composed those paragraphs from claims, so their wording overlaps: one
+`read_claims_for_report --match` call for the whole batch, with terms drawn from every paragraph in
+it. One call, as everywhere else — so the terms have to be generous.
+
+**Most of the list needs no search at all.** It is expected to be mostly innocent, and "this asserts
+nothing" is judged from the prose alone. What changes is that *"no claim behind it"* is now a
+judgement about what the search returned, which is the same trade `[6.2/6]` makes and fails the same
+safe way: a good paragraph is cut, nothing false ships, and `paragraph-unmarked` records it.
 
 **An unmarked paragraph is invisible to the whole rest of the run.** The fact check never receives it,
 because scope is what the markers say is there; and the reviewer passes it whenever it carries a link,
@@ -287,6 +321,21 @@ written as `.tmp` and renamed over the original, and the rename is a shell comma
 changes is that the document's text no longer passes through the shell to get there.
 
 ## `[6.7/6]` Record
+
+**First, record what the report did not use.**
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/factcheck.mjs" unused_claims --topic <slug>
+```
+
+It reads the finished summary's markers against `claim_index.json` and names every claim no paragraph
+renders. Put the count and the ids in with `runlog.mjs finding claim-unused`.
+
+**Why a script and not the writer's own list.** Every other actor records its discards — Enrichment
+names each excluded player, Vet keeps rejections in `<source>-handles.json`, Extract logs
+dropped-for-budget URLs — and the writer used to hand back its own. It read curated prose then; it
+reads the whole claim set now, so the list is computed from files that outlive the run rather than
+recalled from a context that does not.
 
 **Read the finished summary in full, here and nowhere earlier.** Two things need it and both are in
 this step: the terminal Answer block, and the follow-up ideas drawn from the summary's complaints and

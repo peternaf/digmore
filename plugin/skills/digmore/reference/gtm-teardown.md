@@ -35,7 +35,7 @@ With no API key this leaves Hacker News and the open web — still thin for a te
 Three phases carry command-specific weight:
 
 - **Vet** — heavy promoter-pattern vetting, and `promoter` / `spammer` verdicts are first-class findings here rather than a drop-list: a promoter identified is the deliverable, not a quote lost. Brand-mentioning handles are what `vet.handleCapPerSource` should be spent on, and they already rank high — a handle whose claims are central to a teardown's angles sits at the top of `<source>-handles.json` by construction.
-- **Synthesize** — the Raw report writer builds `promoter_network.csv` as a cross-source identity graph. It is the only actor holding all six per-source reports and the four handles files at once, which is what a row needs. Two handles are one person only where a profile said so, transcribed into the roster's labelled identifier fields — never because they look alike. Replies to insider promoters by `legit` handles are top-tier evidence.
+- **Synthesize** — the Source aggregator builds `promoter_network.csv` as a cross-source identity graph. It is the only actor holding all per-source reports and the four handles files at once, which is what a row needs. Two handles are one person only where a profile said so, transcribed into the roster's labelled identifier fields — never because they look alike. Replies to insider promoters by `legit` handles are top-tier evidence.
 - **Audit** — every "X did Y" tactic-attribution claim must resolve to a URL where Y is visible. There is no flag for one that does not: the fact check reads the cached page behind the claim, and a statement the page does not carry is deleted.
 
 ## 1. The summary
@@ -80,4 +80,4 @@ Written directly, not through `experts.mjs` — that script owns `experts.csv` a
 
 ## 3. The rest
 
-`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged.
+`experts.csv` here captures the non-conflicted observers who commented on the company's tactics; their critiques drive sections 7 and 10. `players.csv` is written only when chained from a landscape parent — focal company plus 3–5 nearest peers — and omitted otherwise. `observations.md` and `audit.md` are the brain's, unchanged.

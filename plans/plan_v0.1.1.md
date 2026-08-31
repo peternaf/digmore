@@ -814,3 +814,17 @@ Peter's, at the end.
 - [ ] No source's claim count exceeds 2× its pages analysed.
 - [ ] **The report still has content.** Two changes push `unsupported` up at once — quotes stop being mis-paired, so the fact check judges against correct evidence for the first time, and broader claims pass only if the whole statement is supported. Compare the fact check's deleted-statement count against the measured run before shipping.
 - [ ] `<slug>-raw-report.md` is not written.
+
+## L. A malformed manifest entry never stops the run
+
+- [ ] 77. `synthesis.mjs buildIndex` — **collect every problem rather than throwing at the first**. A failed entry leaves a stand-in so later positions keep their ids and `refutedByIndex` stays accurate. §A malformed manifest entry never stops the run
+- [ ] 78. `PROBLEMS_LISTED = 20` — spell out that many, then "and N more of the same kinds".
+- [ ] 79. **10 or fewer malformed on the first run: drop, record, carry on — no repair pass.** More than 10: the Source aggregator spends its one repair attempt on the list.
+- [ ] 80. **After the repair re-run, whatever is still malformed is dropped and the run carries on.** Never a second repair, never a stop.
+- [ ] 81. `indexAll` returns `dropped` — the count and the problem lines — and writes the index without the stand-ins.
+- [ ] 82. **Still fatal**: no manifest file · a manifest with no `claims` array · no final-results files at all. Those mean the step before did not run, and an empty index would look like a run that found nothing.
+- [ ] 83. `runlog.mjs` — new `claim-malformed` finding category, beside `claim-unsourced` and `claim-unused`.
+- [ ] 84. `source_aggregator_agent.md` — the repair pass covers a malformed-entry list, and `claimIndexError` is no longer reached by one; it stays for the structural failures in 82.
+- [ ] 85. `synthesize_phase_e.md` — the orchestrator records the drops with `runlog.mjs finding claim-malformed` and names them in Issues.
+- [ ] 86. `reporting.md:97` — name dropped claims among the Issues examples.
+- [ ] 87. Tests — several problems reported at once · the cap and the "and N more" line · 10 or fewer never triggers a repair · the stand-in keeps `refutedByIndex` accurate · the three structural failures still throw · `dropped` on the return.

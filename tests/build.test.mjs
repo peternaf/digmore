@@ -175,5 +175,5 @@ test('the plugin directory is not empty of the brain', () => {
   // brain/sources/ is gone: what a source looks like on disk is now per-agent, in the file the
   // agent working that source is actually sent.
   assert.ok(existsSync(join(brain, 'subagents', 'page_analyst_agent', 'local.md')));
-  assert.ok(existsSync(join(brain, 'subagents', 'raw_report_writer_agent.md')), 'the flat agent files ship too');
+  assert.ok(existsSync(join(brain, 'subagents', 'source_aggregator_agent.md')), 'the flat agent files ship too');
 });

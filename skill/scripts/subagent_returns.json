@@ -349,13 +349,13 @@
         },
         "notes": {
           "type": "string",
-          "description": "ONLY what changes the orchestrator's next move, and empty on almost every read: the URL served a different document than it promised, the host walled both tools. Nothing else. What a page says about its own reliability — undated, second-hand, sold by the party describing the problem — goes on the claims file as pageNote, where the Source Analyst and the Raw report writer actually read it; the orchestrator never weighs a citation and cannot act on it here. Never a summary of the claims, and never an account of the work. Measured: five of five sampled receipts filled this at 27-78 words, and only the walled-and-redirected kind was anything the orchestrator could act on."
+          "description": "ONLY what changes the orchestrator's next move, and empty on almost every read: the URL served a different document than it promised, the host walled both tools. Nothing else. What a page says about its own reliability — undated, second-hand, sold by the party describing the problem — goes on the claims file as pageNote, where the Source Analyst and the Source aggregator actually read it; the orchestrator never weighs a citation and cannot act on it here. Never a summary of the claims, and never an account of the work. Measured: five of five sampled receipts filled this at 27-78 words, and only the walled-and-redirected kind was anything the orchestrator could act on."
         }
       }
     }
   },
   "page-claims": {
-    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. Two things read it: the Source Analyst, which reads every one this source produced to build its three files, and the Player Profiler, which follows the references player_candidates.json gives it. Nothing downstream of Extract opens the directory - the Raw report writer works from the six per-source reports instead.",
+    "description": "The file a Page Analyst writes to <name>-claims.json beside the stripped page. Validated as a file rather than as a return, since it never enters the orchestrator's context. Two things read it: the Source Analyst, which reads every one this source produced to build its three files, and the Player Profiler, which follows the references player_candidates.json gives it. Nothing downstream of Extract opens the directory - the Source aggregator works from the six per-source reports instead.",
     "type": "object",
     "required": [
       "url",
@@ -369,7 +369,7 @@
       },
       "pageNote": {
         "type": "string",
-        "description": "OPTIONAL, and about this document's standing rather than its content: what a reader weighing a claim from it would want warned about. Undated. Figures are second-hand and the primary is not linked. The vendor sells the remedy it describes. Most of the surface this page covers sits on pages that were not read, so its coverage is partial. Read by the Source Analyst, which turns a coverage gap into an observation, and by the Raw report writer, which weighs it when two citations compete. It is NOT the receipt's notes field: that one carries only what the orchestrator must act on, and neither of these agents ever sees a receipt. Leave it out where the page is unremarkable."
+        "description": "OPTIONAL, and about this document's standing rather than its content: what a reader weighing a claim from it would want warned about. Undated. Figures are second-hand and the primary is not linked. The vendor sells the remedy it describes. Most of the surface this page covers sits on pages that were not read, so its coverage is partial. Read by the Source Analyst, which turns a coverage gap into an observation, and by the Source aggregator, which weighs it when two citations compete. It is NOT the receipt's notes field: that one carries only what the orchestrator must act on, and neither of these agents ever sees a receipt. Leave it out where the page is unremarkable."
       },
       "pageQuality": {
         "type": "string",
@@ -393,6 +393,7 @@
         "items": {
           "type": "object",
           "required": [
+            "citeId",
             "claim",
             "quote",
             "importance",
@@ -409,6 +410,10 @@
             }
           ],
           "properties": {
+            "citeId": {
+              "type": "string",
+              "description": "This claim's id, minted here and carried by everything downstream: <source>_<random hex>, ten digits. A cite is ONE claim in ONE page, which is exactly what an entry here is - so this is where the id belongs and nowhere else mints one. It only has to be unique inside this file, because every consumer resolves it through the citation's own cachedPage; uniqueBy on this array is that whole guarantee. Never copy an id you have seen written down - two pages sharing one is the failure this replaces."
+            },
             "claim": {
               "type": "string",
               "description": "One-line checkable statement."
@@ -448,12 +453,13 @@
               "description": "Required if kind=quantitative. E.g. 'M USD raised', 'monthly visits', 'requests/sec'."
             }
           }
-        }
+        },
+        "uniqueBy": "citeId"
       }
     }
   },
-  "source-raw-report": {
-    "description": "The file a Source Analyst writes to full_source_analysis/<source>-raw-report.json, one per source that pulled data. Validated as a file rather than as a return, since it never enters the orchestrator's context. It holds everything one source produced: its claims, deduplicated within that source, and the observations that are not claims. JSON rather than markdown because the verdict join, the citation filter and the scoring downstream are script work, and a script parsing prose fails quietly - a citation written slightly differently yields a dropped one, and a dropped citation looks exactly like a claim nobody made. The Raw report writer reads all six of these and nothing else.",
+  "source-preliminary-results": {
+    "description": "The file a Source Analyst writes to full_source_analysis/<source>-preliminary-results.json, one per source that pulled data. Validated as a file rather than as a return, since it never enters the orchestrator's context. It holds everything one source produced: its claims, deduplicated within that source, and the observations that are not claims. JSON rather than markdown because the verdict join, the citation filter and the scoring downstream are script work, and a script parsing prose fails quietly - a citation written slightly differently yields a dropped one, and a dropped citation looks exactly like a claim nobody made. The Source aggregator reads all six of these and nothing else.",
     "type": "object",
     "required": [
       "source",
@@ -474,12 +480,11 @@
       },
       "claims": {
         "type": "array",
-        "description": "Every claim this source produced, deduplicated WITHIN this source only. The same claim made in three of this source's threads is one entry with three citations. Merging ACROSS sources is not this agent's job - the Raw report writer does that, because it is the only actor holding all six files.",
+        "description": "Every claim this source produced, deduplicated WITHIN this source only. The same claim made in three of this source's threads is one entry with three citations. Merging ACROSS sources is not this agent's job - the Source aggregator does that, because it is the only actor holding all six files.",
         "items": {
           "type": "object",
           "required": [
             "claim",
-            "quote",
             "importance",
             "kind",
             "citations"
@@ -497,11 +502,7 @@
           "properties": {
             "claim": {
               "type": "string",
-              "description": "One-line checkable statement."
-            },
-            "quote": {
-              "type": "string",
-              "description": "Verbatim supporting quote, exactly as the source wrote it. Compared character by character against a live page when the claim is fact-checked, so it must survive storage unaltered."
+              "description": "One checkable statement, stated at the level the citations behind it jointly support. Where several pages say the same thing in different words, this is the one statement that covers all of them, not the narrowest of them and not one entry per wording. Two claims are the same claim when the piece of data is duplicated - different words for the same fact is one claim with several citations. A statement no single page makes is not a claim at all; it belongs in observations."
             },
             "importance": {
               "type": "string",
@@ -537,9 +538,14 @@
               "items": {
                 "type": "object",
                 "required": [
+                  "citeId",
                   "cachedPage"
                 ],
                 "properties": {
+                  "citeId": {
+                    "type": "string",
+                    "description": "The cite this citation is, copied from the page's <name>-claims.json. It is how the quote is found: this citation's cachedPage names the page, the page's stem names the claims file, and this id names the entry in it. No quote text is stored here or anywhere else outside that file."
+                  },
                   "cachedPage": {
                     "type": "string",
                     "description": "The stored page this citation was read from, relative to the topic directory: cache/websearch/mux.com_pricing.md, cache/reddit/reddit-thread-1a2b3c.json. The PAGE, not the claims file beside it - the claims file is always <stem>-claims.json and so derivable, while the page is not, because its extension varies by source. It is in no file you were given: you are the only agent reading cache/<source>/, where the pair sits side by side, so you work it out. This is the file the fact check reads the claim against, and since nothing re-fetches, it is the whole basis of verification."
@@ -564,6 +570,10 @@
                       "unreliable"
                     ],
                     "description": "The page quality of the document this citation came from. Kept per citation, not per claim, because merged citations can differ."
+                  },
+                  "representative": {
+                    "type": "boolean",
+                    "description": "True on EXACTLY ONE citation per claim: the quote the report renders, and the only one the Final report writer is ever shown. Pick the highest pageQuality, breaking ties on which quote states the claim most completely. synthesis.mjs join re-elects the highest-pageQuality survivor if the verdict filter drops the one you flagged."
                   }
                 }
               }
@@ -572,8 +582,11 @@
         }
       },
       "observations": {
-        "type": "string",
-        "description": "Markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers, and the coverage gaps this source's own material revealed. The rule that it must not re-list the claims governs THIS FIELD ONLY - it was written when the notes were this agent's only output about content, and does not forbid the claims array beside it."
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "description": "What no single-document reader could have seen, one entry per observation, at most extract.observationsPerDispatch of them. Recurring tone, a mood that shifts over time, one person contradicting themselves, a question everyone asks and nobody answers. A claim is a statement a page makes; an observation is a statement about the material that no single page makes - so \"the same argument in three threads\" is a CLAIM with three citations, not an observation. No citations and no quotes: some observations exist precisely because there is nothing to cite. Coverage gaps are not observations - they are about the run rather than the subject, and go to audit.md through runlog.mjs finding."
       }
     }
   },
@@ -720,7 +733,7 @@
               "items": {
                 "type": "string"
               },
-              "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labelled fields exist because experts.mjs infers nothing: every column arrives as a flag, so a labelled field is a copy and an unlabelled bag is an interpretation somebody downstream has to make with less information than the agent that read the profile had. This array is the remainder, and a person whose links all land here is a person experts.csv cannot match on. These fields replace an earlier single statedIdentifiers array of strings, which three agents typed three different ways and which put 26 wrong rows into one run's handles files. They are also the only store there is: experts.csv takes legit people alone, so without them a promoter's linked accounts are read and thrown away, and the Raw report writer cannot tell that u/foo, hn/foo and @foo are one person when it builds promoter_network.csv."
+              "description": "IDENTIFIER — everything the profile printed that fits no column above, verbatim. The labelled fields exist because experts.mjs infers nothing: every column arrives as a flag, so a labelled field is a copy and an unlabelled bag is an interpretation somebody downstream has to make with less information than the agent that read the profile had. This array is the remainder, and a person whose links all land here is a person experts.csv cannot match on. These fields replace an earlier single statedIdentifiers array of strings, which three agents typed three different ways and which put 26 wrong rows into one run's handles files. They are also the only store there is: experts.csv takes legit people alone, so without them a promoter's linked accounts are read and thrown away, and the Source aggregator cannot tell that u/foo, hn/foo and @foo are one person when it builds promoter_network.csv."
             }
           }
         }
@@ -1016,8 +1029,8 @@
       }
     }
   },
-  "raw-report-writer": {
-    "description": "Returned by the Raw report writer, once in Synthesize and once more in Audit when the reviewer finds a closable gap. A receipt of counts and of what it deleted - never the claim set, which is on disk in <slug>-raw-report.md and claim_index.json. Two of its lists exist because nothing else can carry them: this agent runs in a phase where audit.md is not yet being written, and it is gone by the time it is.",
+  "source-aggregator": {
+    "description": "Returned by the Source aggregator, once in Synthesize and once more in Audit when the reviewer finds a closable gap. A receipt of counts and of what it deleted - never the claim set, which is on disk in claim_index.json. Two of its lists exist because nothing else can carry them: this agent runs in a phase where audit.md is not yet being written, and it is gone by the time it is.",
     "type": "object",
     "required": [
       "claimsSurviving",
@@ -1030,7 +1043,7 @@
       "claimsSurviving": {
         "type": "integer",
         "minimum": 0,
-        "description": "Merged claims written to the raw report and the claim index."
+        "description": "Merged claims written to the claim index."
       },
       "claimsMerged": {
         "type": "integer",
@@ -1074,7 +1087,7 @@
             },
             "sourceReport": {
               "type": "string",
-              "description": "Which <source>-raw-report.json it arrived on."
+              "description": "Which <source>-preliminary-results.json it arrived on."
             }
           }
         }
@@ -1100,12 +1113,12 @@
       },
       "claimIndexError": {
         "type": "string",
-        "description": "Present only when claim_index.json still failed its check after the one repair attempt. A malformed index is not a bad section - it is a fact check that silently checks nothing, so the failure is reported rather than swallowed."
+        "description": "Present only when claim_index.json still failed its check after the one repair attempt. index runs FOURTH in this agent's order, before observations.md and before any CSV, so this failure means none of them were written - not a report missing a section, but a pass that produced nothing after the manifest. A fact check that silently checks nothing is the reason it is reported rather than swallowed."
       }
     }
   },
   "merge-manifest": {
-    "description": "What the Raw report writer hands back instead of claim_index.json, written to cache/_returns/raw-report-writer-manifest.json. `synthesis.mjs index` expands it into the index. It exists because every field of claim_index.json except the merged claim text and the refutation is a copy, a maximum or a counter: the citations are the bulk of that file and each one is copied verbatim from <source>-joined.json. A run measured twelve minutes emitting the index as model output, hitting the output limit part-way and restarting in batches — dozens of write calls with no heartbeat between them, against a stuck-agent check that kills at ten. Retyping the quotes was also a correctness risk, since the fact check compares the report against the cached page and a drifted quote sends it to the wrong evidence. What stays the agent's is the judgement: which source claims are one claim, what that claim says, and which of two contradicting claims won.",
+    "description": "What the Source aggregator hands back instead of claim_index.json, written to cache/_returns/source-aggregator-manifest.json. `synthesis.mjs index` expands it into the index. It exists because every field of claim_index.json except the merged claim text and the refutation is a copy, a maximum or a counter: the citations are the bulk of that file and each one is copied verbatim from <source>-final-results.json. A run measured twelve minutes emitting the index as model output, hitting the output limit part-way and restarting in batches — dozens of write calls with no heartbeat between them, against a stuck-agent check that kills at ten. Retyping the quotes was also a correctness risk, since the fact check compares the report against the cached page and a drifted quote sends it to the wrong evidence. What stays the agent's is the judgement: which source claims are one claim, what that claim says, and which of two contradicting claims won.",
     "type": "object",
     "required": [
       "claims"
@@ -1122,7 +1135,7 @@
           "properties": {
             "claim": {
               "type": "string",
-              "description": "The merged one-line checkable statement, **only where several source claims merged into one**. Leave it out where nothing merged: the source claim already says what it says, and `synthesis.mjs index` copies its text across. Making the agent retype every unmerged claim was 80% of what the manifest cost, and the fact check uses this as the KEY to find which sentence of the summary renders it, never as the text being checked."
+              "description": "The merged checkable statement, **only where several source claims merged into one**. Leave it out where nothing merged: the source claim already says what it says, and `synthesis.mjs index` copies its text across. Making the agent retype every unmerged claim was 80% of what the manifest cost, and the fact check uses this as the KEY to find which sentence of the summary renders it, never as the text being checked."
             },
             "from": {
               "type": "array",
@@ -1145,7 +1158,7 @@
                       "forums",
                       "local"
                     ],
-                    "description": "Which <source>-joined.json the claim is in."
+                    "description": "Which <source>-final-results.json the claim is in."
                   },
                   "index": {
                     "type": "integer",
@@ -1154,6 +1167,10 @@
                   }
                 }
               }
+            },
+            "representativeFrom": {
+              "type": "string",
+              "description": "Which source claim's representative citation becomes this merged claim's - carrying the `from` reference itself, \"reddit[41]\", exactly as read_source_claims printed it. A value rather than a position, unlike refutedByIndex beside it: `from`'s entries are already stable identifiers that exist before this file is written, so there is nothing to count and index can check the value is a member of this entry's own `from`. Omit it and the highest-pageQuality citation's representative wins."
             },
             "refutedByIndex": {
               "type": "integer",
@@ -1170,7 +1187,7 @@
     }
   },
   "claim-index": {
-    "description": "claim_index.json at the topic root, written by `synthesis.mjs index` from the Raw report writer's merge manifest, alongside <slug>-raw-report.md. Validated as a file rather than as a return, since it never enters the orchestrator's context whole. It and the raw report still cannot drift: both come out of one agent, one merge and one context, and the only change is that this one is expanded from the manifest by a script rather than typed out. It is the one new file in a run that a script can check, and it is the one most worth checking: the fact check's dispatches are built from it, the claim texts split the summary's paragraphs, and the refuted section renders off it. Never edited after it is written, with one exception - the repair pass appends, continuing the counter from the highest id already there rather than restarting.",
+    "description": "claim_index.json at the topic root, written by `synthesis.mjs index` from the Source aggregator's merge manifest. Validated as a file rather than as a return, since it never enters the orchestrator's context whole. It cannot drift from the merge that produced it: it comes out of one agent, one merge and one context, and the only change is that this one is expanded from the manifest by a script rather than typed out. It is the one new file in a run that a script can check, and it is the one most worth checking: the fact check's dispatches are built from it, the claim texts split the summary's paragraphs, and the refuted section renders off it. Never edited after it is written, with one exception - the repair pass appends, continuing the counter from the highest id already there rather than restarting.",
     "type": "object",
     "required": [
       "claims"
@@ -1226,15 +1243,15 @@
               "items": {
                 "type": "object",
                 "required": [
-                  "quote",
+                  "citeId",
                   "url",
                   "cachedPage",
                   "status"
                 ],
                 "properties": {
-                  "quote": {
+                  "citeId": {
                     "type": "string",
-                    "description": "Verbatim, exactly as the source wrote it."
+                    "description": "The cite this citation is. factcheck.mjs serve resolves it to the quote: this citation's cachedPage names the page, the page's stem names its <name>-claims.json, and this id names the entry there. The quote is never stored here - it is written once, by the agent that read the page, and everything after carries the id."
                   },
                   "url": {
                     "type": "string",
@@ -1271,6 +1288,10 @@
                       "unreliable"
                     ],
                     "description": "This citation's own page, which can differ from the merged claim's."
+                  },
+                  "representative": {
+                    "type": "boolean",
+                    "description": "True on exactly one citation per claim - the quote the report renders. Set by synthesis.mjs index from the manifest's representativeFrom, or from the highest-pageQuality citation where that field was omitted."
                   }
                 }
               }
@@ -1309,7 +1330,7 @@
         "items": {
           "type": "string"
         },
-        "description": "Sections carrying no citation with a legit verdict. Each opens with a line saying so in the summary itself, and the same fact reaches the terminal in the run's Issues. The word is 'vetted', never 'verified': every claim in the report IS verified, and writing 'unverified' would tell the reader we shipped claims we had not checked."
+        "description": "Sections carrying no citation with a legit verdict. Each opens with a line saying so in the summary itself, and the same fact reaches the terminal in the run's Issues. The word is 'vetted', never 'verified': every claim in the report IS verified, and writing 'unverified' would tell the reader we shipped claims we had not checked. The observation section is excluded: it carries no citations by design, so the check does not apply to it."
       },
       "unresolved": {
         "type": "array",
@@ -1375,7 +1396,7 @@
       },
       "unsourced": {
         "type": "array",
-        "description": "One entry per fact the draft states and cannot back. This is the only place a fabrication by the writer can be caught: the Raw report writer deletes unsourced claims, but that guards the INPUT to drafting, and a sentence composed from nothing arrives after it. Judged per paragraph, never per sentence - the citation sits at the end of the sentence OR the paragraph, so a correctly cited three-sentence paragraph read sentence by sentence comes back with two false flags every time.",
+        "description": "One entry per fact the draft states and cannot back. This is the only place a fabrication by the writer can be caught: the Source aggregator deletes unsourced claims, but that guards the INPUT to drafting, and a sentence composed from nothing arrives after it. Judged per paragraph, never per sentence - the citation sits at the end of the sentence OR the paragraph, so a correctly cited three-sentence paragraph read sentence by sentence comes back with two false flags every time.",
         "items": {
           "type": "object",
           "required": [

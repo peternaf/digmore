@@ -65,6 +65,7 @@ test('the fast block lists every configuration group, not only the ones it reduc
   assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
   assert.equal(extract.urlsPerDispatch, 5);
+  assert.equal(extract.observationsPerDispatch, 6);
   assert.equal(vet.handleCapPerSource, 20);
   assert.equal(vet.handlesPerDispatch, 10);
   assert.equal(twitter.handlesPerDispatch, 5, 'Twitter batches smaller — a deep vet reads its posts');
@@ -92,6 +93,9 @@ test('every batch size is the same in both modes', () => {
   run('show');
   const { extract, vet, twitter, fast } = settings();
   assert.equal(fast.extract.urlsPerDispatch, extract.urlsPerDispatch);
+  // Fast already gives each source less material to observe, and the agent has read all of it
+  // either way; writing six lines instead of three costs nothing it has not already paid.
+  assert.equal(fast.extract.observationsPerDispatch, extract.observationsPerDispatch);
   assert.equal(fast.vet.handlesPerDispatch, vet.handlesPerDispatch);
   // Twitter keeps its lower batch even in fast, where handlesDeepVetted is 0 and no posts are
   // read — a second conditional to win back a handful of dispatches is not worth the branch.

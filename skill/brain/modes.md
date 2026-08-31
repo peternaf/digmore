@@ -66,7 +66,7 @@ The configurations it prints, and what each bounds:
 | Group | Configurations |
 |---|---|
 | `plan` | `minAngles`, `maxAngles`, `scopingSearches` |
-| `extract` | `fetchesPerBranch`, `maxPagesPerDocument`, `urlsPerDispatch` |
+| `extract` | `fetchesPerBranch`, `maxPagesPerDocument`, `urlsPerDispatch`, `observationsPerDispatch` |
 | `vet` | `handleCapPerSource`, `handlesPerDispatch` |
 | `enrich` | `expertsFollowed`, `urlsPerExpert` |
 | `twitter` | `handlesDeepVetted`, `postsPerDeepVet`, `handlesPerDispatch` |
@@ -122,7 +122,7 @@ Print, after `[5.2/6]` finishes and before any `[6.x/6]` marker:
   | | |
   |---|---|
   | Review | the draft against the plan — every declared section present, nothing answering a question nobody asked |
-  | Repair | where the review found a gap the evidence can close, the raw report is rebuilt around it |
+  | Repair | where the review found a gap the evidence can close, the aggregator rebuilds the section rows it names |
   | Copy edit | duplicate ideas removed, sentences tightened, every removal reported by `claimId` |
   | Fact check | every claim the report renders, held against the quotes and pages the run stored; unsupported statements are deleted |
 

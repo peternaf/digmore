@@ -1,12 +1,12 @@
 # Writing style — every output, no exceptions
 
-Every piece of text you produce — the summary, `<slug>-raw-report.md`, `audit.md`, brain files, `research_plan.json` fields, command stdout messages, mid-run prompts to the user, sub-agent reports — follows the same rules:
+Every piece of text you produce — the summary, `observations.md`, `audit.md`, brain files, `research_plan.json` fields, command stdout messages, mid-run prompts to the user, sub-agent reports — follows the same rules:
 
 1. **Concrete.** Specific facts, numbers, names, URLs. No vague language ("many", "various", "significant") when a concrete number is knowable.
 2. **Plain, concise, no fluff, no jargon.** Shortest version that conveys the meaning; if a sentence can be cut without losing information, cut it. No throat-clearing ("It's worth noting that..."), no hedging filler ("perhaps", "potentially", "it seems"), no transitional padding, no recapping, no "in summary" sentences, no marketing-style adjectives ("robust", "seamless", "powerful"). No internal jargon either — codebase terms, tier names, signal names, parameter names, design-doc terminology — unless explained inline on first use. A reader of the summary should follow it without having read the design doc, brain files, or scripts. "The script flagged the user as a promoter because URL host repeated 5 times" is bad; "the user shared the same link 5 times across recent posts, which we counted as promotional" is good. If certain, say it; if uncertain, say so with the reason. **Banned LLM-reflexes:** "load-bearing", "category-level", "X-shaped", "X-lens", "thesis", "adoption gate", "founder-lens" — they sound analytical without being clear. Bad: *"Conntour's 50 feeds per RTX 4090 is the load-bearing economic claim of the AI-camera-search thesis."* Good: *"Conntour says one RTX 4090 can analyze 50 camera streams; that single unverified number is what their $7M raise rests on. If it's wrong, the category isn't fundable."*
 3. **Minimal formatting.** Plain prose by default. Use a header, table, or bullet list only when the content's structure genuinely demands it. No emoji. No bold for emphasis on every other word.
 4. **Accurate.** Every non-obvious factual claim cites an inline URL. No fabricated numbers, names, or quotes. If a fact isn't in the cached sources, the claim doesn't appear in the output.
-5. **No claim-without-source.** "Cite-or-drop" is non-negotiable. If a quote can't be tied to a URL, drop the quote.
+5. **No claim-without-source.** "Cite-or-drop" is non-negotiable. If a quote can't be tied to a URL, drop the quote. **One exception, and only one: the summary's last section, "LLM free-flow observations", carries no citations by design** — it holds what the run noticed across sources, which no single page states, and it is marked as unverified where it sits. Nothing else in any output is exempt.
 
 This rule applies *at output time*, not just in final deliverables. A sub-agent that reports findings back to the orchestrator follows the same rules. A mid-run message the command writes to the user follows the same rules. There is no "informal" mode.
 
@@ -39,7 +39,9 @@ This file is style, and only style — it is the one you re-read constantly, so 
 
 That is a kind of document, not just a filename. It is written for someone who has to decide something and will not read the sources — a founder, an operator, a board member. So it leads with what is true and what follows from it, and every section earns its place by changing a decision. Background the reader can infer, methodology, and the story of how the research went do not belong in it; the findings, the numbers, the disagreements and the gaps do. The reader should be able to act after the first screen and read the rest only to check the work.
 
-Depth without shape belongs in `<slug>-raw-report.md`, which is the LLM-facing record and has no length limit.
+Depth without shape still has to acquire shape. **The summary is the record and has no length
+limit** — there is no second document to overflow into, so a finding with nowhere else to go belongs
+here, given a heading and a place in the argument. What is banned is formlessness, never length.
 
 This governs anyone who writes or rewrites the summary, not only whoever drafts it first.
 

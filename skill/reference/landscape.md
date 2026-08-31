@@ -67,9 +67,8 @@ Sections in this exact order.
 
 8. **Refuted / unsubstantiated** — claims that didn't survive Audit. Kill reason + original source URL.
 
-9. **Jargon** — recurring terms + meaning.
 
-10. **Run footer** — per `../brain/reporting.md`.
+9. **Run footer** — per `../brain/reporting.md`.
 
 ## 2. `players.csv` — full player matrix
 
@@ -77,9 +76,9 @@ Wide-table CSV of every player × every dimension. Renders cleanly in a spreadsh
 
 **Who counts as a player.** A player is anyone whose product, platform, or service the user would have to know about to operate in this market — competitors, the platforms users ship into, the channels they distribute through, the integrators who package their work, and incumbents reaching in from adjacent markets. The test: does what this entity ships, charges, or roadmaps materially affect a builder in this market? If yes, it's a player. Being "the platform users build on" is NOT a reason to exclude — if it also ships first-party products in the same space, it's a player too.
 
-**Inclusion cross-check — it happens in Enrichment, and a script does the counting.** `players.mjs candidates` reads all six `<source>-players.json`, joins each claim's handle to its verdict, drops what the run does not listen to, recounts documents per entity across every source and applies the `enrich.minPlayerDocuments` floor. Its output *is* the list of entities that qualified: same inputs, same candidates, every run.
+**Inclusion cross-check — it happens in Enrichment, and a script does the counting.** `players.mjs candidates` reads every `<source>-players.json`, joins each claim's handle to its verdict, drops what the run does not listen to, recounts documents per entity across every source and applies the `enrich.minPlayerDocuments` floor. Its output *is* the list of entities that qualified: same inputs, same candidates, every run.
 
-So the cross-check is not a pass run before finalizing, and it cannot read the raw report — that file does not exist yet when the rows are chosen (`../brain/phases/enrich_phase_d.md`). What is left of it is the rule on either side of the script:
+So the cross-check is not a pass run before finalizing, and it cannot read the claim sett — that file does not exist yet when the rows are chosen (`../brain/phases/enrich_phase_d.md`). What is left of it is the rule on either side of the script:
 
 - **Every candidate is a row in `players.csv` or excluded on purpose**, and every exclusion is written into `audit.md` with the entity and the reason.
 - **Rows may be cut from the candidate list, never added below the floor.** An entity you would have named that did not reach the floor did not earn a row, whatever you know about it from elsewhere — it is a known-gap for `audit.md`, not a row invented at drafting time.
@@ -105,4 +104,4 @@ Optional columns the run may add when surfaced (decide per-topic):
 
 ## 3. The rest
 
-`experts.csv`, `<slug>-raw-report.md` and `audit.md` are the brain's, unchanged — see `../brain/vetting.md` and `../brain/phases/`. `<slug>-raw-report.md` carries every datapoint as a structured claim, with no per-source cap.
+`experts.csv`, `observations.md` and `audit.md` are the brain's, unchanged — see `../brain/vetting.md` and `../brain/phases/`. `claim_index.json` carries every datapoint as a structured claim, with no per-source cap.
