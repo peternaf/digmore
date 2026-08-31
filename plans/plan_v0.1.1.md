@@ -885,3 +885,34 @@ leaves the orchestrator's context
 
 **Settled, not deferred:** `marketing_domain` stops being a field. Two columns remove the ambiguity
 that named it, so the field is `url` and there is no transform to keep. See §And with two columns.
+
+## N. What the first full V0.1.2 run found
+
+Measured on `digmore-test/digmore/coding-harness-plugin-evals`. **Section M is not implicated** — the
+profile merge did not exist in that run. §What the first full V0.1.2 run found
+
+- [ ] 111. **`page_analyst_agent/index.md` — validate every claims file**, `validate.mjs page-claims`, per document, one repair, one re-check. Its only `validate.mjs` call today is on the receipt batch, which is why 23 files reached disk as a bare JSON array.
+- [ ] 112. **State the claims filename exactly** — the page's filename **including its extension**, plus `-claims.json`. *"Two files per document, sharing one name"* let two agents each invent a form.
+- [ ] 113. **`synthesis.mjs claimsFileFor` accepts both forms** — full filename first, then stem. Caches on disk carry both.
+- [ ] 114. **`factcheck.mjs serve` returns `null`, not `''`, for an unresolved quote.** An empty string reads as a quote that says nothing, and the checker judges the quotes first.
+- [ ] 115. **`synthesis.mjs index` resolves every citation after building the index** and reports the count. **No new script** — `quoteResolver` is already in that file, and this surfaces at the write rather than in Audit.
+- [ ] 116. **`factcheck.mjs` — strip a leading `<digits>.` before the `UNCHECKED_SECTIONS` compare.** Every heading is `## 10. LLM free-flow observations`, so the guard has never fired.
+- [ ] 117. **Rename `factcheck-paragraph` → `factcheck-paragraph-workorder`** — it is the work order `serve` hands out, not a result; 15 dispatches validated returns against it. `claim-fact-checker` stays. Touches `subagent_returns.json`, `factcheck.mjs`, `claim_fact_checker_agent.md`, `audit_phase_f.md`, tests.
+- [ ] 118. Tests — a bare-array claims file is refused · both filename forms resolve · an unresolved quote is `null` · `index` reports the unresolved count · a numbered heading is excluded · the renamed shape.
+
+## O. Links and the confidence tag in the summary
+
+Four sections of the measured run carry no links at all — 35 paragraphs whose evidence is in an
+invisible HTML comment. §Four sections of the report carry no links
+
+- [ ] 119. **Inline `output.md`'s citation rule into the Final report writer's dispatch**, beside the per-section specs. `synthesize_phase_e.md:119-122` already says why a pointed-at file loses to inlined text. §Why the universal rule lost
+- [ ] 120. **`landscape.md` §2 preamble states it once, for every section**, with the render format: the representative's URL, then the next-highest `pageQuality`, then `+N more` for the remainder; omit the suffix where there is none. **A section's own spec adds to this, never replaces it.** §How many URLs a claim renders
+- [ ] 121. **Delete the URL clause from `landscape.md` §6 and §8** — §6 keeps "handle + verdict", §8 keeps "kill reason". Two sections restating a universal rule made the other four sections' silence read as permission.
+- [ ] 122. **The same preamble line in `competitor.md`, `general-inquiry.md`, `gtm-teardown.md`**, or a pointer to it, so the gap cannot reopen per command.
+- [ ] 123. **Spell the confidence tag out — `` `confidence: high` ``**, wherever it renders. `vetting.md` defines it; nothing in the report explains it. §The confidence tag is unexplained jargon
+- [ ] 124. **`factcheck.mjs prepare` flags a paragraph carrying a claim marker and no `](http`.** A script check: the reviewer's rule is already right and its agent accepted the marker as a citation anyway. §Why the universal rule lost
+- [ ] 125. Tests — the two-link-plus-remainder format · the suffix omitted at one and two citations · a marked paragraph with no link is flagged.
+
+## P. Repairing the existing run
+
+- [ ] 126. **Add the missing links with a script, not a writer pass.** Ids are in the markers, `claim_index.json` holds every URL and `pageQuality`, so the transform is mechanical. An agent rewriting 35 paragraphs re-words some, and a wording change reopens the fact check. §Repairing this run

@@ -45,6 +45,11 @@ Phase weights: Extract and Synthesize carry the most signal. Vet is usually chea
 
 Sections in this exact order.
 
+**Every finding in every section carries its inline URL**, rendered as `landscape.md` §1 specifies —
+the representative citation's URL, then the next-highest `pageQuality`, then `+N more` for the
+remainder. The confidence tag spells its word out: `` `confidence: high` ``. A section's own spec
+below adds to this; none of them replaces it.
+
 1. **Verdict** — three to five short bullets total:
    - **Moat** — what protects this competitor (network effect, data lock-in, distribution, IP, brand, capital). One line each. If no moat is identifiable, say so.
    - **Wedge** — where a new entrant could attack (under-served segment, pricing gap, product weakness). One or two specific openings.

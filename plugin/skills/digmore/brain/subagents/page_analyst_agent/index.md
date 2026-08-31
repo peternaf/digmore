@@ -7,7 +7,7 @@
 | **Input text** | **the batch's URLs, numbered, in the order to read them** · **which source they belong to**, one word for the whole batch · the branch label, so the log lines and the fetch tally can be attributed · the sequential instruction. **In Enrichment**, the research question instead of a branch, and the path to that expert's vetting cache where the material is already there |
 | **Input rule files** | `subagents/page_analyst_agent/index.md` · that agent's `<source>.md` · `fetching.md` · `page_quality.md` · `output.md` |
 | **Input data files** | **none in Extract** — everything it needs it fetches. **In Enrichment**, that expert's vetting cache on Reddit and Hacker News |
-| **Runs** | per URL, one script for its source — `hackernews.mjs story`, `api.mjs twitter tweet`, or `fetch.mjs` on websearch and forums, paginating first and parsing second. WebFetch on a bot wall. One URL finished before the next is started. **Reddit is the one exception, and only for the fetch**: `api.mjs reddit thread` is called once with the whole batch's ids before any reading starts, because the endpoint takes a list — see `reddit.md`. The reading loop after it is the same one URL at a time. **In Enrichment on Reddit and Hacker News it may fetch nothing at all**, extracting from the vetting cache it was handed. Then `validate.mjs` once over the whole batch of receipts, one repair and one re-check |
+| **Runs** | per URL, one script for its source — `hackernews.mjs story`, `api.mjs twitter tweet`, or `fetch.mjs` on websearch and forums, paginating first and parsing second. WebFetch on a bot wall. One URL finished before the next is started. **Reddit is the one exception, and only for the fetch**: `api.mjs reddit thread` is called once with the whole batch's ids before any reading starts, because the endpoint takes a list — see `reddit.md`. The reading loop after it is the same one URL at a time. **In Enrichment on Reddit and Hacker News it may fetch nothing at all**, extracting from the vetting cache it was handed. `validate.mjs page-claims` on each claims file as you write it, one repair and one re-check — then `validate.mjs` once over the whole batch of receipts, the same way |
 | **Settings that control it** | `extract.maxPagesPerDocument` — **this agent enforces it**; it bounds **each document individually, never the batch**, and a document is the one thing it can see. `extract.fetchesPerBranch` — **the orchestrator's**, totalled from the `pagesRead` on every receipt and enforced between waves; an agent holding one batch cannot see the branch's others, so it is never passed. `extract.urlsPerDispatch` — the orchestrator's too: it sizes the batch this agent is handed. `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure |
 | **Held in its context** | **one document at a time**, every page of it, and the claims it pulled out. Both go to disk; neither comes back, and neither is carried into the next URL of the batch |
 | **Returns to main context** | **the word `done`.** The `page-analyst` shape — an array, one receipt per URL — goes to `cache/_returns/page-analyst-<label>.json`, and the orchestrator reads it there |
@@ -221,10 +221,23 @@ vendor pricing page are not judged the same way.
 | `<name>.md` — or the script's own file, on the three scripted sources | the whole document: stripped markdown, all pages merged |
 | `<name>-claims.json` | what you pulled out of it, each claim with its quote and its handle — the `page-claims` shape |
 
-`<name>` is what `fetch.mjs` derived from the URL, or what the source's own script called its file.
-Your source's file gives the exact pair.
+**`<name>` is the page's filename with its extension** — what `fetch.mjs` derived from the URL, or
+what the source's own script called its file. Take that name, strip the extension, add
+`-claims.json`: `foo_SKILL.md` → `foo_SKILL-claims.json`, `reddit-thread-1a2b3c.json` →
+`reddit-thread-1a2b3c-claims.json`.
+
+**Strip the extension. Do not append to the whole filename.** A measured run produced both forms —
+`foo_SKILL.md-claims.json` beside `bar-claims.json` — and every citation into the pages named the
+first way resolved to nothing, because the resolver derives the stem. The page was on disk the whole
+time, so the failure read as the script being broken. Your source's file gives the exact pair.
 
 Per **document**, not per page: eight pages make one pair, not eight.
+
+**Validate each claims file as you write it** — `validate.mjs page-claims`, one repair, one re-check,
+before you start the next URL. It is the `page-claims` shape: an object with `url`, `pageQuality` and
+a `claims` array, **not a bare array of claims**. A measured run put 23 bare arrays on disk and
+nothing looked, so every citation into them resolved to nothing for the rest of the run. Your receipt
+batch is validated at the end; that check has never covered these files.
 
 Plus `digmore/<slug>/cache/_returns/page-analyst-<label>.json` — one file per batch, a copy of what
 you returned.

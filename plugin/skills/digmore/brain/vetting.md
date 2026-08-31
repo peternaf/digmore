@@ -68,7 +68,10 @@ content farm; a marketer can cite a regulatory filing. Tag both, separately.
 
 ## Confidence tag rule
 
-Each finding in the summary gets a `high` / `medium` / `low` confidence tag:
+Each finding in the summary gets a `high` / `medium` / `low` confidence tag, **rendered with its word
+spelled out** — `` `confidence: high` ``, never `` `[high]` ``. A bare `[high]` in a report is a tier
+name with no key beside it, and a reader who has not opened this file cannot tell whether it scores
+confidence, severity or priority. `output.md` rule 2 bans exactly that.
 
 - `high` — `primary-3p`, OR multi-source corroboration (different domain AND different source AND
   different expert — any 2 of 3 axes, counted from the citations that survived the verdict join, per

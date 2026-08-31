@@ -1487,7 +1487,7 @@
       }
     }
   },
-  "factcheck-paragraph": {
+  "factcheck-paragraph-workorder": {
     "description": "What `factcheck.mjs serve` hands one Claim Fact Checker for its range. The agent is given this so it knows the shape of what it asked for; it returns `claim-fact-checker`, one file per paragraph, which is a different thing. `claimId` and `status` are deliberately absent: nothing comes back keyed on an id, so an id here is an accounting unit the agent cannot use, and `status` is the handle verdict, which decides caveating and has no bearing on text against text.",
     "type": "object",
     "required": [

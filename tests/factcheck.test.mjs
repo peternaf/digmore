@@ -262,3 +262,35 @@ test('the marker flag is stripped from the id and read separately', async () => 
   assert.deepEqual(quotedIdsIn(text), ['claim-004'], 'only the flagged one renders a quote');
   assert.deepEqual(quotedIdsIn('<!-- claims: 001 -->'), []);
 });
+
+// Summary headings are numbered — "## 10. LLM free-flow observations" — so an exact-name compare
+// never matched and the guard had never fired for anything. A measured run swept 22 observation
+// paragraphs into the writer's unmarked list because of it.
+test('the unchecked-section guard survives a numbered heading', async () => {
+  const { splitUnits, UNCHECKED_SECTIONS } = await import('../skill/scripts/factcheck.mjs');
+  const summary = [
+    `## 10. ${UNCHECKED_SECTIONS[0]}`,
+    'An observation with no marker and no citation.',
+    '## 3. What users complain about',
+    'Ordinary prose the writer still has to judge.',
+  ].join('\n\n');
+
+  const { unmarked } = splitUnits(summary);
+
+  assert.deepEqual(unmarked.map((unit) => unit.section), ['3. What users complain about']);
+});
+
+// The marker is an HTML comment: invisible once the markdown renders. A paragraph carrying one and
+// no link is evidence that is tracked and unreadable — 35 of them shipped in a measured run.
+test('a marked paragraph with no link is counted as unlinked', async () => {
+  const { splitUnits } = await import('../skill/scripts/factcheck.mjs');
+  const summary = [
+    '## 3. What users complain about',
+    'Activation is a coin flip. <!-- claims: 003 -->',
+    'Nobody can compare two. — [hn thread](https://news.ycombinator.com/item?id=1) <!-- claims: 026 -->',
+  ].join('\n\n');
+
+  const { marked } = splitUnits(summary);
+
+  assert.deepEqual(marked.map((unit) => unit.linked), [false, true]);
+});

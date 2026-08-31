@@ -121,6 +121,15 @@ Then **the format spec for each of those sections, inlined verbatim** — for a 
 the command's reference file, for an invented one its render rule from `scope.sections`. A sub-agent
 pointed at a file instead of given the spec defaults to the shortest plausible content.
 
+**And inline the citation rule with them, in the same breath**: every finding in every section
+carries its inline URL — the representative citation's, then the next-highest `pageQuality`, then
+`+N more` for the remainder — and the confidence tag spells its word out, `confidence: high`.
+
+That rule is in `../output.md` and governs every section, so it should not need repeating here. It
+does, for the reason the paragraph above gives: the per-section spec arrives as text and `output.md`
+arrives as a path, and text wins. A measured run produced four sections with no links at all — the
+four whose spec happened not to mention a URL.
+
 **Rule files:** `../output.md` · `../sections.md` · `../vetting.md`, for the confidence tag.
 
 **Data files:** the listing from `synthesis.mjs read_claims_for_report` · `observations.md`, copied verbatim into the last section · and every CSV it must render an enumerable section from —

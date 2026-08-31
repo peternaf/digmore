@@ -53,8 +53,29 @@ export const UNMARKED_PATH = 'cache/audit/unmarked.md';
  */
 export const UNCHECKED_SECTIONS = Object.freeze(['LLM free-flow observations']);
 
+/**
+ * Headings in the summary are numbered — `## 10. LLM free-flow observations` — so what this used to
+ * compare was never the bare name, and the guard had never fired for anything. A measured run swept
+ * 22 observation paragraphs into the writer's unmarked list because of it.
+ */
+const sectionName = (section) => String(section ?? '').trim().replace(/^\d+\.\s*/, '').toLowerCase();
+
 const isUncheckedSection = (section) =>
-  UNCHECKED_SECTIONS.some((name) => name.toLowerCase() === String(section ?? '').trim().toLowerCase());
+  UNCHECKED_SECTIONS.some((name) => name.toLowerCase() === sectionName(section));
+
+/**
+ * A paragraph that renders a claim and shows the reader nowhere to check it.
+ *
+ * The marker is an HTML comment: invisible once the markdown renders, and there for this script's
+ * plumbing rather than for the reader. A measured run shipped 35 such paragraphs across four
+ * sections — evidence tracked and unreadable, which is the worst of both.
+ *
+ * Counted here rather than judged by the reviewer, whose own rule is already right — "a fact is
+ * unsourced when nothing in its paragraph carries a link for it" — and which cleared these anyway by
+ * accepting the marker as a citation. A rule an agent had and did not follow is not fixed by
+ * rewording it.
+ */
+const hasLink = (text) => /\]\(https?:\/\//.test(text);
 
 function markersIn(text) {
   return text.match(MARKER) ?? [];
@@ -135,12 +156,12 @@ export function splitUnits(summary) {
     const count = markersIn(block).length;
     if (count > 1) {
       for (const line of block.split('\n')) {
-        if (markersIn(line).length) marked.push({ section, text: line.trim() });
+        if (markersIn(line).length) marked.push({ section, text: line.trim(), linked: hasLink(line) });
       }
       continue;
     }
     if (count === 1) {
-      marked.push({ section, text: block.trim() });
+      marked.push({ section, text: block.trim(), linked: hasLink(block) });
       continue;
     }
     if (!isStructure(block) && !isUncheckedSection(section)) unmarked.push({ section, text: block.trim() });
@@ -196,9 +217,15 @@ export function prepare(topicSlug) {
     .join('\n\n');
   writeFileSync(unmarkedPath, `${body}\n`, 'utf8');
 
+  // A paragraph that renders a claim and gives the reader no link to check it against. Named, not
+  // just counted, because the fix is per paragraph and the writer needs to know which.
+  const unlinked = marked.filter((unit) => !unit.linked).map((unit) => unit.section);
+
   return {
     paragraphs: paragraphs.length,
     unmarked: unmarked.length,
+    unlinked: unlinked.length,
+    unlinkedSections: [...new Set(unlinked)],
     staleIds,
     worklist: worklistPath,
     unmarkedPath,

@@ -11,7 +11,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { Sandbox } from './helpers.mjs';
 import {
   judgeCitation,
@@ -638,11 +638,13 @@ test('quoteResolver finds the words the citeId names', () => {
   assert.equal(resolve({ citeId: 'reddit_one', cachedPage: 'cache/reddit/a.json' }), 'we pay half a cent');
 });
 
-// Losing the words is a gap to show, not a reason to stop a phase already paid for.
-test('a missing file or a missing id resolves to nothing rather than throwing', () => {
+// Losing the words is a gap to show, not a reason to stop a phase already paid for. It resolves to
+// null rather than '': an empty string reads as a quote that says nothing, and the fact checker
+// judges the quotes first and the page only where they fall short.
+test('a missing file or a missing id resolves to null rather than throwing', () => {
   const resolve = quoteResolver(join(sandbox.cwd, 'digmore', 'demo'));
-  assert.equal(resolve({ citeId: 'reddit_one', cachedPage: 'cache/reddit/absent.json' }), '');
-  assert.equal(resolve({}), '');
+  assert.equal(resolve({ citeId: 'reddit_one', cachedPage: 'cache/reddit/absent.json' }), null);
+  assert.equal(resolve({}), null);
 });
 
 // ---------------------------------------------------------------- claims — reading them back
@@ -650,10 +652,36 @@ test('a missing file or a missing id resolves to nothing rather than throwing', 
 // `join` writes the joined files and nothing read them back, which is why the Raw report writer
 // reached for `node -e` and a `cd` its dispatch forbids. These pin the shape it now gets instead.
 
+/** The words behind `citation()`, which live in the page's claims file and nowhere else. */
+const QUOTE = '$0.005 per minute';
+
+/**
+ * The joined file, plus the claims file each of its citations resolves its quote from.
+ *
+ * Both, because no claim stores a quote any more: `read_source_claims` follows the citation's
+ * `citeId` to its page's claims file, so a fixture with only the joined file prints `Q: null` and
+ * proves nothing about the quote travelling.
+ */
 const writeJoined = (slug, source, claims) => {
-  const dir = join(sandbox.cwd, 'digmore', slug, 'full_source_analysis');
+  const root = join(sandbox.cwd, 'digmore', slug);
+  const dir = join(root, 'full_source_analysis');
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${source}-final-results.json`), JSON.stringify({ source, claims }));
+
+  const byPage = new Map();
+  for (const entry of claims) {
+    for (const cite of entry.citations ?? []) {
+      if (!cite?.cachedPage || !cite?.citeId) continue;
+      const file = claimsFileFor(cite.cachedPage);
+      if (!byPage.has(file)) byPage.set(file, []);
+      byPage.get(file).push({ citeId: cite.citeId, quote: cite.quote ?? QUOTE });
+    }
+  }
+  for (const [file, entries] of byPage) {
+    const path = join(root, file);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify({ url: 'https://example.test', pageQuality: 'forum', claims: entries }));
+  }
 };
 
 const writePreliminary = (slug, source, observations) => {
@@ -891,4 +919,54 @@ test('--append is refused rather than ignored', async () => {
   const { code, err } = await sandbox.run('synthesis.mjs', 'index', '--topic', 'demo', '--append', 'true');
   assert.equal(code, 1);
   assert.match(err, /--append is gone/);
+});
+
+// ---------------------------------------------------------------- resolving a quote
+//
+// A measured run reached the fact check with 107 of 871 citations unresolvable and reported ten,
+// because each checker only ever sees its own range. Two causes, both upstream in Extract, and both
+// recovered here rather than losing the evidence to a naming choice.
+
+test('a claims file named after the whole filename resolves too', async () => {
+  const { claimsFileCandidates } = await import('../skill/scripts/synthesis.mjs');
+
+  assert.deepEqual(claimsFileCandidates('cache/websearch/a_SKILL.md'), [
+    'cache/websearch/a_SKILL-claims.json',
+    'cache/websearch/a_SKILL.md-claims.json',
+  ]);
+  assert.deepEqual(
+    claimsFileCandidates('cache/reddit/no-extension'),
+    ['cache/reddit/no-extension-claims.json'],
+    'nothing to strip, so nothing to try twice',
+  );
+});
+
+test('a bare-array claims file still yields its quotes', async () => {
+  const { quoteResolver } = await import('../skill/scripts/synthesis.mjs');
+  const root = join(sandbox.cwd, 'digmore', 'demo');
+  mkdirSync(join(root, 'cache', 'forums'), { recursive: true });
+  // The page-claims shape written wrong — 23 files in the measured run.
+  writeFileSync(
+    join(root, 'cache', 'forums', 'thread-claims.json'),
+    JSON.stringify([{ citeId: 'forum_abc', quote: 'the words on the page' }]),
+  );
+  const resolve = quoteResolver(root);
+
+  const quote = resolve({ citeId: 'forum_abc', cachedPage: 'cache/forums/thread.md' });
+
+  assert.equal(quote, 'the words on the page');
+  assert.deepEqual(resolve.misses, []);
+});
+
+// Null, never '': an empty string reads as a quote that says nothing, and the checker judges the
+// quotes first and the page only where they fall short.
+test('an unresolved quote is null, and the miss is recorded', async () => {
+  const { quoteResolver } = await import('../skill/scripts/synthesis.mjs');
+  const root = join(sandbox.cwd, 'digmore', 'demo');
+  mkdirSync(root, { recursive: true });
+  const resolve = quoteResolver(root);
+
+  assert.equal(resolve({ citeId: 'reddit_gone', cachedPage: 'cache/reddit/x.json' }), null);
+  assert.equal(resolve({ cachedPage: 'cache/reddit/x.json' }), null, 'no citeId at all');
+  assert.equal(resolve.misses[0]?.reason, 'missingFile');
 });

@@ -26,6 +26,25 @@ Phase weights: Extract and Synthesize carry the most signal. Enrichment is where
 
 Sections in this exact order.
 
+**Every finding in every section carries its inline URL.** A section's own spec below adds to this;
+none of them replaces it. Four sections of a measured run came out with no links at all — their
+evidence sat in the invisible `<!-- claims: … -->` marker, which is tracking, not a citation, and
+leaves a reader unable to check anything by hand.
+
+**How many URLs a finding renders:** the representative citation's, then the next-highest
+`pageQuality`, then `+N more` for the remainder. Omit the suffix where there is no remainder.
+
+```
+— [arXiv 2608.20614](…), [Tessl](…) +2 more   `confidence: high`
+— [arXiv 2608.23067](…)                        `confidence: medium`
+```
+
+One link on a five-citation claim contradicts its own confidence tag, which largely means several
+citations survived; all five turns every section into §6's four-link lines. Two is the compromise.
+
+**The confidence tag spells its word out** — `` `confidence: high` ``, never `` `[high]` ``. It is
+defined in `../brain/vetting.md`, which the reader has not read.
+
 1. **Players** — single consolidated table; no per-player sub-sections. Columns: `Player | Visits | Positioning | Price`. Two rows per player. Rows sorted by `monthly_visits` DESC, then `name` ASC.
 
    Each player = exactly **2 markdown rows**. Cells separated by `|` (NOT `·` — that's the visual bullet inside a single cell, not between cells). Worked example:
@@ -61,11 +80,11 @@ Sections in this exact order.
 
 5. **Buying signals** — stated willingness-to-pay, switching intent, feature requests with payment context.
 
-6. **Non-trivial insights & unexpected expert takes** — surprises contradicting likely priors, contrarian takes, misconceptions experts call out. Every entry: inline URL + handle + verdict.
+6. **Non-trivial insights & unexpected expert takes** — surprises contradicting likely priors, contrarian takes, misconceptions experts call out. Every entry also names the handle and its verdict.
 
 7. **Adjacent spaces** (nice-to-have) — related markets. Informational; do NOT pre-bake follow-up suggestions.
 
-8. **Refuted / unsubstantiated** — claims that didn't survive Audit. Kill reason + original source URL.
+8. **Refuted / unsubstantiated** — claims that didn't survive Audit. Every entry also gives the kill reason.
 
 
 9. **Run footer** — per `../brain/reporting.md`.

@@ -125,11 +125,29 @@ export function judgeCitation(citation, verdicts) {
  * ones.
  */
 export function claimsFileFor(cachedPage) {
+  return claimsFileCandidates(cachedPage)[0];
+}
+
+/**
+ * Both names a claims file is written under, best first.
+ *
+ * The rule is the page's stem plus `-claims.json`, and most agents follow it. A measured run also
+ * had `..._SKILL.md-claims.json` — the suffix appended to the whole filename, extension included —
+ * and every citation into those pages resolved to nothing. The page was on disk the whole time,
+ * which is why the failure read as the script being wrong.
+ *
+ * Reading both costs one `existsSync` and recovers evidence a naming choice would otherwise lose.
+ * `page_analyst_agent/index.md` now states which form to write; this is what carries the caches
+ * already on disk, and what stops the next agent's variation being silent.
+ */
+export function claimsFileCandidates(cachedPage) {
   const path = String(cachedPage ?? '');
   const dot = path.lastIndexOf('.');
   const slash = path.lastIndexOf('/');
   const stem = dot > slash ? path.slice(0, dot) : path;
-  return `${stem}-claims.json`;
+  const names = [`${stem}-claims.json`];
+  if (stem !== path) names.push(`${path}-claims.json`);
+  return names;
 }
 
 /**
@@ -157,15 +175,22 @@ export function quoteResolver(topicRoot) {
 
   const resolve = (citation) => {
     const citeId = citation?.citeId;
-    if (!citeId || !citation?.cachedPage) return '';
-    const relative = claimsFileFor(citation.cachedPage);
+    // null, never '': an empty string reads as a quote that says nothing, and the fact checker
+    // judges the quotes first and the page only where they fall short.
+    if (!citeId || !citation?.cachedPage) return null;
+    const candidates = claimsFileCandidates(citation.cachedPage);
+    const relative = candidates.find((name) => existsSync(join(topicRoot, name))) ?? candidates[0];
     if (!byFile.has(relative)) {
       const absolute = join(topicRoot, relative);
       const quotes = new Map();
       let readable = false;
       if (existsSync(absolute)) {
         try {
-          for (const claim of JSON.parse(readFileSync(absolute, 'utf8'))?.claims ?? []) {
+          const parsed = JSON.parse(readFileSync(absolute, 'utf8'));
+          // A bare array is the `page-claims` shape written wrong — 23 files in a measured run.
+          // Read it anyway: the claims are there, and refusing them loses evidence to a defect
+          // the Page Analyst's own validation now catches at write time.
+          for (const claim of Array.isArray(parsed) ? parsed : parsed?.claims ?? []) {
             if (claim?.citeId) quotes.set(claim.citeId, claim.quote ?? '');
           }
           readable = true;
@@ -179,7 +204,7 @@ export function quoteResolver(topicRoot) {
     const { quotes, readable } = byFile.get(relative);
     if (quotes.has(citeId)) return quotes.get(citeId);
     misses.push({ citeId, cachedPage: citation.cachedPage, reason: readable ? 'unknownId' : 'missingFile' });
-    return '';
+    return null;
   };
 
   resolve.misses = misses;
@@ -782,10 +807,18 @@ export function indexAll(topicSlug, { manifestPath } = {}) {
 
   writeFileSync(indexPath, `${JSON.stringify({ claims }, null, 2)}\n`, 'utf8');
 
+  // Every citation resolved here, at the write, rather than discovered in Audit one dispatch at a
+  // time. A measured run reached the fact check with 107 of 871 unresolvable and reported ten,
+  // because each checker only ever sees its own range. No new script: the resolver is in this file.
+  const resolveQuote = quoteResolver(root);
+  for (const claim of claims) for (const citation of claim.citations ?? []) resolveQuote(citation);
+
   return {
     path: indexPath,
     claims: claims.length,
     citations: claims.reduce((total, claim) => total + claim.citations.length, 0),
+    unresolvedQuotes: resolveQuote.misses.length,
+    unresolved: missReport(resolveQuote.misses),
     dropped: problems.length,
     // Above the threshold the caller repairs; at or below it, records and carries on.
     repairable: problems.length > DROP_WITHOUT_REPAIR,
