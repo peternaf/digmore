@@ -72,6 +72,18 @@ It is a sub-agent for one reason: it reads a lot of the open web to produce a sh
 of that raw reading is worth carrying for the rest of the run. What comes back is small; what it
 read is not.
 
+**Tell it what an angle costs, in the numbers this run will actually spend.** An angle is not one
+unit of work: it becomes **one branch per available source**, and each branch reads up to
+`extract.fetchesPerBranch` pages. So the dispatch carries the arithmetic —
+
+> Each angle becomes one branch per source. This run has <n> sources and spends up to
+> <extract.fetchesPerBranch> fetches per branch, so each angle costs about <n × fetches> pages.
+
+— with the source count you settled and the number `preflight.mjs` printed. Without it the agent is
+told to return "between `minAngles` and `maxAngles`" and has no way to see that the top of that range
+is several times the work of the bottom, so it returns the ceiling every time. §"The maximum is a
+ceiling, not a target" in its own file says the same thing in words, and words alone have not held.
+
 **It returns the angles and stops there.** The sections are not its call — deciding them needs the
 command's reference file and, in manual mode, the user, and it has neither.
 
@@ -115,24 +127,37 @@ communities they cannot reach. Declaring it is what makes the list a list.
 
 ## 3.1. Show the plan before running it
 
-**Manual mode: present the plan and wait.** The angles and the sources are what the user is being
-asked about — those decide what the run goes and reads. Say them in a line or two and offer the
-change:
+**Manual mode: ask with `AskUserQuestion`, in one call. Not a paragraph.**
 
-> 5 angles — dated channel appearances, repeatable programme tactics, promoter handles and
-> disclosure, backlash and repercussions, observed reach per tactic — across Reddit, Hacker News,
-> Twitter, web and forums. Standard gtm sections.
->
-> Go ahead, or change an angle or a source.
+This used to print a sentence naming the angles and the sources and end with "go ahead, or change an
+angle or a source". It reliably got waved through. **Prose plus a free-text yes is the shape a reader
+skims**, and composing "drop the third angle and add forums" is enough work that nobody does it —
+so the plan the run executed was the plan nobody read. Options force a read, because answering means
+choosing, and dropping two angles becomes two clicks.
 
-**Say nothing about the sections unless one of two things is true**: a predefined section was
-dropped, or a section was added that the request did not name. Both are facts, readable off
-`scope.deliverables`. When either holds, name the difference in one more line — "plus two sections
-not in the standard set: Paid promoter programmes, Timeline of dated moves" — and let the user
-change it. A confirmation that only ever repeats the standard list teaches them to say yes without
-reading.
+Three questions, one call, every one of them **multi-select with everything pre-selected**, so
+answering nothing changes nothing and the user only acts where they disagree:
 
-**In `--auto` there is no wait.** State the same thing, record it in the run's Issues, and proceed.
+| Question | Options | Header |
+|---|---|---|
+| Which angles should the run cover? | one per angle, its `label` and a few words of its `rationale` | `Angles` |
+| Which sources should it search? | one per source available this run — the ones without a key are not offered | `Sources` |
+| Which sections should the summary have? | one per entry in `scope.deliverables`, in order | `Sections` |
+
+**Say what is non-standard beside the choices, not instead of them.** A predefined section dropped,
+or one added that the request did not name, is a fact readable off `scope.deliverables` — put it in
+that option's `description` ("not in the standard `gtm` set") so it is visible at the moment of
+choosing. The old rule said to mention only the difference and stay silent otherwise; that is what
+left the section list unreviewable on every ordinary run.
+
+**Rewording is "Other".** The options settle what is in and what is out; an angle whose wording is
+wrong comes back as free text, which is the one case that genuinely needs a sentence.
+
+**Nothing else goes in this call.** Not the depth, not the mode, not the topic — the topic was
+settled at §1 and asking twice teaches the user that these questions do not matter.
+
+**In `--auto` there is no call and no wait.** State the angles, the sources and any non-standard
+section in a line, record it in the run's Issues, and proceed.
 
 ## 4. Angles — check what came back
 

@@ -93,7 +93,7 @@ export const RECENCY_WINDOW_YEARS = 2;
  * rather than a number anyone sets.
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
-  plan: { minAngles: 2, maxAngles: 6, scopingSearches: 10 },
+  plan: { minAngles: 2, maxAngles: 6, scopingSearches: 3 },
   extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5, observationsPerDispatch: 6 },
   vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 5, urlsPerExpert: 10, minPlayerDocuments: 5 },

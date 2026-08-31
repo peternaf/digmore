@@ -225,7 +225,7 @@
       "angles": {
         "type": "array",
         "minItems": 1,
-        "description": "The research directions the run will search. How many is `plan.minAngles`–`plan.maxAngles` from ~/.digmore/settings.json, printed by preflight.mjs — 3–6 by default, 2 in --fast, and `ask` sets its own. The count is checked against those ceilings by the orchestrator in plan_phase_a.md §4, not here: this checker cannot read the user's settings, and pinning a range into the schema would reject a run from anyone who raised the ceiling.",
+        "description": "The research directions the run will search. How many is `plan.minAngles`–`plan.maxAngles` from ~/.digmore/settings.json, printed by preflight.mjs — 2–6 by default, 1–2 in --fast, and `ask` sets its own. The count is checked against those ceilings by the orchestrator in plan_phase_a.md §4, not here: this checker cannot read the user's settings, and pinning a range into the schema would reject a run from anyone who raised the ceiling.",
         "items": {
           "type": "object",
           "required": [
