@@ -205,14 +205,60 @@ test('the unmarked file locates each paragraph, or the writer has to search for 
   }
 });
 
-test('the topic is required, and an unknown verb names the two', async () => {
+test('the topic is required, and an unknown verb names all three', async () => {
   const sandbox = new Sandbox();
   try {
     assert.equal((await sandbox.run('factcheck.mjs', 'prepare')).code, 1);
     const unknown = await sandbox.run('factcheck.mjs', 'sweep', '--topic', 't');
     assert.equal(unknown.code, 1);
-    assert.match(unknown.err, /prepare or serve/);
+    assert.match(unknown.err, /prepare, serve or unused_claims/);
   } finally {
     await sandbox.cleanup();
   }
+});
+
+// The writer used to hand back its own drop list, justified by an aggregate raw report that no
+// longer exists. This is the same record, computed from files that outlive the run.
+test('unused_claims names every claim no paragraph renders', async () => {
+  const sandbox = new Sandbox();
+  try {
+    topic(sandbox, {
+      summary: `Only the first. ${marker('001')}`,
+      claims: [claim('claim-001', 'cache/a.md'), claim('claim-002', 'cache/b.md')],
+    });
+    const { code, json } = await sandbox.run('factcheck.mjs', 'unused_claims', '--topic', 't');
+
+    assert.equal(code, 0);
+    assert.equal(json.claims, 2);
+    assert.equal(json.rendered, 1);
+    assert.deepEqual(json.claimIds, ['claim-002']);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('a summary that renders everything reports none unused', async () => {
+  const sandbox = new Sandbox();
+  try {
+    topic(sandbox, {
+      summary: `Both. ${marker('001', '002')}`,
+      claims: [claim('claim-001', 'cache/a.md'), claim('claim-002', 'cache/b.md')],
+    });
+    const { json } = await sandbox.run('factcheck.mjs', 'unused_claims', '--topic', 't');
+    assert.equal(json.unused, 0);
+    assert.deepEqual(json.claimIds, []);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+// A trailing * means the paragraph renders that claim's quote; a bare id means it asserts the claim
+// without quoting. Everything downstream addresses claims by id, so the flag is stripped there.
+test('the marker flag is stripped from the id and read separately', async () => {
+  const { claimIdsIn, quotedIdsIn } = await import('../skill/scripts/factcheck.mjs');
+  const text = '<!-- claims: 001, claim-004*, 017 -->';
+
+  assert.deepEqual(claimIdsIn(text), ['claim-001', 'claim-004', 'claim-017']);
+  assert.deepEqual(quotedIdsIn(text), ['claim-004'], 'only the flagged one renders a quote');
+  assert.deepEqual(quotedIdsIn('<!-- claims: 001 -->'), []);
 });
