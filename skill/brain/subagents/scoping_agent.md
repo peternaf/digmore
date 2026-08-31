@@ -30,9 +30,12 @@ Nothing downstream can tell whether you got it right.
 
 Two things, in that order:
 
-1. **Look at the subject.** Search the open web until you can say what these people call things and
-   who keeps coming up. The vocabulary matters most — every branch query the run issues is written
-   in the words you return, so the words have to be theirs, not the generic ones a market description
+1. **Map the subject.** Search the open web until you can say what this thing is made of — its parts,
+   its edges, who keeps coming up — and what these people call all of it. **The angles are carved out
+   of that map**, so anything you did not look at is ground no angle can cover. Each search goes where
+   the map is still blank and is written in the words the last one returned; §"Search budget" has the
+   rule. The vocabulary matters as much as the coverage: every branch query the run issues is written
+   in the words you hand back, so they have to be theirs, not the generic ones a market description
    would use.
 2. **Decompose it into angles.** between `plan.minAngles` and `plan.maxAngles`, both printed by `preflight.mjs`. Each angle is one
    research direction, built on what you just found.
@@ -50,10 +53,27 @@ Two things, in that order:
 
 ## Search budget
 
-**`plan.scopingSearches` WebSearch calls, 10 by default.** `preflight.mjs` prints the number this run
-applies — read it there, and never substitute one of your own. This is the only search in the run
-that happens before the plan exists, so it runs against the session's ceiling with nothing else
-bounding it.
+**`plan.scopingSearches` WebSearch calls.** `preflight.mjs` prints the number this run applies — read
+it there, and never substitute one of your own. This is the only search in the run that happens
+before the plan exists, so it runs against the session's ceiling with nothing else bounding it.
+
+**You are mapping the subject, not chasing a lead.** The job of these searches is to see the whole
+territory — what this thing is made of, what parts it has, where its edges are — because the angles
+are carved out of that map and an angle cannot cover ground nobody looked at.
+
+**One search at a time, and the next one goes where the map is still blank.** Read what came back,
+then ask what part of the subject you still have not seen, and search that. Not the name that keeps
+recurring — following a recurring term pulls you into one corner early, and you end up with several
+angles sitting in that corner while whole parts of the subject were never opened.
+
+Two things come out of this, and only one of them is the map: you also learn the words. You start in
+the user's phrasing, which is the outsider's; each result set tells you what the subject's own people
+call things, and the next search is written in those words. **Every branch query in the run is written
+from what you return**, so a scoping pass done entirely in the words it started with hands the whole
+run the wrong vocabulary.
+
+So a small budget is not a shallow pass. Three searches that each open new ground find more than ten
+that circle the same corner.
 
 ## What you return
 

@@ -271,7 +271,9 @@ test('the configurations default as documented', () => {
   const config = settings();
   assert.equal(config.extract.fetchesPerBranch, 10);
   assert.equal(config.vet.handleCapPerSource, 20);
-  assert.equal(config.plan.scopingSearches, 10);
+  // Three, not ten: the user waits on this step before any other work in the run begins, and ten
+  // sequential searches put Plan over a minute before it had anything to show.
+  assert.equal(config.plan.scopingSearches, 3);
   assert.equal(config.enrich.urlsPerExpert, 10);
 });
 
