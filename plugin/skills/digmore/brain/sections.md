@@ -63,14 +63,14 @@ and a section is under-specified without them:
 
 ## Filling the file — during the run
 
-The claims come back from the readers. **The Raw report writer writes the rows**
-(`subagents/raw_report_writer_agent.md`), building each declared enumerable section before it writes
-the raw report — one writer per file, per `phases/index.md`.
+The claims come back from the readers. **The Source aggregator writes the rows**
+(`subagents/source_aggregator_agent.md`), building each declared enumerable section before it writes
+the claim index — one writer per file, per `phases/index.md`.
 
 Three of these files have a different owner and keep it: `players.csv` is the orchestrator's, written
 in Enrichment; `experts.csv` is the orchestrator's, written in Vet. Everything else an enumerable
 section renders from — the CSV for a section this run invented, and `promoter_network.csv` — is the
-Raw report writer's.
+Source aggregator's.
 
 Rules for a cell:
 
@@ -103,6 +103,33 @@ or invented:
 
 Citations still attach to the claims made *about* each entity. This adds the destination; it replaces
 nothing.
+
+## The observation section — the last one, and not a deliverable
+
+**Every command's summary ends with "LLM free-flow observations", and no run decides that.** It is
+not in `scope.deliverables` and Plan does not plan it: it fits neither kind of value there — not a
+pointer to a command's reference file, not a definition for a section the run invented — because it is
+in every command, every run, in the same place.
+
+**Where its content comes from.** The Source aggregator merges every source's observations, adds its
+own cross-source ones, and writes `observations.md`. **The Final report writer copies that file in
+verbatim** as the last section; it does not rewrite it. Every other section is rewritten because it is
+built from claims Audit later verifies, and this one has no such backstop — so each rewrite would be
+an unchecked chance for the meaning to shift.
+
+**It carries no citations, by design**, and cite-or-drop does not apply to it — see `output.md`.
+Three things follow, and each is enforced somewhere rather than remembered:
+
+- **The fact check never sees it.** `factcheck.mjs prepare` excludes it, so it never reaches
+  `cache/audit/unmarked.md` and `[6.4/6]` cannot cut it as prose with no claim behind it.
+- **`factcheck.mjs` owns the section's title**, in `UNCHECKED_SECTIONS`, and this file points at it
+  rather than repeating the string. Two copies would drift, and a title reworded here alone would
+  silently put the section back in front of the writer.
+- **The vetted-voice check skips it.** A section with no `legit` citation normally opens by saying
+  so; this one has no citations at all, so the banner would fire every run.
+
+**The footer is not a section**, and shares no rule with this. The orchestrator appends it after
+everything, and the writer is told not to add it — where it *is* told to add this one.
 
 ## Who checks it
 

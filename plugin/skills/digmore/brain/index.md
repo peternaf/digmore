@@ -32,7 +32,7 @@ Two files are read on a rhythm rather than at a step. **`output.md`** is the wri
 | Extract — one searcher per branch, one reader per batch of URLs, source notes | `phases/extract_phase_b.md`, `subagents/branch_searcher_agent/`, `subagents/page_analyst_agent/`, `subagents/source_analyst_agent/` |
 | Vet — the handles behind the sources | `phases/vet_phase_c.md`, `vetting.md`, `page_quality.md`, `subagents/handle_vetter_agent/` |
 | Enrichment — who the research is about: the player candidates, the selection, the profiling | `phases/enrich_phase_d.md`, `subagents/player_profiler_agent.md` |
-| Synthesize — the evidence becomes documents: the enumerable sections and the raw report, then the summary drafted from them | `phases/synthesize_phase_e.md`, `subagents/raw_report_writer_agent.md`, `subagents/final_report_writer_agent.md`, `sections.md`, `output.md` (writing style is non-negotiable) |
+| Synthesize — the evidence becomes the claim set: the merge, the enumerable sections and the observations, then the summary drafted from them | `phases/synthesize_phase_e.md`, `subagents/source_aggregator_agent.md`, `subagents/final_report_writer_agent.md`, `sections.md`, `output.md` (writing style is non-negotiable) |
 | Audit — the report is checked and fixed: reviewed, repaired, copy edited, every rendered claim checked against the text the run stored | `phases/audit_phase_f.md`, `subagents/final_report_reviewer_agent.md`, `subagents/final_report_copy_editor_agent.md`, `subagents/claim_fact_checker_agent.md` |
 | Where a run writes, one writer per file, why claims and source notes stay on disk, how the six phases connect | `phases/index.md` |
 | Resuming — where the run stopped, each phase's salvage path, a cache that is gone, a session out of web searches | `resuming.md`. **Read on a resumed run and on no other**, which is why it is not in the file above |
@@ -68,7 +68,7 @@ value.
 | Source Analyst | Extract · Source notes | `subagents/source_analyst_agent/` — one file per source | `inherit` |
 | Handle Vetter | Vet | `subagents/handle_vetter_agent/` — reddit, hackernews, twitter, forums | `inherit` |
 | Player Profiler | Enrichment | `subagents/player_profiler_agent.md` | `inherit` |
-| Raw report writer | Synthesize · Audit | `subagents/raw_report_writer_agent.md` | `inherit` |
+| Source aggregator | Synthesize · Audit | `subagents/source_aggregator_agent.md` | `inherit` |
 | Final report writer | Synthesize · Audit | `subagents/final_report_writer_agent.md` | `inherit` |
 | Final report reviewer | Audit | `subagents/final_report_reviewer_agent.md` | `sonnet` |
 | Final report copy editor | Audit | `subagents/final_report_copy_editor_agent.md` | `sonnet` |

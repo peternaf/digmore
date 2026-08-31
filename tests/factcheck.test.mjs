@@ -205,14 +205,92 @@ test('the unmarked file locates each paragraph, or the writer has to search for 
   }
 });
 
-test('the topic is required, and an unknown verb names the two', async () => {
+test('the topic is required, and an unknown verb names all three', async () => {
   const sandbox = new Sandbox();
   try {
     assert.equal((await sandbox.run('factcheck.mjs', 'prepare')).code, 1);
     const unknown = await sandbox.run('factcheck.mjs', 'sweep', '--topic', 't');
     assert.equal(unknown.code, 1);
-    assert.match(unknown.err, /prepare or serve/);
+    assert.match(unknown.err, /prepare, serve or unused_claims/);
   } finally {
     await sandbox.cleanup();
   }
+});
+
+// The writer used to hand back its own drop list, justified by an aggregate raw report that no
+// longer exists. This is the same record, computed from files that outlive the run.
+test('unused_claims names every claim no paragraph renders', async () => {
+  const sandbox = new Sandbox();
+  try {
+    topic(sandbox, {
+      summary: `Only the first. ${marker('001')}`,
+      claims: [claim('claim-001', 'cache/a.md'), claim('claim-002', 'cache/b.md')],
+    });
+    const { code, json } = await sandbox.run('factcheck.mjs', 'unused_claims', '--topic', 't');
+
+    assert.equal(code, 0);
+    assert.equal(json.claims, 2);
+    assert.equal(json.rendered, 1);
+    assert.deepEqual(json.claimIds, ['claim-002']);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+test('a summary that renders everything reports none unused', async () => {
+  const sandbox = new Sandbox();
+  try {
+    topic(sandbox, {
+      summary: `Both. ${marker('001', '002')}`,
+      claims: [claim('claim-001', 'cache/a.md'), claim('claim-002', 'cache/b.md')],
+    });
+    const { json } = await sandbox.run('factcheck.mjs', 'unused_claims', '--topic', 't');
+    assert.equal(json.unused, 0);
+    assert.deepEqual(json.claimIds, []);
+  } finally {
+    await sandbox.cleanup();
+  }
+});
+
+// A trailing * means the paragraph renders that claim's quote; a bare id means it asserts the claim
+// without quoting. Everything downstream addresses claims by id, so the flag is stripped there.
+test('the marker flag is stripped from the id and read separately', async () => {
+  const { claimIdsIn, quotedIdsIn } = await import('../skill/scripts/factcheck.mjs');
+  const text = '<!-- claims: 001, claim-004*, 017 -->';
+
+  assert.deepEqual(claimIdsIn(text), ['claim-001', 'claim-004', 'claim-017']);
+  assert.deepEqual(quotedIdsIn(text), ['claim-004'], 'only the flagged one renders a quote');
+  assert.deepEqual(quotedIdsIn('<!-- claims: 001 -->'), []);
+});
+
+// Summary headings are numbered — "## 10. LLM free-flow observations" — so an exact-name compare
+// never matched and the guard had never fired for anything. A measured run swept 22 observation
+// paragraphs into the writer's unmarked list because of it.
+test('the unchecked-section guard survives a numbered heading', async () => {
+  const { splitUnits, UNCHECKED_SECTIONS } = await import('../skill/scripts/factcheck.mjs');
+  const summary = [
+    `## 10. ${UNCHECKED_SECTIONS[0]}`,
+    'An observation with no marker and no citation.',
+    '## 3. What users complain about',
+    'Ordinary prose the writer still has to judge.',
+  ].join('\n\n');
+
+  const { unmarked } = splitUnits(summary);
+
+  assert.deepEqual(unmarked.map((unit) => unit.section), ['3. What users complain about']);
+});
+
+// The marker is an HTML comment: invisible once the markdown renders. A paragraph carrying one and
+// no link is evidence that is tracked and unreadable — 35 of them shipped in a measured run.
+test('a marked paragraph with no link is counted as unlinked', async () => {
+  const { splitUnits } = await import('../skill/scripts/factcheck.mjs');
+  const summary = [
+    '## 3. What users complain about',
+    'Activation is a coin flip. <!-- claims: 003 -->',
+    'Nobody can compare two. — [hn thread](https://news.ycombinator.com/item?id=1) <!-- claims: 026 -->',
+  ].join('\n\n');
+
+  const { marked } = splitUnits(summary);
+
+  assert.deepEqual(marked.map((unit) => unit.linked), [false, true]);
 });

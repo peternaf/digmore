@@ -4,19 +4,19 @@
 |---|---|
 | **Phase** | Extract `[2.3/6]`, and again in Enrichment `[4/6]` at its source-notes sub-step — see §"Enrichment mode" |
 | **Purpose** | Read everything one source produced at once and catch what no single-page reader can see — the recurring tone, the argument running under several threads, the oddity — then write that source's report, its people and its entities |
-| **Input text** | the source name · the output paths · the four things to look for · on the handle-bearing sources, the handles job. **In Enrichment**, the names of the new claims files and nothing else |
+| **Input text** | the source name · the output paths · **the run's scope — the research question, the deliverables, the sections and the angles** · the four things to look for · on the handle-bearing sources, the handles job. It merges and selects against what the research is for, which it could not do when it was given the source name and little else. **In Enrichment**, the same scope plus the names of the new claims files |
 | **Input rule files** | `subagents/source_analyst_agent/index.md` · that agent's `<source>.md` · `output.md` |
 | **Input data files** | every file under `cache/<source>/` — both halves of each pair, the stripped page and its claims. **Not the `handles/` subdirectory**, which is Vet's verdicts rather than documents. **In Enrichment**, only the new claims files the dispatch names, plus the three files you already wrote |
 | **Runs** | no network. It reads `cache/<source>/` and writes three files under `full_source_analysis/`, then `validate.mjs` once on each — everything else it needs is already on disk |
-| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on each of its three files: one repair, one revalidation, then it reports. Otherwise none it is told. `extract.fetchesPerBranch`, `extract.maxPagesPerDocument` and `hackernews.commentDepth` shaped what is in the directory before this agent ran; it reads the result, never the number |
+| **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on each of its three files: one repair, one revalidation, then it reports. **`extract.observationsPerDispatch` — this agent enforces it too**, as how many observations it writes. `extract.fetchesPerBranch`, `extract.maxPagesPerDocument` and `hackernews.commentDepth` shaped what is in the directory before this agent ran; it reads the result, never the number |
 | **Held in its context** | every stripped page and every claims file that source produced — the largest read in the run, and the reason this is a sub-agent at all. None of it leaves |
 | **Returns to main context** | `none` — no shape, and so no dispatch template. Its product is the three files it writes, each checked by this agent before it returns. What comes back in words is only a file it could not produce or could not make valid |
-| **Writes to disk** | `full_source_analysis/<source>-raw-report.json` · `full_source_analysis/<source>-players.json` · `full_source_analysis/<source>-handles.json`, the last on the handle-bearing sources only |
-| **Logs** | `cache/_progress/source-analyst-<source>.log` — `reading <n> documents from <source>` · `writing the raw report` · `writing the entities` · `writing the handles` (handle-bearing sources only) |
+| **Writes to disk** | `full_source_analysis/<source>-preliminary-results.json` · `full_source_analysis/<source>-players.json` · `full_source_analysis/<source>-handles.json`, the last on the handle-bearing sources only |
+| **Logs** | `cache/_progress/source-analyst-<source>.log` — `reading <n> documents from <source>` · `writing the preliminary results` · `writing the entities` · `writing the handles` (handle-bearing sources only) |
 | **How it reports failure** | say plainly which file could not be produced **or could not be made to pass its check**, and why. **Never write an empty one** — an empty handles file and a source with nobody in it are indistinguishable on disk, and one of them is a failure |
 | **One dispatch per** | one source that pulled data |
 | **Run instances** | one per source that pulled data in Extract; one per source that gained expert material in Enrichment |
-| **`--fast`** | the same in both modes — the reduction is in how much each one reads, not how many run |
+| **`--fast`** | the same in both modes — the reduction is in how much each one reads, not how many run. **`extract.observationsPerDispatch` is the same in both modes too**: fast already gives each source less material to observe, and writing six lines instead of three costs nothing the agent has not already paid |
 | **Concurrency** | one per source, all of them at once. Not a scraping limit: each reads a different directory off disk and fetches nothing, so they contend with nothing |
 | **Model tier** | set in `brain/index.md` §Sub-agents, which is where the orchestrator reads it |
 
@@ -57,7 +57,7 @@ Your source's file in this directory says what that material actually looks like
 
 Three files in `digmore/<slug>/full_source_analysis/`, all yours alone.
 
-### `<source>-raw-report.json` — this source's whole report
+### `<source>-preliminary-results.json` — this source's whole report
 
 Everything this source produced, in one file: its claims, and the observations that are not claims.
 
@@ -67,13 +67,28 @@ those claims out is a third view over material already in front of you: the marg
 write, not the read. The alternative was one agent opening every claims file in the run in a single
 dispatch, which is the failure this split exists to remove.
 
-**Two top-level keys, plus `source`.** The `source-raw-report` shape in
+**Two top-level keys, plus `source`.** The `source-preliminary-results` shape in
 `../../../scripts/subagent_returns.json` is the definition; what follows is how to fill it.
 
 **`claims` — one entry per surviving claim, deduplicated within this source only.** The same claim
 made in three of this source's threads is one entry carrying three citations. Merging **across**
-sources is not yours: the Raw report writer does that, because it is the only actor holding all six
-of these files.
+sources is not yours: the Source aggregator does that, because it is the only actor that sees every
+source.
+
+**Two claims are the same claim when the piece of data is duplicated** — across citations, quotes or
+claims. Different words for the same fact is one claim with several citations, not two entries.
+Merge on what is being said, never on how closely the wording matches.
+
+**State a claim at the level its citations jointly support.** Where several pages say the same thing
+differently, write the one statement that covers all of them — not the narrowest of them, and not one
+entry per wording. A statement no single page makes is not a claim at all; it belongs in
+`observations`.
+
+**A ceiling, not a target: your claims must not exceed twice the documents you read.** Documents, not
+pages — one `cachedPage` is one document however many pages it took. **Fewer is better and nothing is
+padded to reach it**: this is a bound on duplication, and a run that genuinely has less to say should
+say less. Measured before this rule existed, one source produced 281 claims from 57 documents with 93%
+of them carrying a single citation — that is one finding written out several times, not 281 findings.
 
 **A merged claim takes the highest of each.** Three records leave three `importance` readings and
 three `pageQuality` tags. `importance` takes the highest, as `topImportance` already does in the
@@ -81,8 +96,22 @@ handles and entity files. `pageQuality` takes the canonical citation's — the h
 best-evidence selection the merge is already making. Both #4 and #7 deduplicate, so this could have
 been got wrong in two places independently; it is one rule in both.
 
-**Every citation carries its source URL and the `cachedPage` it was read from, and its handle where
-the source has accounts.**
+**Every citation carries its `citeId`, its source URL and the `cachedPage` it was read from, and its
+handle where the source has accounts.**
+
+- **`citeId` is in the claims file you are reading** — copy it across. **You store no quote text.**
+  The words were written once, by the Page Analyst that read the page, and the id is how anything
+  finds them again: the citation's `cachedPage` names the page, the page's stem names its claims
+  file, and the id names the entry in it. You still *read* the quotes — judging which claims are the
+  same needs them — you just never write one down.
+
+  This is what merging used to cost. One `quote` field for a claim that had three citations meant
+  keeping one and discarding two, and the survivor was then attributed to all three pages. Measured:
+  63% of the citations on multi-cited claims named a page that never carried those words.
+
+- **Exactly one citation per claim carries `representative: true`** — the quote the report will
+  render. **Highest `pageQuality`**, and where two tie, whichever quote states the claim most
+  completely. That second half is judgement and is why you make the call rather than a script.
 
 - **`handle` and `url` are already in the claims file you are reading** — copy them across. The handle
   is there because Vet has not run when you write this in Extract mode, so you cannot filter by
@@ -118,16 +147,36 @@ the source has accounts.**
   fact check reads this file and asks whether it carries the statement. A citation pointing at the
   wrong file is a claim checked against the wrong evidence.
 
-**`observations` — a markdown string, everything the notes used to hold.** Patterns that are not
-claims, throwaway lines, cross-thread connections, oddities, silences, and the coverage gaps this
-source's own material revealed. `../../output.md`'s rules apply here in full — this is prose, and
-vagueness costs as much here as anywhere. Be concrete: name the threads, quote the lines, link the
-URLs.
+**`observations` — a list of strings, at most `extract.observationsPerDispatch` of them.** One entry
+per observation, each a sentence or two of prose. No citations and no quotes: some of these exist
+precisely because there is nothing to cite.
 
-**The "do not re-list the claims" rule governs `observations` alone.** It was written when the notes
-were this agent's only output about content, and it does not forbid the `claims` array beside it. A
-useful test for the prose half only — if a single Page Analyst reading one document could have
-written it, it does not belong in `observations`.
+**The test that divides them from claims: a claim is a statement a page makes; an observation is a
+statement about the material that no single page makes.** Two of the four things listed above turn
+out to be claims by that test, and they belong in `claims` with several citations rather than here:
+
+| | |
+|---|---|
+| *"the same argument arriving in three threads a month apart"* | **a claim** — three pages, three citations |
+| *"one person contradicting themselves in two places"* | **a claim** — two pages, two citations |
+| *"a recurring tone", "a mood that shifts over time"* | an observation — no page states it |
+| *"a question everyone asks and nobody answers"* | an observation — it is about an absence |
+
+**Coverage gaps are not observations.** *"This source's material shows we did not see everything"* is
+a statement about the run, not about the subject, and it goes to `audit.md` through
+`runlog.mjs finding` with the run's other self-reporting.
+
+**`../../output.md`'s rules apply in full** — vagueness costs as much here as anywhere. Be concrete:
+name the threads, quote the lines, link the URLs. And **do not re-list the claims**: if a single Page
+Analyst reading one document could have written it, it does not belong here.
+
+**Keep the `extract.observationsPerDispatch` most central to the research question**, using the same
+importance vocabulary you apply to claims in this dispatch. There is no separate ranking to compute.
+
+**In Enrichment you add up to that many of your own and touch nothing already in the file.** You are
+given only the new claims files, so you cannot judge what the Extract pass wrote against the material
+that produced it — and the Source aggregator merges across sources afterwards anyway, so a seventh
+observation costs nothing downstream.
 
 **Why JSON and not markdown.** The verdict join, the citation filter and the scoring downstream are a
 script's work, and a script parsing prose fails quietly — a citation written slightly differently
@@ -184,7 +233,7 @@ and never return to it; Enrichment mode is the one exception, and it only adds r
 
 ### `<source>-players.json` — every entity this source named
 
-**All six sources.** Unlike handles, there is no source without players, and the open web is usually
+**Every source.** Unlike handles, there is no source without players, and the open web is usually
 the richest. A player is a company, a project, a product or a service the material names — the things
 the research is about, as opposed to the people talking about them.
 
@@ -193,7 +242,7 @@ One entry per entity:
 | Field | What goes in it |
 | --- | --- |
 | `name` | as this source's material writes it |
-| `aliases` | every other string you saw for the same entity here — `acme.com`, `Acme Video`, `ACME`. This is what the run merges the six sources on |
+| `aliases` | every other string you saw for the same entity here — `acme.com`, `Acme Video`, `ACME`. This is what the run merges the every source on |
 | `documentCount` | **how many of this source's documents named it.** One document, one count, however many times the name appears inside it |
 | `claimCount` | how many claims are about it |
 | `topImportance` | the highest importance of any claim about it: `central`, then `supporting`, then `tangential` |
@@ -216,11 +265,11 @@ moved off Acme" carries none. Finding the real domain is a later job, done live,
 only be something to un-guess.
 
 **Include everything named, and let the count decide.** Do not pre-filter to the entities you think
-matter: the threshold is applied across all six sources at once, and a company named twice here and
+matter: the threshold is applied across every source at once, and a company named twice here and
 three times elsewhere clears it while neither source could have known. An entity that appears once,
 with one claim, still gets a row.
 
-**Nobody reads this file directly.** Enrichment's script merges all six, joins each claim's handle to
+**Nobody reads this file directly.** Enrichment's script merges every one of them, all six, joins each claim's handle to
 its verdict, filters, recounts and applies the floor.
 
 ## Check what you wrote
@@ -230,8 +279,8 @@ agent in the run that returns no shape, so you receive no dispatch template and 
 why the calls are written here instead:
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-raw-report \
-  digmore/<slug>/full_source_analysis/<source>-raw-report.json
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-preliminary-results \
+  digmore/<slug>/full_source_analysis/<source>-preliminary-results.json
 
 node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-handles \
   digmore/<slug>/full_source_analysis/<source>-handles.json
@@ -240,7 +289,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/validate.mjs" source-players 
   digmore/<slug>/full_source_analysis/<source>-players.json
 ```
 
-**Print a shape first if you are unsure of it** — `validate.mjs --shape source-raw-report` — rather
+**Print a shape first if you are unsure of it** — `validate.mjs --shape source-preliminary-results` — rather
 than guessing at a field name.
 
 **Exit 1: fix the file, write it again, check once more.** One repair and one re-check, never a loop
@@ -262,7 +311,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/runlog.mjs" finding subagent-
 Where a repair worked, record that too, with the category `subagent-repair`.
 
 **The check matters more here than on most agents**, because the phase after each of these files
-cannot run without it: a raw report that fails is every claim this source produced, a handles file
+cannot run without it: a preliminary-results file that fails is every claim this source produced, a handles file
 that fails is a source that cannot be vetted, and a players file that fails is a source whose
 entities never reach Enrichment. Nothing downstream re-reads the pages to rebuild any of them.
 
@@ -286,7 +335,7 @@ Page Analyst, which is the only agent that read the page whole.
 
 **Two things to do with it.** Where it names a coverage gap, it goes in `observations` with the rest
 of them, above. Where it qualifies the evidence, **carry it into the observation or the claim it
-bears on** so the Raw report writer meets it when two citations compete — that agent opens this file
+bears on** so the Source aggregator meets it when two citations compete — that agent opens this file
 and never the receipt, which is exactly why the note lives here.
 
 **It is not a claim and never becomes one.** Nobody asserted it; it is what you would tell a reader
@@ -306,7 +355,7 @@ What you append, per file:
 
 | File | What is added |
 |---|---|
-| `<source>-raw-report.json` | new entries in `claims`, deduplicated against the ones already there; `observations` extended where the new material supports one |
+| `<source>-preliminary-results.json` | new entries in `claims`, deduplicated against the ones already there; `observations` extended where the new material supports one |
 | `<source>-players.json` | entities the expert material named, merged into existing entries by name or alias |
 | `<source>-handles.json` | handles seen for the first time in the expert material |
 

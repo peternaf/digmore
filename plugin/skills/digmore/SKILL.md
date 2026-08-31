@@ -77,7 +77,7 @@ The full layout, and which part of the run writes each file, is in `brain/phases
 
 ## What a run must never do
 
-- **Never present a claim without its source.** Cite-or-drop is absolute.
+- **Never present a claim without its source.** Cite-or-drop is absolute — with one stated exception, the summary's "LLM free-flow observations" section, which carries no citations by design and says so.
 - **Never rewrite what a source said.** Shorten with `…` where it runs long; the words stay the source's.
 - **Never let a source fail silently.** A source that was skipped, capped, or unavailable is named in the report and in the terminal output. A source that was never queried is not a source that came back empty.
 - **Never edit its own files.** digmore is fixed for the user. A missing capability is a finding to record, not a change to make.

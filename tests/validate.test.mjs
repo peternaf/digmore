@@ -48,7 +48,7 @@ const pageClaims = () => ({
   url: 'https://example.com/mux-pricing',
   pageQuality: 'secondary',
   claims: [
-    { claim: 'Mux charges per minute', quote: '$0.005 per minute', importance: 'central', kind: 'qualitative' },
+    { citeId: 'websearch_a3f9c21b04', claim: 'Mux charges per minute', quote: '$0.005 per minute', importance: 'central', kind: 'qualitative' },
   ],
 });
 
@@ -73,8 +73,8 @@ test('a well-formed payload exits 0 and says so', async () => {
 });
 
 test('optional fields may be absent', async () => {
-  // raw-report-writer's claimIndexError is only present when the index failed its check.
-  const result = await check('raw-report-writer', {
+  // source-aggregator's claimIndexError is only present when the index failed its check.
+  const result = await check('source-aggregator', {
     claimsSurviving: 40,
     claimsMerged: 6,
     sections: [],
@@ -99,7 +99,7 @@ test('a required key nested in an array item carries its index', async () => {
   // Two claims, and the second is the broken one — an error that named only the key
   // would leave the caller opening every item to find which.
   const payload = pageClaims();
-  payload.claims.push({ claim: 'Livepeer is cheaper', quote: 'about a tenth', importance: 'supporting', kind: 'qualitative' });
+  payload.claims.push({ citeId: 'websearch_bbb2c31d05', claim: 'Livepeer is cheaper', quote: 'about a tenth', importance: 'supporting', kind: 'qualitative' });
   delete payload.claims[1].importance;
   const result = await check('page-claims', payload);
   assert.equal(result.code, 1);
@@ -382,14 +382,13 @@ const sourceRawReport = (citation) => ({
   source: 'websearch',
   claims: [{
     claim: 'Mux charges $0.005 per minute of encoding',
-    quote: '$0.005 per minute of encoding',
     importance: 'central',
     kind: 'quantitative',
     value: 0.005,
     unit: 'USD per minute',
     citations: [citation],
   }],
-  observations: 'Pricing pages agree; the forums do not.',
+  observations: ['Pricing pages agree; the forums do not.'],
 });
 
 // The open web and the user's own documents have authors rather than accounts — which is why
@@ -397,22 +396,58 @@ const sourceRawReport = (citation) => ({
 // and a fabricated handle scores 'unvetted' (an account we failed to check) where an absent one
 // scores 'no-handle' (there was never an account). The second is true and the first is not.
 test('a citation on a source with no accounts omits its handle', async () => {
-  const result = await check('source-raw-report', sourceRawReport({
+  const result = await check('source-preliminary-results', sourceRawReport({
+    citeId: 'websearch_a3f9c21b04',
     cachedPage: 'mux.com_pricing.md', url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+    representative: true,
   }));
   assert.equal(result.code, 0);
 });
 
 test('a citation still carries the page it was read from', async () => {
-  const result = await check('source-raw-report', sourceRawReport({
-    url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  const result = await check('source-preliminary-results', sourceRawReport({
+    citeId: 'websearch_a3f9c21b04', url: 'https://mux.com/pricing', pageQuality: 'primary-self',
   }));
   assert.equal(result.code, 1);
   assert.ok(paths(result).some((path) => path.endsWith('cachedPage')));
 });
 
+// The quote is written once, by the agent that read the page, and everything after carries the id.
+// A claim merged from three pages used to keep one quote and copy it onto all three citations.
+test('a citation carries the id that names its quote, and no quote text', async () => {
+  const missing = await check('source-preliminary-results', sourceRawReport({
+    cachedPage: 'mux.com_pricing.md', url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  }));
+  assert.equal(missing.code, 1);
+  assert.ok(paths(missing).some((path) => path.endsWith('citeId')));
+});
+
+test('a claim carries no quote of its own', async () => {
+  const payload = sourceRawReport({
+    citeId: 'websearch_a3f9c21b04', cachedPage: 'mux.com_pricing.md',
+    url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  });
+  payload.claims[0].quote = 'the words';
+  const result = await check('source-preliminary-results', payload);
+  assert.equal(result.code, 1, 'an extra field is an extra field, even a familiar one');
+});
+
+// A string in a capped list: no citations, because some observations exist precisely because there
+// is nothing to cite.
+test('observations are strings, not prose', async () => {
+  const payload = sourceRawReport({
+    citeId: 'websearch_a3f9c21b04', cachedPage: 'mux.com_pricing.md',
+    url: 'https://mux.com/pricing', pageQuality: 'primary-self',
+  });
+  payload.observations = 'one long paragraph';
+  const result = await check('source-preliminary-results', payload);
+  assert.equal(result.code, 1);
+  assert.ok(paths(result).some((path) => path.includes('observations')));
+});
+
 test('a handle is still accepted where the source has accounts', async () => {
-  const result = await check('source-raw-report', sourceRawReport({
+  const result = await check('source-preliminary-results', sourceRawReport({
+    citeId: 'reddit_a3f9c21b04',
     cachedPage: 'reddit-thread-abc.json', url: 'https://reddit.com/r/x/abc',
     handle: 'u/someone', pageQuality: 'forum',
   }));
@@ -490,11 +525,12 @@ const claimIndex = () => ({
       pageQuality: 'primary-self',
       citations: [
         {
-          quote: '$0.005 per minute',
+          citeId: 'websearch_a3f9c21b04',
           url: 'https://mux.com/pricing',
           cachedPage: 'cache/websearch/mux.com_pricing.md',
           status: 'no-handle',
           pageQuality: 'primary-self',
+          representative: true,
         },
       ],
     },
@@ -509,7 +545,7 @@ test('a claim index passes', async () => {
 // The URL is what the report cites and what a reader clicks; cachedPage is the file the fact
 // check reads the claim against. Neither is derivable from the other — on the three scripted
 // sources the script names the file and the URL is not in it at all.
-for (const field of ['url', 'cachedPage', 'quote', 'status']) {
+for (const field of ['url', 'cachedPage', 'citeId', 'status']) {
   test(`a citation without ${field} is refused`, async () => {
     const payload = claimIndex();
     delete payload.claims[0].citations[0][field];
@@ -558,13 +594,13 @@ test('refutedBy and refutedReason are optional, and legal together', async () =>
 // deleted. A receipt that arrives as prose is one nobody can count, which is why they have
 // shapes at all — nothing computes on them.
 
-test('the raw report writer returns counts and its two discard lists', async () => {
-  const result = await check('raw-report-writer', {
+test('the source aggregator returns counts and its two discard lists', async () => {
+  const result = await check('source-aggregator', {
     claimsSurviving: 128,
     claimsMerged: 31,
     sections: [{ csv: 'paid-promoter-programmes.csv', rows: 7 }],
     claimsDeletedUnsourced: [
-      { claim: 'everyone moved off Acme in 2025', sourceReport: 'reddit-raw-report.json' },
+      { claim: 'everyone moved off Acme in 2025', sourceReport: 'reddit-preliminary-results.json' },
     ],
     droppedSubjects: [{ subject: 'Acme pricing', reason: 'every citation was a spammer' }],
   });
@@ -574,7 +610,7 @@ test('the raw report writer returns counts and its two discard lists', async () 
 // The deletions leave no trace on disk by definition — the claim is gone — and audit.md is
 // written by the orchestrator two steps later, so the receipt is the only route they have.
 test('an unsourced deletion names the report it came from', async () => {
-  const result = await check('raw-report-writer', {
+  const result = await check('source-aggregator', {
     claimsSurviving: 1,
     claimsMerged: 0,
     sections: [],

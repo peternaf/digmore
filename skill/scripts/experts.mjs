@@ -113,8 +113,14 @@ export function toCsv(rows) {
   return lines.join(LINE_TERMINATOR) + LINE_TERMINATOR;
 }
 
-/** A standard reader: doubled quotes escape, and a quoted field may span lines. */
-export function parseCsv(text) {
+/**
+ * A standard reader: doubled quotes escape, and a quoted field may span lines.
+ *
+ * Records as written, header included and no column coerced — `parseCsv` below narrows them to
+ * this file's own COLUMNS, and `players.mjs` reads a table whose columns are decided per topic.
+ * One parser either way: a second one is a second set of quoting bugs.
+ */
+export function parseCsvRecords(text) {
   const records = [];
   let field = '';
   let record = [];
@@ -165,6 +171,12 @@ export function parseCsv(text) {
   }
   if (field !== '' || record.length) endRecord();
 
+  return records;
+}
+
+/** The same records, narrowed to experts.csv's COLUMNS. */
+export function parseCsv(text) {
+  const records = parseCsvRecords(text);
   if (!records.length) return [];
   const header = records[0];
   return records.slice(1).map((values) => {

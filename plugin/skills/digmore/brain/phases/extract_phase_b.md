@@ -131,9 +131,9 @@ Sequential is not a performance preference: an agent that fans out here hangs, a
 
 **What you take from each file:** the `pagesRead` totals for the branch, and the page-level records — one `runlog.mjs finding blocked-page` call naming every URL that came back `blocked`, one `runlog.mjs finding webfetch-page` naming every URL WebFetch had to take, and anything in `notes`. All of them vanish otherwise, a blocked page because it leaves no file and a shortened one because nothing about it looks short.
 
-**The claims do not come back into your context, and you do not read the claims files.** Several hundred documents are read in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the six per-source reports instead.
+**The claims do not come back into your context, and you do not read the claims files.** Several hundred documents are read in one job; a run that holds every claim runs out of room before it reaches the report. Two things read them and both are given the paths: the Source Analyst, which reads every one its source produced, and the Player Profiler, which follows the references `player_candidates.json` gives it. Nothing after Extract opens the directory at all — Synthesize works from the per-source reports instead.
 
-**A page's own standing is not on its receipt.** Undated, second-hand, sold by the party describing the problem, partial coverage — that is `pageNote` on the claims file, read by the Source Analyst and the Raw report writer. You never weigh a citation, so it would arrive here with nobody to act on it.
+**A page's own standing is not on its receipt.** Undated, second-hand, sold by the party describing the problem, partial coverage — that is `pageNote` on the claims file, read by the Source Analyst and the Source aggregator. You never weigh a citation, so it would arrive here with nobody to act on it.
 
 **Match each file's array against the URLs you sent**, keyed on `url`, one receipt each. A short array is a batch that did not finish: name the missing URLs — `runlog.mjs finding dropped-receipt`, all of them in one call — rather than reading their absence as a reason to skip them. A missing file is the same finding.
 
@@ -173,20 +173,22 @@ Vetting fetches are **not** in this cap — they are bounded separately in `vet_
 
 For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes three files, all to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
 
-**`<source>-raw-report.json` — that source's whole record.** The `source-raw-report` shape in `../../scripts/subagent_returns.json`. Two halves:
+**`<source>-preliminary-results.json` — that source's whole record.** The `source-preliminary-results` shape in `../../scripts/subagent_returns.json`. Two halves:
 
 - **`claims`** — every claim this source produced, deduplicated within this source only, each carrying its citations, and each citation carrying the handle that said it, the URL it can be read at, and the cached page it was read from.
 - **`observations`** — markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers.
 
-**This is the last read of the claims files.** It is bounded because it is one source, and writing that source's claims out is a third view over material already in front of the agent — which is what lets everything after Extract work from six compact reports instead of several hundred files. `observations` never appears in the summary directly; the surprises mined from it reach "Non-trivial insights" through the raw report. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
+**No agent reads the claims files after this.** `synthesis.mjs` and `factcheck.mjs` reopen them later
+to resolve a quote from its `citeId` — a script's read costs no context, which is what this rule was
+protecting. It is bounded because it is one source, and writing that source's claims out is a third view over material already in front of the agent — which is what lets everything after Extract work from one compact report per source instead of several hundred files. `observations` never appears in the summary directly; the surprises mined from it reach "Non-trivial insights" through the aggregate. Writing-style rules in `../output.md` still apply: concrete, cite URLs, no fluff.
 
 **`<source>-handles.json` — the handles.** Only on Reddit, Hacker News, Twitter and forums; the open web and the user's own documents have no accounts to vet. Every handle the source produced, ranked by the highest importance of the claims attributed to them and then by how many documents they appear in, with whatever the pages already showed about them. The `source-handles` shape in `../../scripts/subagent_returns.json`.
 
 **Vet depends on this file and cannot rank for itself** — the ranking needs every document a source produced, and this is the only agent that reads them all. A source missing this file is a source that cannot be vetted (`vet_phase_c.md`), so a Source Analyst that fails is worth noticing here rather than in the next phase.
 
-**`<source>-players.json` — every entity this source named.** All six sources: unlike handles, there is no source without players. One entry per company, project or product the material named, with how many of this source's documents named it, one line on how it showed up in that source's conversation, and one entry per claim about it carrying the handle that said it. The `source-players` shape in `../../scripts/subagent_returns.json`.
+**`<source>-players.json` — every entity this source named.** Every source: unlike handles, there is no source without players. One entry per company, project or product the material named, with how many of this source's documents named it, one line on how it showed up in that source's conversation, and one entry per claim about it carrying the handle that said it. The `source-players` shape in `../../scripts/subagent_returns.json`.
 
-**Nobody reads the players files here.** Enrichment's script merges the six, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide. The raw reports wait the same way, for `synthesis.mjs join` at the start of Synthesize.
+**Nobody reads the players files here.** Enrichment's script merges them, joins each claim's handle to its verdict, and hands the orchestrator the candidates (`enrich_phase_d.md`). Recording the handle beside the claim is what makes that possible: this agent runs before Vet and cannot know whose word counts, so it records who said what and lets the next phase decide. The preliminary results wait the same way, for `synthesis.mjs join` at the start of Synthesize.
 
 It reads every page and every claims file a source produced, so it is one of the longest silences in
 the run and the only one with no script behind it to explain the wait. Its heartbeat is not optional
@@ -206,7 +208,7 @@ dispatch template, which is why the instruction is written into its own file rat
 What reaches you is a file it could not make valid, named. What each failure costs is different, and
 the run says which:
 
-- **A raw report that still fails** is a source whose evidence never reaches the summary at all —
+- **A preliminary-results file that still fails** is a source whose evidence never reaches the summary at all —
   the largest loss of the three, because it is every claim that source produced.
 - **A handles file that still fails** is a source that cannot be vetted — treat it as a missing one
   below.
@@ -228,10 +230,10 @@ identical to a source with nobody and nothing in it.
 3. **Do not rebuild any of them by hand.** You no longer hold the claims, so any ranking or count you
    built would be by frequency alone — the thing these files exist to replace.
 
-Which loss it is decides what the rest of the run can still do. A source that produced a raw report
-but no handles file still reaches the summary, quoted as unvetted; one that produced no raw report
+Which loss it is decides what the rest of the run can still do. A source that produced a preliminary-results file
+but no handles file still reaches the summary, quoted as unvetted; one that produced no preliminary-results file
 contributes nothing at all. The run says which rather than quietly shipping the shortfall.
 
 ## End of Extract
 
-Extract is complete when every branch's searcher has returned, and every source with data has its checked `full_source_analysis/<source>-raw-report.json` and `<source>-players.json` — plus its checked `<source>-handles.json`, on the sources that carry handles. A source still missing one after a re-dispatch is complete too, and recorded as the loss it is. No marker file is written — resume infers completion from the presence of these artifacts.
+Extract is complete when every branch's searcher has returned, and every source with data has its checked `full_source_analysis/<source>-preliminary-results.json` and `<source>-players.json` — plus its checked `<source>-handles.json`, on the sources that carry handles. A source still missing one after a re-dispatch is complete too, and recorded as the loss it is. No marker file is written — resume infers completion from the presence of these artifacts.

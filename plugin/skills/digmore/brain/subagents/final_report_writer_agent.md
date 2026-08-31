@@ -3,16 +3,16 @@
 | Field | |
 |---|---|
 | **Phase** | Synthesize `[5.2/6]` for the draft, and again in Audit for each redraft — `[6.2/6]` after a repair, `[6.4/6]` for markers, `[6.6/6]` after the fact check |
-| **Purpose** | Turn the evidence record and the finished enumerable sections into the executive summary, in the section list Plan settled and in that order — deciding what is corroborated, what is a surprise, and what does not survive |
+| **Purpose** | Turn the claim set and the finished enumerable sections into the executive summary, in the section list Plan settled and in that order — deciding what is corroborated, what is a surprise, and what does not survive |
 | **Input text** | **`scope.deliverables` first — the whole section list, in order, exactly as Plan settled it.** Then the format spec for each of those sections, **inlined verbatim**: from the command's reference file for a predefined one, from `scope.sections` for an invented one. **On a redraft**, only what changed: the sections a repair touched, the paragraphs that came back unmarked, or the sentences the fact check found unsupported |
 | **Input rule files** | `output.md` · `sections.md` · `vetting.md`, for the confidence tag |
-| **Input data files** | the aggregate `<slug>-raw-report.md` · every CSV it renders an enumerable section from — `players.csv`, `experts.csv`, and any invented one. **Not the six per-source reports**: their observations are already merged into the aggregate, and reading one file instead of several hundred is the whole point of the split |
-| **Runs** | `validate.mjs` on the receipt it writes, one repair and one re-check — no other scripts, no network. It reads the raw report and the CSVs, and writes one document |
+| **Input data files** | the printed listing from `synthesis.mjs read_claims_for_report` · `observations.md`, which it copies verbatim into the last section · every CSV it renders an enumerable section from — `players.csv`, `experts.csv`, and any invented one. **Not `claim_index.json` raw** and **not the per-source files**: the listing is the claim set with what this agent cannot use already left out |
+| **Runs** | `synthesis.mjs read_claims_for_report`, which is how it sees the claims at all — with `--match` on a redraft, so a repair over one gap does not re-read every claim in the run · `validate.mjs` on the receipt it writes, one repair and one re-check. No network. It writes one document |
 | **Settings that control it** | `subagents.repairAttempts` — **this agent enforces it**, on the file it writes: one repair, one revalidation, then it reports a failure. Nothing else |
-| **Held in its context** | the aggregate raw report and every CSV it renders from. The summary it composes goes to disk; nothing of the evidence comes back with it |
-| **Returns to main context** | the `final-report-writer` shape — sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. **Not the claims it left out**: a claim not drafted is still in the raw report and still in `claim_index.json`, so nothing has disappeared and listing them cost hundreds of entries nobody read. Not the findings either: the summary is on disk |
+| **Held in its context** | the claim listing — measured at ~296KB on a real run — plus `observations.md` and every CSV it renders from. The summary it composes goes to disk; nothing of the evidence comes back with it |
+| **Returns to main context** | the `final-report-writer` shape — sections drafted, findings written, any section with no vetted voice in it, and whatever its closing check could not fix. **Not the claims it left out**: they are still in `claim_index.json`, and `factcheck.mjs unused_claims` computes the list exactly from the markers, which is better evidence than an agent recalling it. Not the findings either: the summary is on disk |
 | **Writes to disk** | `<slug>-executive-summary.md`, **written to `<slug>-executive-summary.md.tmp` and renamed over the original** when the draft and its check are done — never edited in place · `cache/_returns/final-report-writer.json` |
-| **Logs** | `cache/_progress/final-report-writer.log` — `reading the raw report` · `drafting <section>`, one per summary section |
+| **Logs** | `cache/_progress/final-report-writer.log` — `reading the claim listing` · `drafting <section>`, one per summary section |
 | **How it reports failure** | on the receipt, in `unresolved`: an enumerable section it could not make match its CSV, a paragraph it could not mark. **One fix pass, then report** — it never loops |
 | **One dispatch per** | the run |
 | **Run instances** | the first draft, plus **at most three redrafts, each bounded to one pass** |
@@ -22,7 +22,7 @@
 
 ## What this agent does
 
-The Raw report writer decided what survives. **You decide how it reads**, and you write the one
+The Source aggregator decided what survives. **You decide how it reads**, and you write the one
 document the user actually opens.
 
 **You do not reopen the section list.** `scope.deliverables` is the report's structure: a section you
@@ -79,8 +79,8 @@ machine marker, not a message to the reader.
 
 ## Check your own work before you finish
 
-Three things, and you can fix all three because you are holding the raw report and the CSVs that say
-what the right answer is. Found later, the same errors need a fresh dispatch and a fresh read.
+Three things, and you can fix all three because you are holding the claim listing and the CSVs that
+say what the right answer is. Found later, the same errors need a fresh dispatch and a fresh read.
 
 1. **Each enumerable section's entries match its CSV row for row.**
 2. **Each name in them is a link to the thing itself.**
@@ -106,8 +106,11 @@ happens after you run.
 
 ## A section with no vetted voice says so
 
-**The check is yes/no, not a proportion: does this section carry at least one citation with a `legit`
-status?** If yes, nothing changes. If no, the section opens with:
+**The observation section is not checked.** It carries no citations by design, so the question does
+not apply to it and the banner would fire on it every single run.
+
+**For every other section the check is yes/no, not a proportion: does this section carry at least one
+citation with a `legit` status?** If yes, nothing changes. If no, the section opens with:
 
 > Nobody behind this section could be vetted.
 
@@ -141,13 +144,21 @@ and recorded rather than sent round again.
 
 | Redraft | When | What you rewrite |
 |---|---|---|
-| after a repair | the reviewer found a closable gap and the Raw report writer repaired the raw report | the sections the repair touched |
+| after a repair | the reviewer found a gap, and the claim behind it is in `claim_index.json` | the sections that gap touches |
 | markers | the orchestrator found prose paragraphs with no claim marker | only those paragraphs — marked, cut, or confirmed as asserting nothing |
 | after the fact check | statements were found unsupported | only the sections whose text was removed |
 
-**The middle one is the narrowest and adds nothing.** It does not go back to the evidence — every claim
-it needs is already in the raw report you drafted from — so the question is which id belongs on which
-paragraph, or whether the prose has a claim behind it at all. **The list is expected to be mostly
+**On a redraft you read narrowly, and you get one search.** `read_claims_for_report --match` takes
+several terms at once, comma separated, ORed. **One call, and there is no second one** — a search that
+returns nothing means the claim is not in the index, and the claim is then dropped.
+
+So **put every plausible wording in that one call**: the report's phrasing and the words a source
+would more likely use, synonyms, singular and plural, the vendor's name as well as the category. It
+costs one command either way, and a short list costs evidence.
+
+**The middle one is the narrowest.** The question is which id belongs on which paragraph, or whether
+the prose has a claim behind it at all — so match on the paragraph's own distinctive words, one
+`read_claims_for_report --match` call for the whole batch, with every wording in it. **The list is expected to be mostly
 innocent:** a section opener, a transition, a caveats line and `ask`'s direct answer assert nothing that
 needs a claim behind it. Say so and move on.
 
@@ -162,19 +173,22 @@ supporting it has gone, and reads as confident as it did before. Re-compose the 
 
 ## What is not yours
 
-The raw report — it is the Raw report writer's evidence record and you only read it. Any CSV:
-`players.csv` was Enrichment's, `experts.csv` was Vet's, and the invented sections and
-`promoter_network.csv` are the Raw report writer's. And the Run footer, which the orchestrator appends
-last and which is not a deliverable — it will not be in the section list you are given, and you do not
-add it.
+`claim_index.json` and `observations.md` — both are the Source aggregator's, and you read them
+through the listing and copy them. Any CSV: `players.csv` was Enrichment's, `experts.csv` was Vet's,
+and the invented sections and `promoter_network.csv` are the Source aggregator's.
 
-## Record what you did not use
+**And the Run footer**, which the orchestrator appends last and which is not a section at all — it
+will not be in the section list you are given, and you do not add it. **The observation section is
+the opposite case**: it is also absent from that list, and you *do* add it, as the last section,
+copied verbatim.
 
-Your return's drop list is **every claim you read in the raw report and chose not to use, with the
-reason** — too thin, contradicted, no room in its section.
+## What you did not use is computed, not recalled
 
-**This is the one place in the run where evidence can be discarded silently.** The raw report still
-carries the claim with no mark on it, so the drop leaves no trace anywhere else. Every other actor
-records its discards: Enrichment names each excluded player, Vet keeps rejections in
-`<source>-handles.json`, Extract logs dropped-for-budget URLs. A list rather than a paragraph, so it
-can be counted.
+**You return no drop list.** `factcheck.mjs unused_claims` reads the markers in the finished summary
+against `claim_index.json` and names every claim no paragraph renders — exactly, from files that
+outlive the run, at no cost to your context. An agent recalling hundreds of drops is worse evidence
+than a set difference.
+
+That the run records its discards at all is the point, and every other actor does the same: Enrichment
+names each excluded player, Vet keeps rejections in `<source>-handles.json`, Extract logs
+dropped-for-budget URLs. Yours is a script's now, and it reaches `audit.md` at `[6.7/6]`.

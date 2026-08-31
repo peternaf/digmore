@@ -7,6 +7,7 @@
  * Vet then produced a verdict per handle. This script is the join between the two.
  *
  *   node players.mjs candidates --topic <slug> [--fast] [--min-documents <n>]
+ *   node players.mjs profiles   --topic <slug>
  *
  * It merges the six files, drops the claims the run does not listen to, recounts documents
  * across every source at once, applies the floor, and writes
@@ -19,11 +20,13 @@
  * stdout JSON, stderr errors.
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertWorkspaceRoot } from './fetch.mjs';
 import { loadOrCreateConfig, configurationsFor, MALFORMED } from './config.mjs';
+// One CSV reader in the plugin, imported from the script that owns it.
+import { parseCsvRecords } from './experts.mjs';
 
 /**
  * The floor a player has to clear, from `enrich.minPlayerDocuments` — full mode's value, or fast
@@ -91,7 +94,7 @@ export function parseArgs(argv) {
     if (!rest[index].startsWith('--')) continue;
     const name = rest[index].slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     const next = rest[index + 1];
-    // A flag with nothing after it, or another flag, is a switch — --append, --fast. Consuming
+    // A flag with nothing after it, or another flag, is a switch — --fast, --auto. Consuming
     // the next token regardless is what made a trailing switch read as '' and a leading one
     // swallow the flag after it, so the switch was ignored in one position and broke the call in
     // the other. handle_vetting.mjs and expert_selection.mjs already read them this way.
@@ -377,14 +380,171 @@ function applyTopImportance(topicRoot, merged) {
   }
 }
 
+// ---------------------------------------------------------------- the profile merge
+
+/** Where one Player Profiler leaves its row, one file per player. */
+export const PROFILES_DIR = join('cache', 'players', 'profiles');
+
+/**
+ * A player's name as its filename. The same reduction `normaliseName` makes, hyphenated —
+ * the agent derives it from the name it was dispatched with, and this derives it from the
+ * name in the row, so the two meet without either being told the other's answer.
+ */
+export function profileFileName(name) {
+  return `${normaliseName(name).replaceAll(' ', '-') || 'player'}.json`;
+}
+
+/**
+ * What a profile file has to be before a single cell of it reaches `players.csv`.
+ *
+ * `fetch_failed` is the `player-profile` shape's only required field, so its absence means the
+ * file is not that shape whatever else it holds. Checked here as well as by the agent because
+ * a gate on the shared file catches a bad row only once it is already in it — the same reason
+ * `handle_vetting.mjs aggregate` re-checks every handle file it merges.
+ */
+export function readProfile(path) {
+  const parsed = readJson(path);
+  if (parsed === undefined) return { problem: 'unreadable or not JSON' };
+  if (typeof parsed !== 'object' || Array.isArray(parsed)) return { problem: 'not an object' };
+  if (typeof parsed.fetch_failed !== 'boolean') return { problem: 'no boolean fetch_failed' };
+  return { profile: parsed };
+}
+
+/** QUOTE_MINIMAL, as experts.mjs writes it: quote only what would otherwise break the row. */
+function encodeField(value) {
+  const text = String(value ?? '');
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+}
+
+/**
+ * Fill every row of `players.csv` from the profile files, and say what happened to each.
+ *
+ * **The header decides the columns, not the shape.** Which optional columns a run carries is a
+ * per-topic decision the command's reference file makes, recorded nowhere but the header, so a
+ * returned field with no column is dropped rather than added — adding one would change the table's
+ * shape from inside a merge. Those drops are reported per player: two of 21 profilers in the
+ * measured run returned a field their dispatch never asked for, and drift that nothing prints is
+ * drift nobody fixes.
+ *
+ * **Every column is written verbatim, matched on its own name.** Each field of `player-profile` is a
+ * column name — there is no field whose column is called something else, which is why there is no
+ * mapping table here and nothing transforms a value on its way in.
+ *
+ * **`name` is the only column never written.** It is the row's identity and the merge matches on it.
+ *
+ * Rows are matched on the name already in the CSV. A profile with no row is reported rather than
+ * appended: the selection is the orchestrator's decision and a merge does not get to widen it.
+ */
+export function mergeProfiles(topicSlug) {
+  const topicRoot = topicDir(topicSlug);
+  const csvPath = join(topicRoot, 'players.csv');
+  if (!existsSync(csvPath)) {
+    throw new Error(`no players.csv at ${csvPath} — the rows are written before profiling starts`);
+  }
+
+  const text = readFileSync(csvPath, 'utf8').replace(/^﻿/, '');
+  const records = parseCsvRecords(text);
+  if (!records.length) throw new Error(`${csvPath} has no header row`);
+  const [header, ...rows] = records;
+  const nameAt = header.indexOf('name');
+  if (nameAt === -1) throw new Error(`${csvPath} has no "name" column`);
+  const writable = header.filter((column) => column !== 'name');
+
+  const filled = [];
+  const failed = [];
+  const malformed = [];
+  const missing = [];
+  const unwritten = [];
+  const seen = new Set();
+
+  const output = rows.map((record) => {
+    const cells = header.map((_column, index) => record[index] ?? '');
+    const name = cells[nameAt];
+    if (!name) return cells;
+
+    const fileName = profileFileName(name);
+    seen.add(fileName);
+    const path = join(topicRoot, PROFILES_DIR, fileName);
+    if (!existsSync(path)) {
+      missing.push(name);
+      return cells;
+    }
+
+    const { profile, problem } = readProfile(path);
+    if (problem) {
+      malformed.push({ name, problem });
+      return cells;
+    }
+    if (profile.fetch_failed) {
+      failed.push({ name, reason: profile.reason ?? 'no reason given' });
+      return cells;
+    }
+
+    let written = 0;
+    const used = new Set();
+    for (const column of writable) {
+      if (!(column in profile)) continue;
+      cells[header.indexOf(column)] = String(profile[column] ?? '');
+      used.add(column);
+      written += 1;
+    }
+    // Everything the profiler sent that this run's header has nowhere to put.
+    const extra = Object.keys(profile).filter(
+      (field) => !used.has(field) && field !== 'fetch_failed' && field !== 'reason',
+    );
+    if (extra.length) unwritten.push({ name, fields: extra });
+    filled.push({ name, cells: written });
+    return cells;
+  });
+
+  const profilesDir = join(topicRoot, PROFILES_DIR);
+  const orphans = existsSync(profilesDir)
+    ? readdirSync(profilesDir).filter((file) => file.endsWith('.json') && !seen.has(file))
+    : [];
+
+  // The file's own terminator, so a merge never rewrites every line as a diff.
+  const terminator = text.includes('\r\n') ? '\r\n' : '\n';
+  const body = [header, ...output].map((cells) => cells.map(encodeField).join(',')).join(terminator);
+  const temp = `${csvPath}.${process.pid}.tmp`;
+  try {
+    writeFileSync(temp, body + terminator, 'utf8');
+    renameSync(temp, csvPath);
+  } catch (error) {
+    rmSync(temp, { force: true });
+    throw error;
+  }
+
+  return { path: csvPath, rows: output.length, filled, failed, malformed, missing, unwritten, orphans };
+}
+
 // ---------------------------------------------------------------- cli
+
+const VERBS = Object.freeze(['candidates', 'profiles']);
 
 export function run(argv) {
   const { verb, flags } = parseArgs(argv);
-  if (verb !== 'candidates') {
-    throw new Error(`unknown command: ${verb ?? '(none)'} — expected candidates`);
+  if (!VERBS.includes(verb)) {
+    throw new Error(`unknown command: ${verb ?? '(none)'} — expected ${VERBS.join(' or ')}`);
   }
   if (!flags.topic) throw new Error('--topic <slug> is required');
+
+  if (verb === 'profiles') {
+    const merged = mergeProfiles(flags.topic);
+    // Counts and names, never a cell: this is the summary that reaches the orchestrator.
+    return {
+      path: merged.path,
+      rows: merged.rows,
+      filled: merged.filled.length,
+      // Every row that received no cells, whatever stopped it — the count the retry-or-ask
+      // decision is taken on. Counting only `missing` understates it by every failure.
+      stillEmpty: merged.missing.length + merged.failed.length + merged.malformed.length,
+      failed: merged.failed,
+      malformed: merged.malformed,
+      missing: merged.missing,
+      unwritten: merged.unwritten,
+      orphans: merged.orphans,
+    };
+  }
 
   const minDocuments =
     flags.minDocuments === undefined ? resolveMinDocuments({ fast: flags.fast }) : Number(flags.minDocuments);

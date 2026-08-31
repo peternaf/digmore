@@ -654,3 +654,265 @@ package touches.
 - [ ] A branch's fetch count on disk matches `extract.fetchesPerBranch`.
 - [ ] Every `_returns/page-analyst-*.json` is an array of at most `extract.urlsPerDispatch` receipts,
       and every URL in one belongs to the same branch.
+
+---
+
+# V0.1.2 — quotes, the Source aggregator, and observations
+
+Todo list only. Every reason is in `V0.1.1-subagents.md` under **V0.1.2**; each line names the section
+that settles it. One line is one edit. Nothing here is waiting on an answer.
+
+**Build order: all scripts first, then the skill files.** `plugin/` rebuild and `npm test` are
+Peter's, at the end.
+
+## A. Scripts — shapes (`skill/scripts/subagent_returns.json`)
+
+- [ ] 1. `page-claims`: new **required** `citeId` on every claim — `<source>_<random hex>`. §The quote loses its page
+- [ ] 1a. **No cross-file `citeId` check anywhere** — page-local uniqueness is all that is required once the marker and the manifest stop searching by id. `validate.mjs uniqueBy` on the returned array is exactly right. §The quote loses its page
+- [ ] 1b. **No fixed worked example of a `citeId` in any skill file** — a concrete id in the Page Analyst's own file is what a sonnet-tier agent copies verbatim across hundreds of dispatches. §The quote loses its page
+- [ ] 2. `source-raw-report`: **drop `quote`** from the claim; citations gain `citeId` and `representative` (boolean, exactly one true per claim). §The fix — citeId
+- [ ] 3. `source-raw-report.claim`: new description, verbatim from the design. §Two causes in the spec
+- [ ] 4. `source-raw-report.observations`: becomes an **array of strings** — no citations, no quotes, no `kind`. §The new shape
+- [ ] 5. `claim-index`: citations gain `citeId` and `representative`, **drop `quote`**. **`cachedPage` stays.** §Resolving a quote
+- [ ] 6. `merge-manifest`: new **`representativeFrom`** — **the `from` reference itself**, `"reddit[41]"`, copied from what `read_source_claims` printed. **Not a position**: `from`'s entries are stable identifiers, unlike what `refutedByIndex` points at, and this pass exists to stop agents counting positions. §representative — which quote gets rendered
+- [ ] 7. `merge-manifest.claim`: drop the words *"one-line"*. §Two causes in the spec
+- [ ] 8. `page-claims.claim`: **unchanged** — verify nothing edits it. §Two causes in the spec
+- [ ] 9. Shape **rename**: `source-raw-report` → `source-preliminary-results`. §Renames
+- [ ] 9a. Shape **rename**: `raw-report-writer` → `source-aggregator` (`subagent_returns.json:1019`), and its description at `:1108`. **Item 73 is in section J, which runs after the scripts** — this one belongs here or the shape key stays mismatched through all of phase one. §Renames
+- [ ] 9b. `source-aggregator.claimIndexError`'s description — under the new write order `index` runs **fourth**, so the failure now means `observations.md` and the CSVs were never written. *"A malformed index is not a bad section"* described the old order. §The new write order
+- [ ] 10. `validate.mjs`: **`uniqueBy: "citeId"` on `page-claims.claims`** — an array of *claims*, one `citeId` each, and one return is one page. **This is the whole uniqueness guarantee** now the `join` check is gone: page-local is all that is required, and this is the only array where it is load-bearing. Not the citation arrays in `source-preliminary-results` or `claim-index`.
+
+## B. Scripts — `synthesis.mjs`
+
+- [ ] 11. `join`: carry `citeId` and `representative` through. §representative
+- [ ] 12. `join`: **re-elect the highest-`pageQuality` survivor** when the verdict filter drops the flagged citation. §representative
+- [ ] 13. `join`: read `<source>-preliminary-results.json`, write `<source>-final-results.json`. §Renames
+- [ ] 14. `index`: stop copying quote text (`synthesis.mjs:282`). §The fix — citeId
+- [ ] 15. `index`: resolve `representativeFrom` — the named source claim → its `representative` citation — set it on the merged claim and clear the rest. **Validate the value is a member of that entry's own `from`.** Default to the highest-`pageQuality` citation's representative when omitted. §representative
+- [ ] 16. `index`: **remove `--append`** and every path that reads an existing index. **Two callers, not one** — `raw_report_writer_agent.md:220` (Audit repair) and `:188-189` (a manifest-repair re-run inside Synthesize, already broken). §Audit rework
+- [ ] 17. `read_source_claims`: resolve the `Q:` line from each source claim's representative `citeId` → `cachedPage` stem → `<stem>-claims.json`. §Resolving a quote
+- [ ] 18. **New `read_claims_for_report`** — plain text, per merged claim: `claimId`, claim, `importance`, `pageQuality`, the representative quote with its `citeId`, every citation's `url` and `status`, `refutedBy`/`refutedReason`. **Omits `cachedPage` and non-representative quotes.** §read_claims_for_report
+- [ ] 19. `read_claims_for_report --match <terms…>` — several terms ORed, one call, no fallback. §read_claims_for_report
+- [ ] 20. **New `read_observations`** — mirrors `read_source_claims`: `--source` optional, every source the default, plain text, per-source headings. **It reads `<source>-preliminary-results.json`.** §read_observations
+- [ ] 20a. **`join` stops copying `observations`** (`synthesis.mjs:176`). Nothing joins an observation — there is no citation to stamp a verdict on — and the copy existed only to reach an agent that read the joined files. Removes 68KB of measured copy, and lets `read_observations` work before `join` has run. §read_observations
+- [ ] 21. Docstrings and the usage header for all of the above.
+- [ ] 21a. `MANIFEST_PATH` (`synthesis.mjs:211`) → `cache/_returns/source-aggregator-manifest.json`, and every skill-file mention: the layout tree in `phases/index.md` and the salvage path in `resuming.md`. §Renames
+
+## C. Scripts — `factcheck.mjs`
+
+- [ ] 22. `serve`: resolve quotes by `citeId` instead of reading `quote` from `claim_index.json` (`:200`). **Return shape unchanged.** §Resolving a quote
+- [ ] 23. Marker parser (`:44-52`): **strip a trailing `*`** and keep the flag. No `:` splitting — the marker carries no `citeId`. §Everything that follows the writer
+- [ ] 24. `:80` comment — drop the Jargon-section mention. §Cleanups
+
+## D. Scripts — `config.mjs`
+
+- [ ] 25. **`extract.observationsPerDispatch: 6`** in `CONFIGURATION_DEFAULTS` and `CONFIGURATION_NOTES`. **Nothing in `FAST_REDUCTIONS`.** **Not `perSource`** — item 43a settles that the Extract pass writes up to six and the Enrichment pass adds up to six of its own, so a source can finish with twelve and the old name asserted six. `PerDispatch` is also the idiom already in use (`extract.urlsPerDispatch`, `vet.handlesPerDispatch`). §The cap
+
+## E. Scripts — tests
+
+- [ ] 26. `citeId` minted, required, and carried through join → index → serve.
+- [ ] 27. **A claim whose representative is dropped by the verdict filter gets a new one** — the silent case.
+- [ ] 28. `representativeFrom` resolved through the `from` array; the omitted-field default; exactly one `representative` survives per merged claim.
+- [ ] 29. `read_claims_for_report` output shape, and that it omits `cachedPage` and the non-representative quotes.
+- [ ] 30. `--match` with several terms; an empty result is an empty result, not an error.
+- [ ] 31. `read_observations` — one source, all sources, a source with none, and that it reads the preliminary results. Plus: `join` no longer emits `observations`.
+- [ ] 32. `serve` resolves a quote by `citeId` and returns the unchanged shape.
+- [ ] 33. The marker parser on `001`, `claim-001`, `001*` and `claim-001*` — the flag survives both spellings.
+- [ ] 34. `index` has no `--append`; the flag is refused.
+- [ ] 35. Update every test that asserts the old filenames or the removed `quote` field.
+- [ ] 35a. `tests/validate.test.mjs:77, 562, 577` — three `check('raw-report-writer', …)` calls take the new shape name. Item 35 covers filenames and `quote`, not shape keys.
+
+## F. Skill — the Source aggregator
+
+- [ ] 36. **New `brain/subagents/source_aggregator_agent.md`**, from `raw_report_writer_agent.md`. Summary table per `AGENTS.md`. §The Source aggregator
+- [ ] 37. It **stops writing `<slug>-raw-report.md`**.
+- [ ] 37a. **Sweep every reference to the artifact** — grep `raw-report.md`. The plain textual ones: `sections.md:68`, `plan_phase_a.md:96`, `audit_phase_f.md:53/61/102`, `competitor.md:81`, `general-inquiry.md:75`, `landscape.md:108`. §Deleting the raw report is not only a rename
+- [ ] 37b. **`output.md:42` and `:3`** — the summary becomes the record and **has no length limit**; shape is still required. Deleting the escape valve while leaving the brevity rule leaves depth nowhere to go. §Deleting the raw report is not only a rename
+- [ ] 37c. **`modes.md:125`** — the Repair row says *"the raw report is rebuilt around it"*, which item 58 makes false.
+- [ ] 38. New write order: manifest → `validate.mjs` → `synthesis.mjs index` → **`read_observations`** → `observations.md` → the CSVs. §The new write order
+- [ ] 38a. Its ***Runs* row names `synthesis.mjs read_observations`.** Telling the agent to merge and building the verb are two of three parts; without the call this reproduces the exact bug the pass exists to fix. §The new write order
+- [ ] 39. Dispatch gains the full scope — research question, angles, all sections, deliverables. §The dispatch gains the full scope
+- [ ] 40. **Scope informs merging and selection, never contradiction-settling** — one sentence in §3.
+- [ ] 41. It does **not** tag claims by section.
+- [ ] 42. It writes `observations.md`: merges the per-source observations **and adds its own cross-source ones**, mixed in and collapsed. Plus the guard: *if it can be read off the claim list, it is not an observation.* §The Source aggregator writes observations.md
+- [ ] 42a. **Provenance goes in the sentence** — two of its four observation kinds are claims about which source said what, and the flat set carries no provenance field. §The Source aggregator writes observations.md
+- [ ] 43. Its own additions capped at **6**; the merged output uncapped.
+- [ ] 43a. Source Analyst Enrichment pass: **it adds up to six of its own and touches nothing already in the file.** Six is the Extract pass's cap, not a total — that pass reads only the new claims files and cannot judge what Extract wrote. The merged output is uncapped anyway. §The cap
+- [ ] 44. ***Input data files* differs by dispatch** — Synthesize: the full listing. Repair: `read_claims_for_report --match` plus the CSVs it wrote. §Audit rework
+- [ ] 45. Delete `raw_report_writer_agent.md`. **`reporting.md:22``s `[5.1/6] Synthesize · Raw report` is RENAMED to `Synthesize · Source aggregate`, not removed** — the step still writes the manifest, the index, `observations.md` and the CSVs, and deleting the label would leave Synthesize printing only `[5.2/6]` and break the sequence the user reads the run by.
+- [ ] 45a. Its heartbeat log becomes `cache/_progress/source-aggregator.log` — the label the stuck-agent check keys on.
+
+## G. Skill — the Final report writer and the copy editor
+
+- [ ] 46. Final report writer *Input data files*: the printed listing · the CSVs · **`observations.md`**. **The raw report and `claim_index.json` both leave.** Without `observations.md` in the list, item 48 asks it to copy a file it was never handed — and that file would have no reader at all. §Everything that follows the writer
+- [ ] 47. It marks paragraphs `claimId`, with a trailing **`*`** where it renders that claim's quote. No `citeId` — the writer only ever sees the representative's.
+- [ ] 48. It **copies the observation section verbatim** from `observations.md`; it does not rewrite it. §The report section
+- [ ] 49. At `[6.2/6]` and `[6.4/6]` it drafts the `--match` terms itself — **every plausible wording in the one call**. §Who drafts the match terms
+- [ ] 50. Copy editor **stage 2** reads the printed listing instead of the raw report. **Stage 1 untouched.**
+- [ ] 50a. **Reword its stage guard** — *"not to be opened until the flag file is written"* names a file; it becomes a command. The mechanism that keeps stage 1 cold stops applying otherwise. §The copy editor's stage guard
+- [ ] 50b. Its ***Logs* row** — `reading the raw report` becomes the listing call. Record that stage 2 now pulls ~296KB on `sonnet`.
+- [ ] 50c. **`final_report_reviewer_agent.md:83, 87, 100`** — its gap taxonomy rests on *"the evidence may be in a per-source report and not in the aggregate"*, and that taxonomy feeds `[6.2/6]`'s table. It still reads the draft summary and nothing else; what changes is how a gap is worded. §Deleting the raw report is not only a rename
+- [ ] 50d. **Delete §"Record what you did not use"** — the drop list. Its justification names the raw report and the shape has no field for it. §The writer's drop list goes
+- [ ] 50f. **New `factcheck.mjs unused_claims`** — claims in `claim_index.json` that no summary marker points at. It already holds both halves (`claimIdsIn`, and the index). Appended to `audit.md` via `runlog.mjs finding` at `[6.7/6]`. Without it the discard record ceases to exist, which reverses why the section was written. §The writer's drop list goes
+- [ ] 50e. **`final-report-writer.sectionsWithNoVettedVoice`** — its description states the observation section is excluded, per 65b. §The writer's drop list goes
+
+## H. Skill — the Source Analyst and the Page Analyst
+
+- [ ] 51. `page_analyst_agent/index.md`: mint the `citeId`. §The fix — citeId
+- [ ] 52. `source_analyst_agent/index.md`: still reads quotes, **stops writing them**; flags one citation `representative: true` per merged claim, highest `pageQuality`. §representative
+- [ ] 53. Its dispatch gains the scope — research question, deliverables, sections, angles. §The Source Analyst receives the scope
+- [ ] 54. Rewrite §"four things to look for" around the new observation shape, the cap, and the claim/observation test. Drop `coverage-gap`. §Claim or observation
+- [ ] 55. **Claims per source ≤ 2× pages analysed — a ceiling, not a target**, stated as such. §The ceiling
+- [ ] 55a. Define **"pages analysed" = distinct `cachedPage` values**, i.e. documents, not pages — `extract.maxPagesPerDocument` is 5, so the word means two things. §The ceiling
+- [ ] 55b. The ceiling is applied **in the Extract pass**, and again on the Enrichment append's own documents. **Not once after Enrichment** — no Enrichment Source Analyst runs in `--fast` (`enrich.expertsFollowed: 0`) or for a source that gained no expert material, so the ceiling would not exist in two of the four run kinds. State all four. §The ceiling
+- [ ] 56. Its ***`--fast`* row**: observations are *"the same in both modes"*.
+
+## I. Skill — phases, sections and resume
+
+- [ ] 57. `synthesize_phase_e.md` — rewritten around the new order and actors.
+- [ ] 58. `audit_phase_f.md` `[6.2/6]` — the three-way table: in the index → the writer redrafts · not in it → **dropped, one `runlog.mjs finding` line, nothing in the report** · a CSV row → the aggregator, CSV work only. §Audit rework
+- [ ] 58a. `[6.2/6]` — **state the failure mode.** *"Not in the index"* is one search returning nothing, not a lookup that cannot be wrong. A miss erases a gap the reviewer found; the `audit.md` line names the terms searched, so the drop is reconstructable. §Audit rework
+- [ ] 59. `audit_phase_f.md` `[6.4/6]` — match on the unmarked paragraphs' own distinctive words, one call for the batch.
+- [ ] 60. `audit_phase_f.md` — close the old repair's three unstated gaps: contradictions re-settled? CSV rewritten or appended? steps 1-3 re-run?
+- [ ] 61. `audit_phase_f.md` — the redraft count is unchanged; record why `[6.2/6]` and `[6.4/6]` cannot merge.
+- [ ] 62. `sections.md` — the observation section is **the last section and is not in `scope.deliverables`**. **No shared category with the footer**: the footer is not a section, the writer is told not to add it (`final_report_writer_agent.md:166-168`), and it **does** add the observation section. §The report section
+- [ ] 63. `sections.md` — the **"LLM free-flow observations"** section: **the last section**, all four commands. Not "second to last" — the footer follows it but is not a section (item 62).
+- [ ] 64. `plan_phase_a.md` — must not plan the observation section.
+- [ ] 65. **`factcheck.mjs prepare` excludes the observation section by name** — `splitUnits` (`:92-93`) already tracks the heading, so the observation section never reaches `unmarked.md`. `prepare` runs twice in Audit; a prose rule would need the writer to decline twice. §The report section
+- [ ] 65d. **`factcheck.mjs` owns the section's name; `sections.md` points at it** — as `runlog.mjs` owns the `finding` categories. Two copies means a reword in `sections.md` that misses the script silently returns the section to `unmarked.md`, where `[6.4/6]` cuts it. §The report section
+- [ ] 65a. **`output.md` and `SKILL.md`** — cite-or-drop names its exception: the observation section carries no citations by design. Stating it only as an audit exemption leaves every agent reading `output.md` told two things. §The report section
+- [ ] 65b. **`final_report_writer_agent.md:109`** — the vetted-voice check skips the observation section. Otherwise the observation section, which has zero citations by design, opens with *"Nobody behind this section could be vetted"* on **every run**. §The report section
+- [ ] 65c. **`final_report_copy_editor_agent.md:77-80`** — its restore-a-link rule skips the observation section. §The report section
+- [ ] 66. `extract_phase_b.md:181` — *"the last read of the claims files"* becomes *no agent reads them after Extract; scripts reopen them to resolve quotes.* §Resolving a quote
+- [ ] 67. `resuming.md:93` — completion test becomes `claim_index.json` + the CSVs.
+- [ ] 67a. `resuming.md` — **a topic whose last run predates V0.1.2 is started over, not resumed.** The per-source renames and the dropped `quote` field already make its files unreadable; say so rather than letting a resume fail obscurely. §Renames
+- [ ] 68. `phases/index.md` — layout tree and who-writes-what: `observations.md` in, `<slug>-raw-report.md` out, the renamed per-source files, the new write order.
+- [ ] 69. `modes.md` — the `extract` row of the group table gains `observationsPerDispatch`.
+- [ ] 70. `README.md` — the file table: `<slug>-raw-report.md` out, `observations.md` in.
+
+## J. Renames across the skill
+
+- [ ] 71. `<source>-raw-report.json` → `<source>-preliminary-results.json`, everywhere.
+- [ ] 72. `<source>-joined.json` → `<source>-final-results.json`, everywhere.
+- [ ] 73. Raw report writer → **Source aggregator**, everywhere.
+
+## K. Cleanups
+
+- [ ] 74. `landscape.md` §9 — the **Jargon** section removed. §Cleanups
+- [ ] 75. **Stop counting the sources.** **No count is given — grep `six` across `skill/**.md` and `subagent_returns.json`** and keep the ones meaning the sources. An earlier draft said "12 places", which was wrong and was itself the mistake the rule forbids. `brain/index.md:87` is the definition and stays; *"six phases"* stays, including in the four `reference/*.md` files. §Cleanups
+- [x] 76. `source_analyst_agent/hackernews.md:44` — the dead `num_comments` comparison. **DONE.**
+
+## Verification gates — manual
+
+- [ ] `npm test` passes.
+- [ ] `node scripts/build.js && git diff --exit-code plugin/` is clean.
+- [ ] One full run: every citation in `claim_index.json` has a `citeId` that resolves to a quote in the page's claims file.
+- [ ] **The quote a citation resolves to is present in the page it names** — the defect this pass exists to fix. Sample the merged claims.
+- [ ] Exactly one `representative: true` per claim, in both the final-results files and the index.
+- [ ] `observations.md` exists, and its content appears in the summary's observation section.
+- [ ] The summary's markers carry a trailing `*` where a quote is rendered, and every id resolves.
+- [ ] No source's claim count exceeds 2× its pages analysed.
+- [ ] **The report still has content.** Two changes push `unsupported` up at once — quotes stop being mis-paired, so the fact check judges against correct evidence for the first time, and broader claims pass only if the whole statement is supported. Compare the fact check's deleted-statement count against the measured run before shipping.
+- [ ] One full run: **`players.csv` is complete and no cell text appears in the orchestrator's transcript** — section M's whole point.
+- [ ] A run killed mid-profiling, then resumed, fills every row: the merge recovers what returned before the kill.
+- [ ] A failed row still reaches the retry-or-ask path it had before.
+- [ ] `<slug>-raw-report.md` is not written.
+
+## L. A malformed manifest entry never stops the run
+
+- [ ] 77. `synthesis.mjs buildIndex` — **collect every problem rather than throwing at the first**. A failed entry leaves a stand-in so later positions keep their ids and `refutedByIndex` stays accurate. §A malformed manifest entry never stops the run
+- [ ] 78. `PROBLEMS_LISTED = 20` — spell out that many, then "and N more of the same kinds".
+- [ ] 79. **10 or fewer malformed on the first run: drop, record, carry on — no repair pass.** More than 10: the Source aggregator spends its one repair attempt on the list.
+- [ ] 80. **After the repair re-run, whatever is still malformed is dropped and the run carries on.** Never a second repair, never a stop.
+- [ ] 81. `indexAll` returns `dropped` — the count and the problem lines — and writes the index without the stand-ins.
+- [ ] 82. **Still fatal**: no manifest file · a manifest with no `claims` array · no final-results files at all. Those mean the step before did not run, and an empty index would look like a run that found nothing.
+- [ ] 83. `runlog.mjs` — new `claim-malformed` finding category, beside `claim-unsourced` and `claim-unused`.
+- [ ] 84. `source_aggregator_agent.md` — the repair pass covers a malformed-entry list, and `claimIndexError` is no longer reached by one; it stays for the structural failures in 82.
+- [ ] 85. `synthesize_phase_e.md` — the orchestrator records the drops with `runlog.mjs finding claim-malformed` and names them in Issues.
+- [ ] 86. `reporting.md:97` — name dropped claims among the Issues examples.
+- [ ] 87. Tests — several problems reported at once · the cap and the "and N more" line · 10 or fewer never triggers a repair · the stand-in keeps `refutedByIndex` accurate · the three structural failures still throw · `dropped` on the return.
+
+
+## M. The profiling step leaves the orchestrator's context
+
+**Build order within this section: the script first, then the skill files.** §The profiling step
+leaves the orchestrator's context
+
+- [ ] 88. **New `players.mjs profiles --topic <slug>`** — reads every `cache/players/profiles/<player>.json`, validates each, writes its cells into the row already in `players.csv`. Prints rows filled, rows still empty, rows failed. §The fix
+- [ ] 88a. **Every column is written verbatim, matched on name — no mapping.** `COLUMN_FROM_FIELD` and `asUrl` were built against the old one-column design and are **deleted**. **`name` is the only column the merge never writes.** §And with two columns
+- [ ] 88b. **The header decides the columns.** A returned field with no column in the header is not written and not added — which optional columns a run carries is recorded nowhere but the header. §Three things tell the profiler its columns
+- [ ] 88c. **The summary reports fields it did not write**, per player, so agent drift is visible rather than absorbed. §Three things tell the profiler its columns
+- [ ] 89. **It discards a malformed file rather than writing it**, naming the player — the second of the two checks, as `handle_vetting.mjs aggregate` does. §The fix
+- [ ] 90. **The merge is idempotent** — running it twice fills the same rows and does not duplicate or blank one. Resume runs it before dispatching anything. §Resume gets better
+- [ ] 91. `players.mjs` usage header and docstrings for the new verb.
+- [ ] 91a. **`experts.mjs` — split the record reader out as `parseCsvRecords`**, header included and no column coerced; `parseCsv` calls it. Its current form narrows every row to `experts.csv`'s own COLUMNS, so it silently returns nothing for `players.csv`. **DONE** — needed to build 88.
+- [ ] 91b. `enrich_phase_d.md` — **the orchestrator records `failed`, `malformed` and `orphans` with `runlog.mjs finding`** as it reads the summary. The summary is stdout and nothing else; every other discard in the run is written to `audit.md`. §The summary is read
+
+- [ ] 92. `subagent_returns.json` — `player-profile`'s description becomes **"validated as a file rather than as a return"**, with the two-checks note, matching `handle-vetting`. The fields do not change. §The fix
+
+- [ ] 93. `player_profiler_agent.md` ***Returns to main context*** — **the word `done`, or `fetch_failed` naming the player.** Not the sixteen fields. §The failure path is unchanged
+- [ ] 93a. **`player_profiler_agent.md:7, 13` and the `player-profile` shape description** — delete *"`url` came in with the dispatch and does not come back."* It does come back. `player_candidates.json` has no `url` field, so nothing reliably supplies one; **`name` alone arrives with the dispatch.** §`url` is `marketing_domain`
+- [ ] 93c. **`player-profile`: rename `marketing_domain` → `url`**, holding the URL rather than the domain. The field was named for the concept only because one column could not say which link it held. §And with two columns
+- [ ] 93d. **`player-profile`: new optional `repo_url`**, the code host, returned as a full URL. §They are two facts
+- [ ] 93e. **`player_profiler_agent.md` §3** — *"look at the front page before defaulting to 'code host only'"* becomes **find both where both exist**. The Frigate example already carries it: repo on GitHub, site `frigate.video`. Keep "marketing domain" as prose describing the step; it is no longer a field name. §And with two columns
+- [ ] 93b. **§"What you return" — the dispatch wins.** A column your dispatch does not name is not returned, whatever the reference file or the shape lists. Two of 21 profilers returned `notable_customers` because `landscape.md` names it and the dispatch did not. §Three things tell the profiler its columns
+- [ ] 94. Its ***Writes to disk*** — **`cache/players/profiles/<player>.json`**, not `cache/_returns/player-profiler-<player>.json`. A `_returns/` file for an agent that returns one word is what the Handle Vetter's file already forbids. §The file moves
+- [ ] 95. Its ***Runs*** row gains `validate.mjs player-profile` on its own file, one repair and one re-check. §The fix
+- [ ] 96. It still returns `fetch_failed` **with no cells** — unchanged, and it now writes no file either, so nothing is merged for that row.
+
+- [ ] 97. `enrich_phase_d.md` §"Fill the cells" → **§"Merge the cells"**: one `players.mjs profiles` call after the last row returns, replacing the write-per-return. §The fix
+- [ ] 97a. `enrich_phase_d.md:249` — **the dispatch stops claiming to carry a url.** It carries the name, the topic, the columns and the path to `player_candidates.json`. §`url` is `marketing_domain`
+- [ ] 98. Its completion test — the `ls` becomes `cache/players/profiles/`. **The rule is unchanged** — read the count off disk, never keep a tally. §The file moves
+- [ ] 99. **Say what does not change**, in one line: concurrency and continuous refill, the `[4.5/6]` marker and its count, the retry-and-ask failure path, and that a bare `UNAVAILABLE` is still never acceptable. §What does not change
+- [ ] 100. §"Incremental persistence" — the cells are no longer written as each row returns; the profile files are the durable artifact and the merge is what fills the CSV. §Resume gets better
+- [ ] 101. `[4.4/6]`'s selection **stays in the orchestrator's context** — state why, so the next pass does not try to move it too. §Why the selection cannot follow it
+
+- [ ] 102. `phases/index.md` writer table — `players.csv` moves from *the orchestrator* to **`players.mjs profiles`, once, at the end of Enrichment**, carrying the same sentence `experts.csv` has about being built from disk rather than from a context. §The fix
+- [ ] 103. `phases/index.md` layout tree — `cache/players/profiles/<player>.json` in; the `_returns/` entry for this agent out.
+- [ ] 104. `resuming.md` Enrichment entry — **run the merge first, then dispatch only the rows still empty.** §Resume gets better
+- [ ] 105. Grep `player-profiler-` and `_returns/player-profiler` across `skill/` — the progress log keeps its label, the returns file is gone.
+
+- [ ] 104a. **`landscape.md` §2** — `repo_url` joins the **optional** columns, with one line: add it when the topic has open-source players. Required would leave a dead column on a vendor-only topic. §They are two facts
+- [ ] 105a. **`general-inquiry.md` and `gtm-teardown.md`** — both reference `players.csv` and neither says what is in it. One sentence each pointing at `landscape.md` §2, as `competitor.md` already does. §Three things tell the profiler its columns
+- [ ] 106. The merge fills rows from profile files.
+- [ ] 107. A malformed profile file is discarded and named; the row stays empty.
+- [ ] 108. A row with no profile file stays empty and is counted.
+- [ ] 109. The merge is idempotent.
+- [ ] 110. Update anything asserting the old `_returns/` path.
+- [ ] 110a. A player with both links fills `url` and `repo_url`; one with only a marketing site leaves `repo_url` empty. **The old mapping test goes** — there is no transform left to prove.
+- [ ] 110b. A returned field with no column is not written, and is named in the summary.
+- [ ] 110c. `parseCsvRecords` returns the header and coerces no column.
+
+**Settled, not deferred:** `marketing_domain` stops being a field. Two columns remove the ambiguity
+that named it, so the field is `url` and there is no transform to keep. See §And with two columns.
+
+## N. What the first full V0.1.2 run found
+
+Measured on `digmore-test/digmore/coding-harness-plugin-evals`. **Section M is not implicated** — the
+profile merge did not exist in that run. §What the first full V0.1.2 run found
+
+- [ ] 111. **`page_analyst_agent/index.md` — validate every claims file**, `validate.mjs page-claims`, per document, one repair, one re-check. Its only `validate.mjs` call today is on the receipt batch, which is why 23 files reached disk as a bare JSON array.
+- [ ] 112. **State the claims filename exactly** — the page's filename **including its extension**, plus `-claims.json`. *"Two files per document, sharing one name"* let two agents each invent a form.
+- [ ] 113. **`synthesis.mjs claimsFileFor` accepts both forms** — full filename first, then stem. Caches on disk carry both.
+- [ ] 114. **`factcheck.mjs serve` returns `null`, not `''`, for an unresolved quote.** An empty string reads as a quote that says nothing, and the checker judges the quotes first.
+- [ ] 115. **`synthesis.mjs index` resolves every citation after building the index** and reports the count. **No new script** — `quoteResolver` is already in that file, and this surfaces at the write rather than in Audit.
+- [ ] 116. **`factcheck.mjs` — strip a leading `<digits>.` before the `UNCHECKED_SECTIONS` compare.** Every heading is `## 10. LLM free-flow observations`, so the guard has never fired.
+- [ ] 117. **Rename `factcheck-paragraph` → `factcheck-paragraph-workorder`** — it is the work order `serve` hands out, not a result; 15 dispatches validated returns against it. `claim-fact-checker` stays. Touches `subagent_returns.json`, `factcheck.mjs`, `claim_fact_checker_agent.md`, `audit_phase_f.md`, tests.
+- [ ] 118. Tests — a bare-array claims file is refused · both filename forms resolve · an unresolved quote is `null` · `index` reports the unresolved count · a numbered heading is excluded · the renamed shape.
+
+## O. Links and the confidence tag in the summary
+
+Four sections of the measured run carry no links at all — 35 paragraphs whose evidence is in an
+invisible HTML comment. §Four sections of the report carry no links
+
+- [ ] 119. **Inline `output.md`'s citation rule into the Final report writer's dispatch**, beside the per-section specs. `synthesize_phase_e.md:119-122` already says why a pointed-at file loses to inlined text. §Why the universal rule lost
+- [ ] 120. **`landscape.md` §2 preamble states it once, for every section**, with the render format: the representative's URL, then the next-highest `pageQuality`, then `+N more` for the remainder; omit the suffix where there is none. **A section's own spec adds to this, never replaces it.** §How many URLs a claim renders
+- [ ] 121. **Delete the URL clause from `landscape.md` §6 and §8** — §6 keeps "handle + verdict", §8 keeps "kill reason". Two sections restating a universal rule made the other four sections' silence read as permission.
+- [ ] 122. **The same preamble line in `competitor.md`, `general-inquiry.md`, `gtm-teardown.md`**, or a pointer to it, so the gap cannot reopen per command.
+- [ ] 123. **Spell the confidence tag out — `` `confidence: high` ``**, wherever it renders. `vetting.md` defines it; nothing in the report explains it. §The confidence tag is unexplained jargon
+- [ ] 124. **`factcheck.mjs prepare` flags a paragraph carrying a claim marker and no `](http`.** A script check: the reviewer's rule is already right and its agent accepted the marker as a citation anyway. §Why the universal rule lost
+- [ ] 125. Tests — the two-link-plus-remainder format · the suffix omitted at one and two citations · a marked paragraph with no link is flagged.
+
+## P. Repairing the existing run
+
+- [ ] 126. **Add the missing links with a script, not a writer pass.** Ids are in the markers, `claim_index.json` holds every URL and `pageQuality`, so the transform is mechanical. An agent rewriting 35 paragraphs re-words some, and a wording change reopens the fact check. §Repairing this run

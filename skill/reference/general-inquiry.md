@@ -63,6 +63,11 @@ Output: one row per platform with URL + status (active / dormant / absent). Land
 
 Sections in this exact order.
 
+**Every finding in every section carries its inline URL**, rendered as `landscape.md` §1 specifies —
+the representative citation's URL, then the next-highest `pageQuality`, then `+N more` for the
+remainder. The confidence tag spells its word out: `` `confidence: high` ``. A section's own spec
+below adds to this; none of them replaces it.
+
 1. **Direct answer** — 1–3 sentences answering the question. At the top. No preamble.
 2. **Evidence** — the body. The Final report writer picks the shape per question: comparison table (often driven by `players.csv` rows), categorized list, prose-with-timeline, per-sub-question grouping, or a mix. Add subsections (`What people pay for`, `Hubs touching this question`, `Buying signals`, etc.) when they help the answer. Inline URL refs for every non-obvious claim, with the commenter handle and Vet verdict.
 3. **Caveats / what's missing** — where evidence is thin, single-sourced, or conflicting. Be specific about what you didn't find, and name any source the run could not reach.
@@ -71,5 +76,5 @@ Sections in this exact order.
 
 ## 2. The rest
 
-- `players.csv` — built from every entity mentioned ≥5 times. Its role here is a credibility filter for the evidence and a reference for any comparison table in §2. If the question genuinely has no players ("what do people ask about computer vision benchmarks"), write the file with the header row plus a single `# no players in scope` comment line.
-- `experts.csv`, `<slug>-raw-report.md`, `audit.md` — the brain's, unchanged.
+- `players.csv` — **same columns as `landscape.md` §2.** Built from every entity mentioned ≥5 times. Its role here is a credibility filter for the evidence and a reference for any comparison table in §2. If the question genuinely has no players ("what do people ask about computer vision benchmarks"), write the file with the header row plus a single `# no players in scope` comment line.
+- `experts.csv`, `observations.md`, `audit.md` — the brain's, unchanged.

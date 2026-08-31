@@ -327,6 +327,7 @@ test('the run prints every configuration it will apply, under its own heading', 
   for (const key of [
     'plan.minAngles', 'plan.maxAngles', 'plan.scopingSearches',
     'extract.fetchesPerBranch', 'extract.maxPagesPerDocument', 'extract.urlsPerDispatch',
+    'extract.observationsPerDispatch',
     'vet.handleCapPerSource', 'vet.handlesPerDispatch',
     'enrich.expertsFollowed', 'enrich.urlsPerExpert',
     'twitter.handlesDeepVetted', 'twitter.postsPerDeepVet', 'twitter.handlesPerDispatch',

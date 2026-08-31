@@ -53,6 +53,12 @@ export const RECENCY_WINDOW_YEARS = 2;
  * sources has 30 branches, so this number multiplies by 30 rather than by 5. It counts
  * pages too — a paginated thread spends one per page, bounded by `maxPagesPerDocument`.
  *
+ * `extract.observationsPerDispatch` is named for the dispatch and not the source on purpose: the
+ * Source Analyst runs once in Extract and again in Enrichment, where it reads only the new claims
+ * files and so cannot judge what the first pass wrote. It adds up to this many of its own rather
+ * than folding into the first pass's, so a source can finish with twice the number. The merged
+ * output the Source aggregator writes is uncapped, so a seventh costs nothing downstream.
+ *
  * `extract.urlsPerDispatch`, `vet.handlesPerDispatch` and `audit.paragraphsPerDispatch`
  * are batch sizes: how many items one sub-agent works through in sequence, so that a run
  * spends fewer dispatches rather than fewer requests. Neither is a concurrency limit — that is the harness's, and it is
@@ -88,7 +94,7 @@ export const RECENCY_WINDOW_YEARS = 2;
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 2, maxAngles: 6, scopingSearches: 10 },
-  extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5 },
+  extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5, observationsPerDispatch: 6 },
   vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 5, urlsPerExpert: 10, minPlayerDocuments: 5 },
   twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
@@ -148,6 +154,7 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'extract.fetchesPerBranch': 'URLs per angle-source pair, pages included',
   'extract.maxPagesPerDocument': 'pages followed when one document paginates',
   'extract.urlsPerDispatch': 'URLs one Page Analyst reads in sequence, all from one branch',
+  'extract.observationsPerDispatch': 'observations one Source Analyst writes — per dispatch, so a source that gains expert material can reach twice this',
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
   'vet.handlesPerDispatch': 'handles one Handle Vetter judges in sequence, all from one source',
   'twitter.handlesPerDispatch': 'the same for Twitter, lower because a deep vet reads that many posts',

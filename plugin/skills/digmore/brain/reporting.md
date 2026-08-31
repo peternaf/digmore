@@ -19,7 +19,7 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 [4.3/6] Enrichment · Source append
 [4.4/6] Enrichment · Candidates
 [4.5/6] Enrichment · Profile
-[5.1/6] Synthesize · Raw report
+[5.1/6] Synthesize · Source aggregate
 [5.2/6] Synthesize · Draft
 [6.1/6] Audit · Review
 [6.2/6] Audit · Repair
@@ -34,7 +34,7 @@ A run is long. Print one line to the terminal as each step begins, so the user c
 - **Print at the start of the step, not the end**, so the line names what is running now. The next marker is the previous step's completion; there is no "done" line in the terminal.
 - **No end-of-step report.** A step finishing prints nothing at all, and that covers a sub-step as much as a whole phase: the next marker is what says the last step is done, and a digest of what the step found is a "done" line with a table on it. Everything such a digest would carry is already owed somewhere permanent — the counts to `audit.md`, the reading to the report, the run's own problems to Issues — and a terminal that scrolls past is the one place none of it should live. It is also how a run stops: a block that closes on what comes next is a sign-off, and a sign-off ends the turn. `../modes.md` §Manual mode owns that rule.
 - **A marker and its step go in the same turn.** The line says the step is running, so run it. `[4.5/6] Enrichment · Profile · 47 players` printed with no profiling after it is the run announcing work and then handing back, which is the same stop as a report at a step boundary and costs the user the same restart.
-- **A conditional step that did not run prints nothing at all.** Three of Audit's seven are conditional — the repair and both redrafts run only when something needs them — so `[6.1/6]` followed by `[6.3/6]` is a normal run rather than a missing step. They get a marker when they do run because they are the longest silence in the phase: rebuilding the raw report and rewriting the summary, with nothing printed, reads as a run that has hung.
+- **A conditional step that did not run prints nothing at all.** Three of Audit's seven are conditional — the repair and both redrafts run only when something needs them — so `[6.1/6]` followed by `[6.3/6]` is a normal run rather than a missing step. They get a marker when they do run because they are the longest silence in the phase: rebuilding the section rows and rewriting the summary, with nothing printed, reads as a run that has hung.
 - **A step working through a queue says how big the queue is, then counts it down.** Only that shape: a number of items, and a pace you do not set. `[3/6] Vet · 50 handles on Hacker News`, then `[3/6] Vet · 18 of 50 vetted`. **The count names what has finished, in words, in the unit the step opened on** — `18 of 50 vetted`, `85 of 325 read`. Never a bare `18/50`, which reads equally as 18 done, 18 in flight or 18 still to come. Never the run's own machinery — `wave 1 of 4`, `17 readers` — which says how the work is arranged rather than how much of it is left. It goes on the marker, and it is the whole message. `[4.5/6]` counts the players it is profiling down the same way, a row at a time as each returns.
 
 - **The count is read, never remembered.** Whatever the step's unit is — receipts, handles, rows — the number that reaches the marker comes from the files on disk at the moment you print it. A tally you carry drifts: completion notifications arrive several to a message, so a turn that handles three of them and adds one leaves the count low for the rest of the step, and a low count reads as work still outstanding.
@@ -94,7 +94,7 @@ A command's reference file lists the footer as its last section and says nothing
 When a research run finishes, print exactly four sections to the terminal — no preamble, no recap, no congratulations, no fluff:
 
 1. **Answer:** 1–3 sentences answering what the user actually asked. **The Answer block is the answer only — no caveats, no questions, no hedging.** Caveats live in the summary; questions live in Follow-up research ideas.
-2. **Issues:** bulleted list of run-time problems (failed fetches, capped sections, deferred items, lint violations, sources that were unavailable, items dropped after a failed output check) and of anything you decided on the user's behalf in auto mode. `Issues: none.` when clean.
+2. **Issues:** bulleted list of run-time problems (failed fetches, capped sections, deferred items, lint violations, sources that were unavailable, items dropped after a failed output check, claims dropped for a malformed manifest entry) and of anything you decided on the user's behalf in auto mode. `Issues: none.` when clean.
 3. **Skill + output:** one line. `<command-name> · output: digmore/<topic-slug>/`
 4. **Follow-up research ideas:** numbered list (max 10) of one-sentence research questions pulled from the summary's complaints and adjacent-spaces sections.
 
