@@ -91,7 +91,7 @@ export function parseArgs(argv) {
     if (!rest[index].startsWith('--')) continue;
     const name = rest[index].slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
     const next = rest[index + 1];
-    // A flag with nothing after it, or another flag, is a switch — --append, --fast. Consuming
+    // A flag with nothing after it, or another flag, is a switch — --fast, --auto. Consuming
     // the next token regardless is what made a trailing switch read as '' and a leading one
     // swallow the flag after it, so the switch was ignored in one position and broke the call in
     // the other. handle_vetting.mjs and expert_selection.mjs already read them this way.

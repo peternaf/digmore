@@ -173,7 +173,7 @@ Vetting fetches are **not** in this cap — they are bounded separately in `vet_
 
 For each source that pulled data, dispatch ONE Source Analyst that reads everything that source produced — the stripped pages and the claims files together. It writes three files, all to `digmore/<topic-slug>/full_source_analysis/`. See `../subagents/source_analyst_agent/index.md`.
 
-**`<source>-preliminary-results.json` — that source's whole record.** The `source-raw-report` shape in `../../scripts/subagent_returns.json`. Two halves:
+**`<source>-preliminary-results.json` — that source's whole record.** The `source-preliminary-results` shape in `../../scripts/subagent_returns.json`. Two halves:
 
 - **`claims`** — every claim this source produced, deduplicated within this source only, each carrying its citations, and each citation carrying the handle that said it, the URL it can be read at, and the cached page it was read from.
 - **`observations`** — markdown prose: what no single-document reader could have seen. Recurring tone, a mood that shifts over time, the same argument arriving in three threads a month apart, one person contradicting themselves, a question everyone asks and nobody answers.

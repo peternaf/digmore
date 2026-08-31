@@ -813,6 +813,9 @@ Peter's, at the end.
 - [ ] The summary's markers carry a trailing `*` where a quote is rendered, and every id resolves.
 - [ ] No source's claim count exceeds 2× its pages analysed.
 - [ ] **The report still has content.** Two changes push `unsupported` up at once — quotes stop being mis-paired, so the fact check judges against correct evidence for the first time, and broader claims pass only if the whole statement is supported. Compare the fact check's deleted-statement count against the measured run before shipping.
+- [ ] One full run: **`players.csv` is complete and no cell text appears in the orchestrator's transcript** — section M's whole point.
+- [ ] A run killed mid-profiling, then resumed, fills every row: the merge recovers what returned before the kill.
+- [ ] A failed row still reaches the retry-or-ask path it had before.
 - [ ] `<slug>-raw-report.md` is not written.
 
 ## L. A malformed manifest entry never stops the run
@@ -828,3 +831,38 @@ Peter's, at the end.
 - [ ] 85. `synthesize_phase_e.md` — the orchestrator records the drops with `runlog.mjs finding claim-malformed` and names them in Issues.
 - [ ] 86. `reporting.md:97` — name dropped claims among the Issues examples.
 - [ ] 87. Tests — several problems reported at once · the cap and the "and N more" line · 10 or fewer never triggers a repair · the stand-in keeps `refutedByIndex` accurate · the three structural failures still throw · `dropped` on the return.
+
+
+## M. The profiling step leaves the orchestrator's context
+
+**Build order within this section: the script first, then the skill files.** §The profiling step
+leaves the orchestrator's context
+
+- [ ] 88. **New `players.mjs profiles --topic <slug>`** — reads every `cache/players/profiles/<player>.json`, validates each, writes its cells into the row already in `players.csv`. Prints rows filled, rows still empty, rows failed. §The fix
+- [ ] 89. **It discards a malformed file rather than writing it**, naming the player — the second of the two checks, as `handle_vetting.mjs aggregate` does. §The fix
+- [ ] 90. **The merge is idempotent** — running it twice fills the same rows and does not duplicate or blank one. Resume runs it before dispatching anything. §Resume gets better
+- [ ] 91. `players.mjs` usage header and docstrings for the new verb.
+
+- [ ] 92. `subagent_returns.json` — `player-profile`'s description becomes **"validated as a file rather than as a return"**, with the two-checks note, matching `handle-vetting`. The fields do not change. §The fix
+
+- [ ] 93. `player_profiler_agent.md` ***Returns to main context*** — **the word `done`, or `fetch_failed` naming the player.** Not the sixteen fields. §The failure path is unchanged
+- [ ] 94. Its ***Writes to disk*** — **`cache/players/profiles/<player>.json`**, not `cache/_returns/player-profiler-<player>.json`. A `_returns/` file for an agent that returns one word is what the Handle Vetter's file already forbids. §The file moves
+- [ ] 95. Its ***Runs*** row gains `validate.mjs player-profile` on its own file, one repair and one re-check. §The fix
+- [ ] 96. It still returns `fetch_failed` **with no cells** — unchanged, and it now writes no file either, so nothing is merged for that row.
+
+- [ ] 97. `enrich_phase_d.md` §"Fill the cells" → **§"Merge the cells"**: one `players.mjs profiles` call after the last row returns, replacing the write-per-return. §The fix
+- [ ] 98. Its completion test — the `ls` becomes `cache/players/profiles/`. **The rule is unchanged** — read the count off disk, never keep a tally. §The file moves
+- [ ] 99. **Say what does not change**, in one line: concurrency and continuous refill, the `[4.5/6]` marker and its count, the retry-and-ask failure path, and that a bare `UNAVAILABLE` is still never acceptable. §What does not change
+- [ ] 100. §"Incremental persistence" — the cells are no longer written as each row returns; the profile files are the durable artifact and the merge is what fills the CSV. §Resume gets better
+- [ ] 101. `[4.4/6]`'s selection **stays in the orchestrator's context** — state why, so the next pass does not try to move it too. §Why the selection cannot follow it
+
+- [ ] 102. `phases/index.md` writer table — `players.csv` moves from *the orchestrator* to **`players.mjs profiles`, once, at the end of Enrichment**, carrying the same sentence `experts.csv` has about being built from disk rather than from a context. §The fix
+- [ ] 103. `phases/index.md` layout tree — `cache/players/profiles/<player>.json` in; the `_returns/` entry for this agent out.
+- [ ] 104. `resuming.md` Enrichment entry — **run the merge first, then dispatch only the rows still empty.** §Resume gets better
+- [ ] 105. Grep `player-profiler-` and `_returns/player-profiler` across `skill/` — the progress log keeps its label, the returns file is gone.
+
+- [ ] 106. The merge fills rows from profile files.
+- [ ] 107. A malformed profile file is discarded and named; the row stays empty.
+- [ ] 108. A row with no profile file stays empty and is counted.
+- [ ] 109. The merge is idempotent.
+- [ ] 110. Update anything asserting the old `_returns/` path.
