@@ -65,8 +65,13 @@ export const RECENCY_WINDOW_YEARS = 2;
  * how many agents run at once. Neither reduces in fast mode either: fast already cuts the
  * item count, and cutting the batch as well would put the dispatch count back up.
  *
- * `twitter.handlesPerDispatch` overrides `vet.handlesPerDispatch` on that source alone,
- * and is the only per-source override of a batch size. A deep vet reads
+ * `hackernews.urlsPerDispatch` and `forums.urlsPerDispatch` override `extract.urlsPerDispatch`
+ * on those two sources. A batch is sequential inside, and those two carry the heaviest documents
+ * in the run: a forum thread paginates furthest, and an HN story flattens a whole comment tree to
+ * `hackernews.commentDepth`. Ten of either is the longest a single dispatch runs before it returns,
+ * and a stuck-agent kill there loses the most.
+ *
+ * `twitter.handlesPerDispatch` overrides `vet.handlesPerDispatch` on that source alone. A deep vet reads
  * `postsPerDeepVet` posts, so a Twitter batch carries several times the material of a
  * Reddit or forums one at the same count. It stays at its lower value in fast mode too,
  * even though `handlesDeepVetted` is 0 there and no posts are read — a second conditional
@@ -94,11 +99,12 @@ export const RECENCY_WINDOW_YEARS = 2;
  */
 export const CONFIGURATION_DEFAULTS = Object.freeze({
   plan: { minAngles: 2, maxAngles: 6, scopingSearches: 3 },
-  extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 5, observationsPerDispatch: 6 },
+  extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 10, observationsPerDispatch: 6 },
   vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 5, urlsPerExpert: 10, minPlayerDocuments: 5 },
   twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
-  hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5 },
+  hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5, urlsPerDispatch: 5 },
+  forums: { urlsPerDispatch: 5 },
   audit: { paragraphsPerDispatch: 5 },
   subagents: { repairAttempts: 1 },
 });
@@ -154,6 +160,8 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'extract.fetchesPerBranch': 'URLs per angle-source pair, pages included',
   'extract.maxPagesPerDocument': 'pages followed when one document paginates',
   'extract.urlsPerDispatch': 'URLs one Page Analyst reads in sequence, all from one branch',
+  'hackernews.urlsPerDispatch': 'the same on Hacker News, lower because a story flattens a whole comment tree',
+  'forums.urlsPerDispatch': 'the same on forums, lower because a thread paginates furthest',
   'extract.observationsPerDispatch': 'observations one Source Analyst writes — per dispatch, so a source that gains expert material can reach twice this',
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
   'vet.handlesPerDispatch': 'handles one Handle Vetter judges in sequence, all from one source',

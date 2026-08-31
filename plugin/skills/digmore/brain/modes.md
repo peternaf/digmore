@@ -69,13 +69,14 @@ The configurations it prints, and what each bounds:
 | `plan` | `minAngles`, `maxAngles`, `scopingSearches` |
 | `extract` | `fetchesPerBranch`, `maxPagesPerDocument`, `urlsPerDispatch`, `observationsPerDispatch` |
 | `vet` | `handleCapPerSource`, `handlesPerDispatch` |
-| `enrich` | `expertsFollowed`, `urlsPerExpert` |
+| `enrich` | `expertsFollowed`, `urlsPerExpert`, `minPlayerDocuments` |
 | `twitter` | `handlesDeepVetted`, `postsPerDeepVet`, `handlesPerDispatch` |
-| `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize` |
+| `hackernews` | `commentDepth`, `recentCommentsSampled`, `deadSampleSize`, `urlsPerDispatch` |
+| `forums` | `urlsPerDispatch` |
 | `audit` | `paragraphsPerDispatch` |
 | `subagents` | `repairAttempts` |
 
-**A configuration is named for the phase that spends it**, which is why the expert step's two sit under `enrich`. **One is spent in two phases: `extract.fetchesPerBranch` also caps the pages one Player Profiler may open in Enrichment.** Same quantity — how many pages an agent opens before it works with what it has — and a second key holding the same value is one that drifts out of step. **Synthesize has no group at all, and Audit's one is a batch size rather than a depth**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase. `audit.paragraphsPerDispatch` decides how many paragraphs one Claim Fact Checker works through, never how many are checked.
+**A configuration is named for the phase that spends it**, which is why the expert step's sit under `enrich`. **A per-source group is the exception, and holds only what that source does differently**: `twitter.handlesPerDispatch` replaces `vet.handlesPerDispatch`, and `hackernews.urlsPerDispatch` and `forums.urlsPerDispatch` replace `extract.urlsPerDispatch` — those two sources carry the heaviest documents, so their batches are smaller. **One is spent in two phases: `extract.fetchesPerBranch` also caps the pages one Player Profiler may open in Enrichment.** Same quantity — how many pages an agent opens before it works with what it has — and a second key holding the same value is one that drifts out of step. **Synthesize has no group at all, and Audit's one is a batch size rather than a depth**: every rendered claim is fact-checked, so there is no checked subset to size and nothing is flagged for the user to chase. `audit.paragraphsPerDispatch` decides how many paragraphs one Claim Fact Checker works through, never how many are checked.
 
 **The `*PerDispatch` configurations are batch sizes, and none of them reduces in fast mode.** They set how many items one Page Analyst, Handle Vetter or Claim Fact Checker works through in sequence, so a run spends fewer sub-agent dispatches without reading anything less. Fast mode already cuts how many items there are; cutting the batch as well would put the dispatch count back up, which is the opposite of what the mode is for. None of them is a concurrency limit — that is the harness's, and it is how many agents run at once.
 

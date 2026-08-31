@@ -92,7 +92,7 @@ Print `[2.2/6] Extract · Read`. Group the URLs that survived the dedupe into ba
 
 ### How a batch is formed
 
-**Up to `extract.urlsPerDispatch` URLs, all from one branch.** `preflight.mjs` prints the number this run uses; read it there rather than assuming.
+**Up to `extract.urlsPerDispatch` URLs, all from one branch** — **except on Hacker News and forums, where `hackernews.urlsPerDispatch` and `forums.urlsPerDispatch` replace it** and are lower. A batch is sequential inside, and those two carry the heaviest documents: a forum thread paginates furthest, and an HN story flattens a whole comment tree. `preflight.mjs` prints all three; read the one for the source you are dispatching rather than assuming.
 
 **One branch, never a mix, and the reason is the fetch cap below.** Each URL has exactly one owning branch by this point — the dedupe charged it to the branch whose copy ranked highest — and you total `pagesRead` per branch to enforce `extract.fetchesPerBranch`. A batch spanning two branches comes back as one array with the fetches of both in it, and the tally becomes a guess.
 

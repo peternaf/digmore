@@ -13,7 +13,7 @@ const POSIX = process.platform !== 'win32';
 /** Every top-level key the file carries. Grouped by where each configuration applies. */
 const TOP_LEVEL_KEYS = [
   'apiBaseUrl', 'apiDeclined', 'apiKey', 'audit',
-  'enrich', 'extract', 'fast', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
+  'enrich', 'extract', 'fast', 'forums', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
 ];
 
 let home;
@@ -60,11 +60,11 @@ test('the fast block lists every configuration group, not only the ones it reduc
   run('show');
   const { plan, extract, vet, enrich, twitter, hackernews, subagents, fast } = settings();
   assert.deepEqual(Object.keys(fast).sort(),
-    ['audit', 'enrich', 'extract', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
+    ['audit', 'enrich', 'extract', 'forums', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
   assert.equal(plan.maxAngles, 6);
   assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
-  assert.equal(extract.urlsPerDispatch, 5);
+  assert.equal(extract.urlsPerDispatch, 10);
   assert.equal(extract.observationsPerDispatch, 6);
   assert.equal(vet.handleCapPerSource, 20);
   assert.equal(vet.handlesPerDispatch, 10);
@@ -110,7 +110,7 @@ test('a batch size of zero falls back to its default', () => {
     extract: { urlsPerDispatch: 0 }, vet: { handlesPerDispatch: 0 }, twitter: { handlesPerDispatch: 0 },
   }));
   run('show');
-  assert.equal(settings().extract.urlsPerDispatch, 5);
+  assert.equal(settings().extract.urlsPerDispatch, 10);
   assert.equal(settings().vet.handlesPerDispatch, 10);
   assert.equal(settings().twitter.handlesPerDispatch, 5);
 });
