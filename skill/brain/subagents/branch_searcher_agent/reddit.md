@@ -9,12 +9,18 @@ builds no Reddit branches when there is no key, so if you were dispatched, there
 ## The command
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit search <query> --topic <slug> \
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/api.mjs" reddit search \
+  --branch <branch-label> --query "<query>" [--query "<query>" …] --topic <slug> \
   [--time-window {hour|day|week|month|year|all}] [--limit 20] [--after-date YYYY-MM-DD]
 ```
 
+**One call, and every query you intend to run is in it.** `--branch` is the label you were
+dispatched with — the same string your `_returns` and `_progress` files carry — and it is required.
+So is at least one `--query`. There is no positional query.
+
 `--topic <slug>` is mandatory; the script refuses to run without it. JSON on stdout, errors on
-stderr.
+stderr. The result is keyed by query, plus `cap`, `fetched` (requests actually made), `stored` (what
+the branch has spent of its cap) and `refused`.
 
 `--limit` is 1 to 20, and 20 is the default — one upstream call returns about that many. A larger
 number is refused before the request, so asking for more is a failed command rather than a bigger
@@ -37,11 +43,40 @@ happened.
 
 If you catch yourself reaching for WebSearch here, the answer is the script above.
 
-## One search, site-wide
+## Site-wide, and up to your budget
 
-**One query, the whole site, once.** There is no subreddit restriction and no second pass. Every
-result is a thread about your angle, ranked across the whole of Reddit, and every one of them is a
-candidate you keep.
+**The whole site, every time.** There is no subreddit restriction. Every result is a thread about
+your angle, ranked across the whole of Reddit, and every one of them is a candidate you keep.
+
+**How many queries you may run is `reddit.searchesPerBranch`**, which `preflight.mjs` printed for
+this run. The script enforces it by counting the files your branch has already written, so it is not
+a rule you can drift past — past the number, the surplus queries are refused and the ones that fit
+still run.
+
+**It is a ceiling, not a target, and not a quota to fill.** Spend it where the angle genuinely holds
+several distinct questions, and leave it unspent where it does not. One good query is a finished
+branch, not a branch that under-delivered.
+
+**Every query has to be on this branch's own angle.** You are one angle paired with Reddit. A query
+that would sit better under a different angle of the same topic belongs to that branch, not to you —
+a run measured four LinkedIn queries on one angle, which was one question asked four ways.
+
+**Rewordings are not distinct queries.** Reddit ranks site-wide on relevance, so a synonym pass
+returns substantially the same threads for a second slot of the budget. Distinct means a different
+question about the angle, never the same question in different words.
+
+**Choose them all before the call.** One call is the whole allowance, so there is no second pass in
+which to react to what came back. That has a cost, and it is the right one: a promising thread
+cannot be chased with a narrower query, and following it is the Page Analyst's job when it reads the
+thread — not another search.
+
+**Before you search, look in `digmore/<slug>/cache/reddit/`.** A query already stored there has been
+run, and asking for it again returns the stored answer rather than a new search. Cheap to check, and
+the only way to avoid spending a slot on something the branch already has.
+
+**If the script says the branch has already run its searches, read those files.** Do not search
+again. That message means an earlier dispatch of this branch spent the budget and its results are
+on disk waiting for you.
 
 You may still find the subreddit useful for judging a result — it is the `r/<name>` segment of the
 permalink, since a result carries `url`, `title` and `relevance` and no subreddit field:
@@ -95,26 +130,22 @@ dedupe. Sort by your own `relevance` and cut to `extract.fetchesPerBranch` as `i
 
 ## What lands on disk
 
-**One file per branch**, because there is one search.
-
-`digmore/<slug>/cache/reddit/reddit-search-<query-in-4-words>.json` — written by the script, named so
-the directory reads without opening anything. The four words are the query with its stopwords and
-punctuation removed.
+**One file per query**, all of them under your branch's own prefix.
 
 ```
-query "what are the vram requirements for local llm"
-  → reddit-search-vram-requirements-local-llm.json
+digmore/<slug>/cache/reddit/reddit-search-<branchhash5>-<queryhash5>.json
 ```
 
-**The name is readable, so it is not unique.** Four words cannot carry the window, the limit or the
-rest of the query, so two different searches can land on one name. The script handles it: the whole
-request is stored inside the file and compared on read — same request is a hit, a different one
-probes `-2`, `-3` and so on until it finds its own file or a free slot. The match is on the stored
-request and never on the number, so a repeated search finds its own file whichever number it landed
-on first.
+Two five-character hashes, written by the script — the branch, then the query. The name is not
+readable, and that is the trade: it is exact instead. The branch half is what the cap counts, so
+your files are the record of what you have spent; the query half means a repeat resolves to a file
+that already exists, with no request made.
 
-None of that is yours to manage. Run the command; the script decides where the answer goes and hands
-you back what it fetched or what it already had.
+**`_request` inside each file says verbatim what was asked**, which is where the query text lives
+now that the filename does not carry it.
+
+None of that is yours to manage. Run the command; the script decides where each answer goes and
+hands you back what it fetched, what it already had, and anything it refused.
 
 That file is what this dispatch leaves behind. The threads behind the URLs belong to the Page
 Analyst.

@@ -7,7 +7,7 @@ let sandbox;
 beforeEach(() => (sandbox = new Sandbox()));
 afterEach(() => sandbox.cleanup());
 
-// The search cache name is readable, not hashed: reddit-search-<four query words>.
+// The search cache name is two hashes: reddit-search-<branchhash5>-<queryhash5>.
 const QUERY = 'video api providers';
 
 /**
@@ -25,30 +25,166 @@ const keyedBy = (param, build) => (req, res, url) => {
 
 // ---------------------------------------------------------------- search
 
-test('the search cache name is four words of the query', async () => {
+/**
+ * Every search call names its branch. The label is Plan's, carried unchanged from
+ * `_returns/branch-searcher-<branch>.json`, and it is half of every cache filename.
+ */
+const BRANCH = 'video-api-providers-reddit';
+
+/** What one call's `--branch`/`--query` pair looks like, so a test says only what it varies. */
+const searchArgs = (queries, extra = []) => [
+  'api.mjs', 'reddit', 'search',
+  '--branch', BRANCH,
+  ...queries.flatMap((query) => ['--query', query]),
+  '--topic', 'demo',
+  ...extra,
+];
+
+const nameFor = async (branch, query) => {
+  const { searchCacheName } = await import('../skill/scripts/api.mjs');
+  return searchCacheName(branch, query);
+};
+
+test('the search cache name is the branch hash and the query hash', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
+  await sandbox.run(...searchArgs([QUERY]));
   assert.ok(
-    existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-video-api-providers.json')),
-    'reddit-search-<query-in-4-words>.json',
+    existsSync(sandbox.cachePath('demo', 'reddit', await nameFor(BRANCH, QUERY))),
+    'reddit-search-<branchhash5>-<queryhash5>.json',
   );
 });
 
-// Stopwords go, punctuation goes, and the name stops at four words however long the query.
-test('the query is reduced to four meaningful words', async () => {
-  const { queryWords, searchCacheName } = await import('../skill/scripts/api.mjs');
-  assert.equal(queryWords('what are the vram requirements for local llm inference'), 'vram-requirements-local-llm');
-  assert.equal(queryWords('Mux vs. Cloudflare Stream — pricing?'), 'mux-cloudflare-stream-pricing');
-  assert.equal(queryWords('the a of for'), 'query', 'a query that is all stopwords still names a file');
-  assert.equal(searchCacheName('video api providers'), 'reddit-search-video-api-providers');
+// The name is the identity, so it has to be the same string on every run and on every platform.
+test('the name is two five-character hashes, and is stable', async () => {
+  const { hash5, searchCacheName, searchCachePrefix } = await import('../skill/scripts/api.mjs');
+  assert.match(hash5('anything'), /^[0-9a-f]{5}$/);
+  assert.equal(hash5('anything'), hash5('anything'));
+  assert.notEqual(hash5('anything'), hash5('anything else'));
+  assert.equal(
+    searchCacheName(BRANCH, QUERY),
+    `${searchCachePrefix(BRANCH)}${hash5(QUERY)}.json`,
+    'the prefix the cap counts on is the first half of the name',
+  );
+});
+
+// The branch is half the name, so the same query asked by two branches is two searches — that is
+// what makes a branch's spend attributable to it rather than shared.
+test('two branches asking one query write two files', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs([QUERY]));
+  await sandbox.run('api.mjs', 'reddit', 'search', '--branch', 'another-angle-reddit', '--query', QUERY, '--topic', 'demo');
+  assert.equal(sandbox.requests.length, 2);
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', await nameFor(BRANCH, QUERY))));
+  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', await nameFor('another-angle-reddit', QUERY))));
+});
+
+test('one branch asking one query twice writes one file', async () => {
+  const base = await sandbox.apiReturning({ results: [{ url: 'https://r.test/a', title: 'A', relevance: 1 }] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs([QUERY]));
+  const { json } = await sandbox.run(...searchArgs([QUERY]));
+  assert.equal(sandbox.requests.length, 1, 'the second call was served from cache');
+  assert.equal(json.results[QUERY].results[0].title, 'A');
+});
+
+// One call is the branch's whole allowance, and each response is on disk before the next
+// request goes out.
+test('several queries in one call are one file each, in order', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  const { json } = await sandbox.run(...searchArgs(['one', 'two', 'three']));
+  assert.equal(sandbox.requests.length, 3);
+  assert.deepEqual(sandbox.requests.map((request) => request.query.query), ['one', 'two', 'three']);
+  assert.deepEqual(Object.keys(json.results), ['one', 'two', 'three']);
+  assert.equal(json.fetched, 3);
+  assert.equal(json.stored, 3);
+});
+
+test('the cap counts one branch and leaves another alone', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5']));
+  const { json } = await sandbox.run(
+    'api.mjs', 'reddit', 'search', '--branch', 'another-angle-reddit', '--query', 'q1', '--topic', 'demo',
+  );
+  assert.deepEqual(json.refused, [], 'a second branch starts with its whole budget');
+  assert.equal(sandbox.requests.length, 6);
+});
+
+// A searcher that died before writing its list comes back for results it already paid for.
+// Refusing it there would strand it, so a stored query is served whatever the count says.
+test('a repeat is served from cache even with the budget spent', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5']));
+  const { code, json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5']));
+  assert.equal(code, 0, 'not refused');
+  assert.equal(sandbox.requests.length, 5, 'nothing was fetched a second time');
+  assert.deepEqual(Object.keys(json.results), ['q1', 'q2', 'q3', 'q4', 'q5']);
+});
+
+// A branch that overspends loses the surplus. It does not lose the queries that fit.
+test('over the cap the queries that fit run and the rest are named', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  const { code, json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7']));
+  assert.equal(code, 0, 'refusing the surplus is not a failure');
+  assert.equal(sandbox.requests.length, 5);
+  assert.deepEqual(json.refused, ['q6', 'q7']);
+  assert.deepEqual(Object.keys(json.results), ['q1', 'q2', 'q3', 'q4', 'q5']);
+});
+
+test('a new query with the budget spent is refused, and nothing is requested', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5']));
+  const { code, json } = await sandbox.run(...searchArgs(['q6']));
+  assert.equal(code, 2, 'EXIT.USAGE');
+  assert.equal(sandbox.requests.length, 5, 'no sixth request');
+  assert.match(json.error, /already run its 5 searches/);
+  assert.match(json.error, /read those files rather than searching again/);
+});
+
+// The files are the ledger, so a call recounts from disk and needs nothing carried into it.
+test('a killed batch leaves whole files, and the next call runs only what is missing', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  await sandbox.run(...searchArgs(['q1', 'q2']));
+  assert.equal(sandbox.requests.length, 2);
+  const { json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3']));
+  assert.equal(sandbox.requests.length, 3, 'only q3 was fetched');
+  assert.equal(json.fetched, 1, 'only the new query was a request');
+  assert.equal(json.stored, 3, 'the two on disk still count against the cap');
+});
+
+test('--fast lowers the cap', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  const { json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4'], ['--fast']));
+  assert.equal(json.cap, 3);
+  assert.deepEqual(json.refused, ['q4']);
+  assert.equal(sandbox.requests.length, 3);
+});
+
+test('a branch and at least one query are both required', async () => {
+  const base = await sandbox.apiReturning({ results: [] });
+  sandbox.configured(base);
+  const noBranch = await sandbox.run('api.mjs', 'reddit', 'search', '--query', QUERY, '--topic', 'demo');
+  assert.equal(noBranch.code, 2);
+  assert.match(noBranch.json.error, /--branch/);
+  const noQuery = await sandbox.run('api.mjs', 'reddit', 'search', '--branch', BRANCH, '--topic', 'demo');
+  assert.equal(noQuery.code, 2);
+  assert.match(noQuery.json.error, /--query/);
+  assert.equal(sandbox.requests.length, 0);
 });
 
 // An unqualified search asks for the last year, not for all time.
 test('search defaults are relevance, year, limit 20', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
+  await sandbox.run(...searchArgs([QUERY]));
   assert.equal(sandbox.requests[0].path, '/v1/reddit/search');
   assert.deepEqual(sandbox.requests[0].query, { query: QUERY, sort: 'relevance', time_window: 'year', limit: '20' });
 });
@@ -59,59 +195,45 @@ test('search defaults are relevance, year, limit 20', async () => {
 test('the 2-year window is --time-window all plus --after-date', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run(
-    'api.mjs', 'reddit', 'search', QUERY,
-    '--topic', 'demo', '--time-window', 'all', '--after-date', '2024-08-07',
-  );
+  await sandbox.run(...searchArgs([QUERY], ['--time-window', 'all', '--after-date', '2024-01-01']));
   assert.equal(sandbox.requests[0].query.time_window, 'all');
-  assert.equal(sandbox.requests[0].query.after_date, '2024-08-07');
+  assert.equal(sandbox.requests[0].query.after_date, '2024-01-01');
 });
 
 test('every search flag reaches the API', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run(
-    'api.mjs', 'reddit', 'search', QUERY,
-    '--topic', 'demo', '--sort', 'top', '--time-window', 'month',
-    '--limit', '15', '--after-date', '2024-08-06',
-  );
+  await sandbox.run(...searchArgs([QUERY], [
+    '--sort', 'top', '--time-window', 'month', '--limit', '5', '--after-date', '2025-06-01',
+  ]));
   assert.deepEqual(sandbox.requests[0].query, {
-    query: QUERY, sort: 'top', time_window: 'month', limit: '15', after_date: '2024-08-06',
+    query: QUERY, sort: 'top', time_window: 'month', limit: '5', after_date: '2025-06-01',
   });
 });
 
-/**
- * There is no subreddit restriction. The searcher used to follow every site-wide pass with
- * a scoped one over subs it picked itself; that second pass is gone, so a Reddit branch is
- * one query against the whole site and the flag that carried the subs no longer exists.
- */
+// The site-wide rule: there is no subreddit restriction and nothing sends one.
 test('there is no --subreddit flag, and nothing sends a subreddits parameter', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--subreddit', 'webdev');
-  assert.equal(sandbox.requests.length, 1, 'the unknown flag is carried, not refused');
-  assert.equal(sandbox.requests[0].query.subreddits, undefined, 'nothing reaches the endpoint');
+  await sandbox.run(...searchArgs([QUERY], ['--subreddit', 'webdev']));
+  assert.equal(sandbox.requests[0].query.subreddits, undefined);
+  assert.equal(sandbox.requests[0].query.subreddit, undefined);
 });
 
-// 1-20 is the endpoint's own range, so anything outside it can only ever be a round trip
-// spent on a 422.
 test('a limit above the maximum is refused before the network', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  const { code, err } = await sandbox.run(
-    'api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--limit', '21',
-  );
-  assert.notEqual(code, 0);
-  assert.match(err, /1 to 20/);
-  assert.equal(sandbox.requests.length, 0, 'nothing was attempted');
+  const { code } = await sandbox.run(...searchArgs([QUERY], ['--limit', '21']));
+  assert.equal(code, 2);
+  assert.equal(sandbox.requests.length, 0);
 });
 
 test('a limit of zero or a non-number is refused too', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  for (const limit of ['0', '-1', 'lots']) {
-    const { code } = await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--limit', limit);
-    assert.notEqual(code, 0, limit);
+  for (const limit of ['0', '-1', 'ten', '2.5']) {
+    const { code } = await sandbox.run(...searchArgs([QUERY], ['--limit', limit]));
+    assert.equal(code, 2, `--limit ${limit}`);
   }
   assert.equal(sandbox.requests.length, 0);
 });
@@ -123,64 +245,44 @@ test('the merged list is returned exactly as the API sent it', async () => {
   ];
   const base = await sandbox.apiReturning({ results });
   sandbox.configured(base);
-  const { json } = await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  assert.deepEqual(json.results, results, 'no client-side re-ranking, dedupe or truncation');
+  const { json } = await sandbox.run(...searchArgs([QUERY]));
+  assert.deepEqual(json.results[QUERY].results, results, 'no client-side re-ranking, dedupe or truncation');
 });
 
-test('a repeated search is served from the one cache file', async () => {
-  const base = await sandbox.apiReturning({ results: [{ url: 'https://r.test/a', title: 'A', relevance: 1 }] });
-  sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  const { json } = await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  assert.equal(sandbox.requests.length, 1);
-  assert.equal(json.results[0].title, 'A');
-});
-
-// Four words cannot carry the sort, so these two land on one name. Without the stored
-// request the second would open the first one's file and report its results as its own.
-test('two requests on one name do not share a file', async () => {
+// A stored request that does not match is the same query asked differently — the newer one wins.
+test('a changed sort re-fetches over the same file', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--sort', 'top');
+  await sandbox.run(...searchArgs([QUERY]));
+  await sandbox.run(...searchArgs([QUERY], ['--sort', 'top']));
   assert.equal(sandbox.requests.length, 2, 'the second was fetched, not served from the first');
-  const first = sandbox.cached('demo', 'reddit', 'reddit-search-video-api-providers.json');
-  const second = sandbox.cached('demo', 'reddit', 'reddit-search-video-api-providers-2.json');
-  assert.equal(first._request.sort, 'relevance');
-  assert.equal(second._request.sort, 'top', 'the collision probed to -2');
-});
-
-// Order decides which number a request lands on, never which data it reads back.
-test('a probed request finds its own file on a re-run', async () => {
-  const base = await sandbox.apiReturning({ results: [] });
-  sandbox.configured(base);
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--sort', 'top');
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo', '--sort', 'top');
-  assert.equal(sandbox.requests.length, 2, 'the third call hit -2 rather than fetching again');
+  const stored = sandbox.cached('demo', 'reddit', await nameFor(BRANCH, QUERY));
+  assert.equal(stored._request.sort, 'top', 'one file per query, holding the newest request');
+  assert.equal(readdirSync(sandbox.cachePath('demo', 'reddit')).length, 1, 'no -2 file — there is no probing');
 });
 
 // Files written before the request was stored carry no `_request`, so they miss once.
 test('a cache file with no stored request is a miss', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
-  sandbox.writeCache('demo', 'reddit', 'reddit-search-video-api-providers.json', { results: [] });
-  await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
+  sandbox.writeCache('demo', 'reddit', await nameFor(BRANCH, QUERY), { results: [] });
+  await sandbox.run(...searchArgs([QUERY]));
   assert.equal(sandbox.requests.length, 1, 're-fetched rather than trusted');
-  assert.ok(existsSync(sandbox.cachePath('demo', 'reddit', 'reddit-search-video-api-providers-2.json')));
 });
 
 // scripts/subagent_returns.json — branch-searcher: {results:[{url,title,relevance}]}
-test('search returns the Branch searcher shape', async () => {
+test('each query carries the Branch searcher shape', async () => {
   const base = await sandbox.apiReturning({
     results: [{ url: 'https://r.test/a', title: 'A', relevance: 1 }],
   });
   sandbox.configured(base);
-  const { json } = await sandbox.run('api.mjs', 'reddit', 'search', QUERY, '--topic', 'demo');
+  const { json } = await sandbox.run(...searchArgs([QUERY]));
+  assert.deepEqual(Object.keys(json).sort(), ['branch', 'cap', 'fetched', 'refused', 'results', 'stored']);
   // `_request` rides along so the file says what it was fetched for; the shape is `results`.
-  assert.deepEqual(Object.keys(json).sort(), ['_request', 'results']);
-  assert.deepEqual(Object.keys(json.results[0]).sort(), ['relevance', 'title', 'url']);
+  assert.deepEqual(Object.keys(json.results[QUERY]).sort(), ['_request', 'results']);
+  assert.deepEqual(Object.keys(json.results[QUERY].results[0]).sort(), ['relevance', 'title', 'url']);
 });
+
 
 // ---------------------------------------------------------------- thread
 
@@ -480,7 +582,9 @@ test('every verdict in the vocabulary passes through untouched', async () => {
   }
 });
 
-test('each verb needs its positional argument', async () => {
+// `thread` and `user` take positionals; `search` takes --branch and --query. Either way a call
+// with nothing to act on is refused rather than treated as an empty result.
+test('each verb refuses a call with nothing to act on', async () => {
   const base = await sandbox.apiReturning({});
   sandbox.configured(base);
   for (const verb of ['search', 'thread', 'user']) {

@@ -102,6 +102,7 @@ export const CONFIGURATION_DEFAULTS = Object.freeze({
   extract: { fetchesPerBranch: 10, maxPagesPerDocument: 5, urlsPerDispatch: 10, observationsPerDispatch: 6 },
   vet: { handleCapPerSource: 20, handlesPerDispatch: 10 },
   enrich: { expertsFollowed: 5, urlsPerExpert: 10, minPlayerDocuments: 5 },
+  reddit: { searchesPerBranch: 5 },
   twitter: { handlesDeepVetted: 10, postsPerDeepVet: 50, handlesPerDispatch: 5 },
   hackernews: { commentDepth: 5, recentCommentsSampled: 50, deadSampleSize: 5, urlsPerDispatch: 5 },
   forums: { urlsPerDispatch: 5 },
@@ -129,6 +130,7 @@ const FAST_REDUCTIONS = Object.freeze({
   plan: { minAngles: 1, maxAngles: 2 },
   extract: { fetchesPerBranch: 5 },
   vet: { handleCapPerSource: 10 },
+  reddit: { searchesPerBranch: 3 },
   enrich: { expertsFollowed: 0, urlsPerExpert: 3, minPlayerDocuments: 2 },
   twitter: { handlesDeepVetted: 0 },
 });
@@ -166,6 +168,7 @@ export const CONFIGURATION_NOTES = Object.freeze({
   'vet.handleCapPerSource': 'handles vetted per source per run, taken after ranking',
   'vet.handlesPerDispatch': 'handles one Handle Vetter judges in sequence, all from one source',
   'twitter.handlesPerDispatch': 'the same for Twitter, lower because a deep vet reads that many posts',
+  'reddit.searchesPerBranch': 'searches one branch may run on Reddit — a ceiling the script enforces, not a target to fill',
   'enrich.expertsFollowed': 'vetted experts whose other writing is read',
   'enrich.urlsPerExpert': 'URLs read per followed expert, and that branch\'s whole fetch budget',
   'enrich.minPlayerDocuments': 'documents naming an entity before it can be a player — a floor, so the fast value admits more',

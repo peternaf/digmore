@@ -6,7 +6,7 @@
 
 | File | What it is |
 |---|---|
-| `reddit-search-<query-in-4-words>.json` | one per search, and one search per branch — the URLs it found, and the ones the run ranked below the cut. `_request` inside says exactly what was asked for |
+| `reddit-search-<branchhash5>-<queryhash5>.json` | one per search, and a branch may run several up to `reddit.searchesPerBranch` — the URLs it found, and the ones the run ranked below the cut. **The name is hashed, so `_request` inside is the only place the query text is**; read it to know what a file was fetched for |
 | `reddit-thread-<id>.json` | one per thread the run tried: the full `Post`, with `comments`. **A file holding `fetchFailed` instead is a thread that could not be fetched** — it is a record of the attempt, not a document. Skip it; the URL is already named in `audit.md` |
 | `reddit-thread-<id>-claims.json` | the Page Analyst's extraction from that thread |
 | `reddit-vet-<name>.json` | one per vetted handle, if Vet has already run: the profile, up to 100 recent comments in full, and the verdict together. `fetchFailed` here means the same thing — a handle that could not be read |

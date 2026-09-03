@@ -8,7 +8,7 @@
  * The on-disk cache filenames are load-bearing: phase resume and the salvage paths in
  * brain/phases/index.md read them by name.
  *
- *   node api.mjs reddit  search <query>            --topic <slug> [--sort ...] [--time-window ...] [--limit 20] [--after-date YYYY-MM-DD]
+ *   node api.mjs reddit  search --branch <label> --query <q> [--query <q>…] --topic <slug> [--fast] [--sort ...] [--time-window ...] [--limit 20] [--after-date YYYY-MM-DD]
  *   node api.mjs reddit  thread <id-or-permalink>... --topic <slug> [--limit 500]
  *   node api.mjs reddit  user   <name>...          --topic <slug>   # snapshots + verdicts
  *   node api.mjs twitter user   <handle>           --topic <slug>
@@ -19,10 +19,11 @@
  * stdout carries JSON, stderr carries errors.
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadOrCreateConfig, MALFORMED } from './config.mjs';
+import { loadOrCreateConfig, configurationsFor, MALFORMED } from './config.mjs';
 import { assertWorkspaceRoot } from './fetch.mjs';
 
 export const REQUEST_TIMEOUT_MS = 30000;
@@ -96,7 +97,17 @@ class ApiError extends Error {
 
 // ---------------------------------------------------------------- args
 
-/** Minimal argv parsing. These are called by the skill through Bash, never by a user. */
+/** Flags that are a switch rather than a name-and-value pair. */
+const BARE_FLAGS = new Set(['fast']);
+
+/**
+ * Minimal argv parsing. These are called by the skill through Bash, never by a user.
+ *
+ * A flag given once is its value; a flag repeated becomes the list of them, in order. That is
+ * how `reddit search` takes several `--query` in one call. A caller that expects one value is
+ * unaffected, because a single occurrence is still a string — `flagList` below is for the
+ * callers that want the repeats either way.
+ */
 export function parseArgs(argv) {
   const positional = [];
   const flags = {};
@@ -107,14 +118,32 @@ export function parseArgs(argv) {
       continue;
     }
     const name = token.slice(2);
+    const key = name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    // `--fast` is a bare token everywhere else in the plugin, so it carries no value here either.
+    if (BARE_FLAGS.has(key)) {
+      flags[key] = true;
+      continue;
+    }
     const value = argv[index + 1];
     if (value === undefined || value.startsWith('--')) {
       throw new ApiError(`${token} needs a value`, EXIT.USAGE);
     }
     index += 1;
-    flags[name.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())] = value;
+    if (!Object.hasOwn(flags, key)) {
+      flags[key] = value;
+    } else if (Array.isArray(flags[key])) {
+      flags[key].push(value);
+    } else {
+      flags[key] = [flags[key], value];
+    }
   }
   return { positional, flags };
+}
+
+/** One flag's values as a list, whether it was given once, many times, or not at all. */
+export function flagList(value) {
+  if (value === undefined) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 // ---------------------------------------------------------------- cache
@@ -144,42 +173,54 @@ function writeCache(dir, key, payload) {
 }
 
 /**
- * Search cache names are readable rather than hashed, so a person opening
- * digmore/<slug>/cache/reddit/ can see what each file is without opening it:
+ * A search cache name is two hashes, and the name IS the identity:
  *
- *   reddit-search-<four words of the query>.json
+ *   reddit-search-<hash5 of the branch>-<hash5 of the query>.json
  *
- * The name does not have to be unique — see cachedSearch() for how collisions are
- * settled. That is the trade: a hash cannot collide and cannot be read; four words can
- * do both.
+ * Both halves are load-bearing, for different reasons.
+ *
+ * The branch half is what makes the cap enforceable. A branch's own files are its ledger —
+ * count the ones sharing its prefix and that is what it has spent, recounted from disk on every
+ * call, so no tally has to survive a process. `reddit.searchesPerBranch` bounds that count.
+ *
+ * The query half is what makes a duplicate free to detect. A repeated query resolves to a
+ * filename that already exists, so a repeat is a directory check rather than a file read, and
+ * two different queries can never land on one name.
+ *
+ * This replaces four readable words of the query, which could collide and needed a `-2`, `-3`
+ * probe to settle. Readability was the point of that name and it is genuinely lost — the trade is
+ * that identity is now exact and free, and `_request` inside each file still records verbatim what
+ * was asked.
+ *
+ * The branch is supplied by the caller, which a cache key normally must never be. It is safe here
+ * because the label is assigned by Plan and carried unchanged through
+ * `_returns/branch-searcher-<branch>.json` and `_progress/branch-searcher-<branch>.log` — not a
+ * string an agent composes, so two dispatches of one branch cannot disagree about it.
  */
+const HASH_CHARACTERS = 5;
 
-/** Dropped before the query becomes a filename: common in queries, useless in a name. */
-const FILENAME_STOPWORDS = new Set([
-  'a', 'the', 'of', 'for', 'in', 'on', 'to', 'and', 'or', 'is', 'are',
-  'what', 'how', 'why', 'do', 'does', 'vs',
-]);
-
-const QUERY_WORDS_IN_NAME = 4;
-
-/**
- * The query, reduced to its first four meaningful words.
- *
- * Derived here rather than passed in by the caller: a cache key has to be a pure function
- * of the request, and two sub-agents summarising the same query in their own words would
- * never hit the same file twice.
- */
-export function queryWords(query) {
-  const words = String(query ?? '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .split(' ')
-    .filter((word) => word && !FILENAME_STOPWORDS.has(word));
-  return (words.length ? words : ['query']).slice(0, QUERY_WORDS_IN_NAME).join('-');
+/** Short, stable and platform-independent: the first few hex characters of a sha256. */
+export function hash5(text) {
+  return createHash('sha256').update(String(text ?? ''), 'utf8').digest('hex').slice(0, HASH_CHARACTERS);
 }
 
-export function searchCacheName(query) {
-  return `reddit-search-${queryWords(query)}`;
+/** Every file one branch has written, whatever the query. */
+export function searchCachePrefix(branch) {
+  return `reddit-search-${hash5(branch)}-`;
+}
+
+export function searchCacheName(branch, query) {
+  return `${searchCachePrefix(branch)}${hash5(query)}.json`;
+}
+
+/**
+ * The filenames one branch has already written. This is the ledger — read from disk on every
+ * call, so nothing has to be carried between them and a killed run loses no accounting.
+ */
+export function branchSearchFiles(dir, branch) {
+  const prefix = searchCachePrefix(branch);
+  if (!existsSync(dir)) return new Set();
+  return new Set(readdirSync(dir).filter((file) => file.startsWith(prefix) && file.endsWith('.json')));
 }
 
 /**
@@ -279,9 +320,23 @@ async function request(config, path, params = {}, timeoutMs = REQUEST_TIMEOUT_MS
 
 const reddit = {
   /**
-   * One search, site-wide, one file. There is no subreddit restriction any more: the
-   * searcher used to follow every site-wide pass with a scoped one over subs it picked
-   * itself, and that second pass is gone — see brain/subagents/branch_searcher_agent/reddit.md.
+   * Every search one branch gets, in one call. Site-wide, as before: there is no subreddit
+   * restriction, and the searcher does not follow a site-wide pass with a scoped one — see
+   * brain/subagents/branch_searcher_agent/reddit.md.
+   *
+   * What is new is the bound. A branch was told in prose to search once, and a measured run
+   * wrote 25 files across 6 branches instead — four rewordings on one angle, no error anywhere.
+   * A rule an agent can drift past is not a rule, so the count now comes off disk:
+   * `searchCachePrefix` names every file this branch has written, and `reddit.searchesPerBranch`
+   * is how many it may have. Recounted per call, so it survives a killed run for free.
+   *
+   * **A query already on disk is served whatever the count says.** It occupies one of the
+   * branch's slots and frees nothing — but refusing it would strand a searcher that died before
+   * writing its list and came back for results it had already paid for. Only a query with no
+   * file spends budget.
+   *
+   * Each response is written before the next request goes out, so a run killed mid-batch keeps
+   * whole files rather than a partial one.
    *
    * `sort` is sent and kept in the cache key even though the API accepts it and ignores it
    * — results are always ordered by descending relevance. Dropping it from the request
@@ -291,8 +346,15 @@ const reddit = {
    * neither reliably excludes older posts, so a run states its window rather than trusting
    * it. brain/recency.md holds what that means for the report.
    */
-  async search(ctx, [query], flags) {
-    if (!query) throw new ApiError('reddit search needs a query', EXIT.USAGE);
+  async search(ctx, _positional, flags) {
+    const branch = flags.branch;
+    if (!branch) throw new ApiError('reddit search needs --branch <label>', EXIT.USAGE);
+
+    // Named, never positional: a call carries several queries now, and a bare word among them
+    // could not be told from a mistyped flag value.
+    const queries = flagList(flags.query);
+    if (!queries.length) throw new ApiError('reddit search needs at least one --query', EXIT.USAGE);
+
     const sort = flags.sort ?? 'relevance';
     // The API's default too. The 2-year window of
     // brain/recency.md is `--time-window all --after-date <today-minus-2y>`, passed
@@ -307,17 +369,62 @@ const reddit = {
         EXIT.USAGE,
       );
     }
-    const requestKey = searchRequestKey({ query, sort, timeWindow, limit, afterDate: flags.afterDate });
 
-    return cachedSearch(ctx, searchCacheName(query), requestKey, () =>
-      request(ctx.config, '/v1/reddit/search', {
-        query,
-        sort,
-        time_window: timeWindow,
-        limit,
-        after_date: flags.afterDate,
-      }),
-    );
+    const cap = configurationsFor(ctx.config, { fast: ctx.fast }).reddit.searchesPerBranch;
+    const alreadyStored = branchSearchFiles(ctx.dir, branch);
+    const fresh = queries.filter((query) => !alreadyStored.has(searchCacheName(branch, query)));
+    let budget = Math.max(0, cap - alreadyStored.size);
+
+    if (fresh.length && budget === 0) {
+      throw new ApiError(
+        `reddit search: branch ${branch} has already run its ${cap} searches. ` +
+          `Their results are in ${ctx.dir} — read those files rather than searching again.`,
+        EXIT.USAGE,
+      );
+    }
+
+    const results = {};
+    const refused = [];
+    let fetched = 0;
+    for (const query of queries) {
+      const key = searchCacheName(branch, query);
+      if (!alreadyStored.has(key)) {
+        if (budget === 0) {
+          refused.push(query);
+          continue;
+        }
+        budget -= 1;
+        fetched += 1;
+      }
+      const requestKey = searchRequestKey({ query, sort, timeWindow, limit, afterDate: flags.afterDate });
+      // Awaited one at a time on purpose: the file for this query is on disk before the next
+      // request is sent, which is what a kill mid-batch leaves behind.
+      results[query] = await cachedSearch(ctx, key, requestKey, () =>
+        request(ctx.config, '/v1/reddit/search', {
+          query,
+          sort,
+          time_window: timeWindow,
+          limit,
+          after_date: flags.afterDate,
+        }),
+      );
+    }
+
+    // Keyed by query, as `thread` is keyed by id: the caller has to know which one failed or was
+    // refused. `refused` reaches the orchestrator through the searcher, which is the only way an
+    // overspent branch becomes visible in the run's Issues rather than only in the agent.
+    //
+    // `fetched` is requests actually made and `stored` is what the branch has spent of its cap.
+    // They differ whenever a call is served from cache, which is every resumed dispatch — a single
+    // number covering both would report searches that never happened.
+    return {
+      branch,
+      cap,
+      fetched,
+      stored: alreadyStored.size + fetched,
+      refused,
+      results,
+    };
   },
 
   /**
@@ -532,47 +639,29 @@ async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perC
   return found;
 }
 
-/** A runaway loop guard, not a configured bound — two collisions on one name is already rare. */
-const MAX_CACHE_PROBES = 20;
-
 /**
- * The search cache, where the filename is readable and therefore not unique.
+ * The search cache. One query, one file, and the name settles which — there is no probing,
+ * because a hash of the query cannot land on another query's file.
  *
- * Four words of a query cannot carry the sort, the window, the limit or the rest of the
- * query, so two different searches can land on one name. Left unchecked
- * the second one opens the first one's file and reports another query's results as its own
- * — no error, just a wrong answer that looks like a normal one.
- *
- * So the full request is written into the file and compared on read: open <name>.json, and
- * if the stored request matches, that is a hit; if it does not, try <name>-2.json, then -3,
- * until either a match or a free slot, which gets written.
- *
- * The match is on the stored request, never on the number — so a resumed or repeated run
- * finds its own file whichever number it landed on first, and order decides which number,
- * never which data. A file written before this existed carries no `_request`, so it misses
- * and is re-fetched once.
+ * `_request` is still written and still compared. It is no longer disambiguating anything; it is
+ * the record of exactly what was asked, which is what the Source Analyst reads now that the
+ * filename says nothing a person can read. A stored request that does not match — the same query
+ * asked with a different sort, window or limit — is treated as a miss and re-fetched over, since
+ * the newer request is the one the caller wants.
  */
-async function cachedSearch(ctx, baseName, requestKey, fetcher) {
-  const wanted = JSON.stringify(requestKey);
-
-  for (let attempt = 1; attempt <= MAX_CACHE_PROBES; attempt += 1) {
-    const key = attempt === 1 ? `${baseName}.json` : `${baseName}-${attempt}.json`;
-    const hit = readCache(ctx.dir, key);
-
-    if (hit === undefined) {
-      const fresh = await fetcher();
-      // A bare array is accepted from the API; store it under `results` so `_request` has
-      // somewhere to sit beside it and the file still reads as the search response.
-      const body = Array.isArray(fresh) ? { results: fresh } : { ...fresh };
-      const stored = { _request: requestKey, ...body };
-      writeCache(ctx.dir, key, stored);
-      return stored;
-    }
-
-    if (JSON.stringify(hit._request ?? null) === wanted) return hit;
+async function cachedSearch(ctx, key, requestKey, fetcher) {
+  const hit = readCache(ctx.dir, key);
+  if (hit !== undefined && JSON.stringify(hit._request ?? null) === JSON.stringify(requestKey)) {
+    return hit;
   }
 
-  throw new ApiError(`too many cache collisions on ${baseName}`, EXIT.FAILED);
+  const fresh = await fetcher();
+  // A bare array is accepted from the API; store it under `results` so `_request` has
+  // somewhere to sit beside it and the file still reads as the search response.
+  const body = Array.isArray(fresh) ? { results: fresh } : { ...fresh };
+  const stored = { _request: requestKey, ...body };
+  writeCache(ctx.dir, key, stored);
+  return stored;
 }
 
 /** The API may answer with a bare array or wrap it; both are accepted. */
@@ -649,7 +738,7 @@ export async function main(argv) {
     );
   }
 
-  const ctx = { config, dir: cacheDir(flags.topic, sourceName) };
+  const ctx = { config, dir: cacheDir(flags.topic, sourceName), fast: flags.fast === true };
   return verb(ctx, positional, flags);
 }
 
