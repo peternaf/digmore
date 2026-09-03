@@ -13,7 +13,7 @@ const POSIX = process.platform !== 'win32';
 /** Every top-level key the file carries. Grouped by where each configuration applies. */
 const TOP_LEVEL_KEYS = [
   'apiBaseUrl', 'apiDeclined', 'apiKey', 'audit',
-  'enrich', 'extract', 'fast', 'forums', 'hackernews', 'plan', 'subagents', 'twitter', 'vet',
+  'enrich', 'extract', 'fast', 'forums', 'hackernews', 'plan', 'reddit', 'subagents', 'twitter', 'vet',
 ];
 
 let home;
@@ -58,9 +58,9 @@ test('creates the file on first run with every parameter present', () => {
 // having to know it exists. A file listing only the reductions would hide most of them.
 test('the fast block lists every configuration group, not only the ones it reduces', () => {
   run('show');
-  const { plan, extract, vet, enrich, twitter, hackernews, subagents, fast } = settings();
+  const { plan, extract, vet, enrich, reddit, twitter, hackernews, subagents, fast } = settings();
   assert.deepEqual(Object.keys(fast).sort(),
-    ['audit', 'enrich', 'extract', 'forums', 'hackernews', 'plan', 'subagents', 'twitter', 'vet']);
+    ['audit', 'enrich', 'extract', 'forums', 'hackernews', 'plan', 'reddit', 'subagents', 'twitter', 'vet']);
   assert.equal(plan.maxAngles, 6);
   assert.equal(extract.fetchesPerBranch, 10);
   assert.equal(extract.maxPagesPerDocument, 5);
@@ -84,6 +84,9 @@ test('the fast block lists every configuration group, not only the ones it reduc
     'a floor, not a budget — the lower fast value admits more players, not fewer');
   assert.equal(fast.twitter.handlesDeepVetted, 0, 'zero means the step is skipped');
   assert.equal(fast.hackernews.commentDepth, 5, 'unchanged in fast, but still listed');
+  // The one bound a source's own script enforces rather than an agent obeying in prose.
+  assert.equal(reddit.searchesPerBranch, 5);
+  assert.equal(fast.reddit.searchesPerBranch, 3);
 });
 
 // A batch size is how many items one sub-agent works through in sequence, and fast mode already

@@ -385,7 +385,6 @@ const reddit = {
 
     const results = {};
     const refused = [];
-    let fetched = 0;
     for (const query of queries) {
       const key = searchCacheName(branch, query);
       if (!alreadyStored.has(key)) {
@@ -394,7 +393,6 @@ const reddit = {
           continue;
         }
         budget -= 1;
-        fetched += 1;
       }
       const requestKey = searchRequestKey({ query, sort, timeWindow, limit, afterDate: flags.afterDate });
       // Awaited one at a time on purpose: the file for this query is on disk before the next
@@ -410,21 +408,14 @@ const reddit = {
       );
     }
 
-    // Keyed by query, as `thread` is keyed by id: the caller has to know which one failed or was
-    // refused. `refused` reaches the orchestrator through the searcher, which is the only way an
-    // overspent branch becomes visible in the run's Issues rather than only in the agent.
+    // Keyed by query, as `thread` is keyed by id: the caller has to know which query a result
+    // belongs to. `refused` is the only count here, because it is the only one anyone acts on —
+    // it is how an overspent branch reaches the run's Issues instead of reading as fully searched.
     //
-    // `fetched` is requests actually made and `stored` is what the branch has spent of its cap.
-    // They differ whenever a call is served from cache, which is every resumed dispatch — a single
-    // number covering both would report searches that never happened.
-    return {
-      branch,
-      cap,
-      fetched,
-      stored: alreadyStored.size + fetched,
-      refused,
-      results,
-    };
+    // Nothing reports how many requests were made or how many files the branch now has. Both are
+    // observable on disk, and a number a script publishes about its own work is a number that can
+    // drift from it.
+    return { branch, refused, results };
   },
 
   /**

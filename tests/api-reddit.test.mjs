@@ -1,6 +1,7 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { Sandbox } from './helpers.mjs';
 
 let sandbox;
@@ -39,6 +40,9 @@ const searchArgs = (queries, extra = []) => [
   '--topic', 'demo',
   ...extra,
 ];
+
+/** The branch's cache directory. `cachePath` names a file, so this drops the last segment. */
+const searchDir = () => dirname(sandbox.cachePath('demo', 'reddit', 'any.json'));
 
 const nameFor = async (branch, query) => {
   const { searchCacheName } = await import('../skill/scripts/api.mjs');
@@ -98,8 +102,7 @@ test('several queries in one call are one file each, in order', async () => {
   assert.equal(sandbox.requests.length, 3);
   assert.deepEqual(sandbox.requests.map((request) => request.query.query), ['one', 'two', 'three']);
   assert.deepEqual(Object.keys(json.results), ['one', 'two', 'three']);
-  assert.equal(json.fetched, 3);
-  assert.equal(json.stored, 3);
+  assert.equal(readdirSync(searchDir()).length, 3, 'one file per query');
 });
 
 test('the cap counts one branch and leaves another alone', async () => {
@@ -140,11 +143,11 @@ test('a new query with the budget spent is refused, and nothing is requested', a
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
   await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4', 'q5']));
-  const { code, json } = await sandbox.run(...searchArgs(['q6']));
+  const { code, err } = await sandbox.run(...searchArgs(['q6']));
   assert.equal(code, 2, 'EXIT.USAGE');
   assert.equal(sandbox.requests.length, 5, 'no sixth request');
-  assert.match(json.error, /already run its 5 searches/);
-  assert.match(json.error, /read those files rather than searching again/);
+  assert.match(err, /already run its 5 searches/);
+  assert.match(err, /read those files rather than searching again/);
 });
 
 // The files are the ledger, so a call recounts from disk and needs nothing carried into it.
@@ -155,16 +158,15 @@ test('a killed batch leaves whole files, and the next call runs only what is mis
   assert.equal(sandbox.requests.length, 2);
   const { json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3']));
   assert.equal(sandbox.requests.length, 3, 'only q3 was fetched');
-  assert.equal(json.fetched, 1, 'only the new query was a request');
-  assert.equal(json.stored, 3, 'the two on disk still count against the cap');
+  assert.deepEqual(Object.keys(json.results), ['q1', 'q2', 'q3'], 'all three answered');
+  assert.equal(readdirSync(searchDir()).length, 3);
 });
 
 test('--fast lowers the cap', async () => {
   const base = await sandbox.apiReturning({ results: [] });
   sandbox.configured(base);
   const { json } = await sandbox.run(...searchArgs(['q1', 'q2', 'q3', 'q4'], ['--fast']));
-  assert.equal(json.cap, 3);
-  assert.deepEqual(json.refused, ['q4']);
+  assert.deepEqual(json.refused, ['q4'], 'the fast cap is 3, so the fourth does not fit');
   assert.equal(sandbox.requests.length, 3);
 });
 
@@ -173,10 +175,10 @@ test('a branch and at least one query are both required', async () => {
   sandbox.configured(base);
   const noBranch = await sandbox.run('api.mjs', 'reddit', 'search', '--query', QUERY, '--topic', 'demo');
   assert.equal(noBranch.code, 2);
-  assert.match(noBranch.json.error, /--branch/);
+  assert.match(noBranch.err, /--branch/);
   const noQuery = await sandbox.run('api.mjs', 'reddit', 'search', '--branch', BRANCH, '--topic', 'demo');
   assert.equal(noQuery.code, 2);
-  assert.match(noQuery.json.error, /--query/);
+  assert.match(noQuery.err, /--query/);
   assert.equal(sandbox.requests.length, 0);
 });
 
@@ -258,7 +260,7 @@ test('a changed sort re-fetches over the same file', async () => {
   assert.equal(sandbox.requests.length, 2, 'the second was fetched, not served from the first');
   const stored = sandbox.cached('demo', 'reddit', await nameFor(BRANCH, QUERY));
   assert.equal(stored._request.sort, 'top', 'one file per query, holding the newest request');
-  assert.equal(readdirSync(sandbox.cachePath('demo', 'reddit')).length, 1, 'no -2 file — there is no probing');
+  assert.equal(readdirSync(searchDir()).length, 1, 'no -2 file — there is no probing');
 });
 
 // Files written before the request was stored carry no `_request`, so they miss once.
@@ -277,7 +279,9 @@ test('each query carries the Branch searcher shape', async () => {
   });
   sandbox.configured(base);
   const { json } = await sandbox.run(...searchArgs([QUERY]));
-  assert.deepEqual(Object.keys(json).sort(), ['branch', 'cap', 'fetched', 'refused', 'results', 'stored']);
+  // Three fields, and no count the script publishes about its own work: what it fetched and what
+  // the branch now holds are both observable on disk.
+  assert.deepEqual(Object.keys(json).sort(), ['branch', 'refused', 'results']);
   // `_request` rides along so the file says what it was fetched for; the shape is `results`.
   assert.deepEqual(Object.keys(json.results[QUERY]).sort(), ['_request', 'results']);
   assert.deepEqual(Object.keys(json.results[QUERY].results[0]).sort(), ['relevance', 'title', 'url']);

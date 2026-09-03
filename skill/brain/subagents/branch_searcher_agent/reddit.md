@@ -19,8 +19,8 @@ dispatched with — the same string your `_returns` and `_progress` files carry 
 So is at least one `--query`. There is no positional query.
 
 `--topic <slug>` is mandatory; the script refuses to run without it. JSON on stdout, errors on
-stderr. The result is keyed by query, plus `cap`, `fetched` (requests actually made), `stored` (what
-the branch has spent of its cap) and `refused`.
+stderr. The result is keyed by query, plus `refused` — **anything listed there did not run.** Never
+treat a refused query as a search that came back empty.
 
 `--limit` is 1 to 20, and 20 is the default — one upstream call returns about that many. A larger
 number is refused before the request, so asking for more is a failed command rather than a bigger
