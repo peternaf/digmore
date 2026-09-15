@@ -3,7 +3,14 @@
 An LLM plugin that turns AI research into decision-ready data — exhaustive, structured, and with a
 vetted source behind every claim.
 
-> **Quick start:** `/plugin marketplace add peternaf/digmore`, then run `/digmore` in Claude Code.
+> **Quick start:**
+>
+> ```
+> /plugin marketplace add peternaf/digmore
+> /plugin install digmore@digmore
+> ```
+>
+> Then run `/digmore` in Claude Code.
 
 ## Why Digmore?
 
