@@ -5,7 +5,15 @@
  * There is no hook, no shell prelude and no JSON envelope: stdout is the tool result
  * the model reads.
  *
- *   node preflight.mjs
+ *   node preflight.mjs [--command <name>] [--model <id>] [--auto] [--fast]
+ *
+ * The arguments say which command the run is, which model is running it and which mode flags
+ * it carries. They are
+ * optional, change nothing preflight prints, and go out with the ping (`ping.mjs`). The
+ * topic is never one of them.
+ *
+ * The first preflight on a machine gives the install its id and pings the API once, key or
+ * no key. After that a run pings only when a key is configured, exactly as before.
  *
  * An unconfigured plugin is not an error. Every state it can report — NO_KEY, DECLINED,
  * READY, KEY_REJECTED, UNREACHABLE, MALFORMED — goes to stdout and exits 0, because each
@@ -14,19 +22,20 @@
  */
 
 import {
-  loadOrCreateConfig,
+  ensureInstallId,
   MALFORMED,
   configPath,
   configurationsFor,
   CONFIGURATION_NOTES,
   RECENCY_WINDOW_YEARS,
 } from './config.mjs';
+import { pingApi, PING_REASONS } from './ping.mjs';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const PING_TIMEOUT_MS = 5000;
+export { PING_TIMEOUT_MS } from './ping.mjs';
 
 /**
  * Two Claude Code ceilings a deep run hits. Both are the user's to raise, in their own
@@ -244,29 +253,43 @@ export const STATES = Object.freeze({
  * 401 and only 401 means a rejected key. V0.1 has no authorization layer, so a 403 can
  * only be a proxy or WAF blocking the request in transit; the key is fine, and it
  * resolves to UNREACHABLE like any other failure.
+ *
+ * Without a key the state never depends on the API. The one keyless ping is the first
+ * preflight on a machine (`newInstall`), and its answer is not read.
  */
-export async function resolveState(config) {
+export async function resolveState(config, { newInstall = false, run = {} } = {}) {
   if (config === MALFORMED) return STATES.MALFORMED;
-  if (!config.apiKey) return config.apiDeclined ? STATES.DECLINED : STATES.NO_KEY;
 
-  let status;
-  try {
-    const response = await fetch(new URL('/v1/ping', config.apiBaseUrl), {
-      headers: { 'X-API-KEY': config.apiKey },
-      signal: AbortSignal.timeout(PING_TIMEOUT_MS),
+  const ping = () =>
+    pingApi({
+      apiBaseUrl: config.apiBaseUrl,
+      apiKey: config.apiKey,
+      installId: config.installId,
+      newInstall,
+      reason: PING_REASONS.RUN,
+      ...run,
     });
-    status = response.status;
-    // Drain the body even though nothing reads it. An unread response leaves the
-    // keep-alive socket open, and a still-closing handle at exit aborts the process
-    // on Windows: "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)", exit 127.
-    // The report is already complete by then, so the crash looks like a failed check.
-    await response.arrayBuffer().catch(() => {});
-  } catch {
-    return STATES.UNREACHABLE;
+
+  if (!config.apiKey) {
+    if (newInstall) await ping();
+    return config.apiDeclined ? STATES.DECLINED : STATES.NO_KEY;
   }
+
+  const status = await ping();
   if (status === 200) return STATES.READY;
   if (status === 401) return STATES.KEY_REJECTED;
   return STATES.UNREACHABLE;
+}
+
+/** `--command <name>`, `--model <id>`, `--auto`, `--fast`. Anything else on the line is ignored. */
+export function runArguments(argv) {
+  const valueAfter = (flag) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : undefined);
+  return {
+    command: valueAfter('--command'),
+    model: valueAfter('--model'),
+    auto: argv.includes('--auto'),
+    fast: argv.includes('--fast'),
+  };
 }
 
 const degraded = `Run degraded: ${API_SOURCES} are skipped. ${capitalise(FREE_SOURCES)} still run.
@@ -296,7 +319,7 @@ Show them this, as written:
 ${WAITLIST_OFFER}`;
 
     case STATES.DECLINED:
-      return `digmore: DECLINED — the user has said they do not want an API key. No offer, and no API request was made.
+      return `digmore: DECLINED — the user has said they do not want an API key. No offer is shown.
 ${degraded}
 If they change their mind, mention once that a key can be added with config.mjs set-key.`;
 
@@ -322,8 +345,11 @@ ${degraded}`;
 
 async function main() {
   try {
-    const config = loadOrCreateConfig();
-    const state = await resolveState(config);
+    const { config, created } = ensureInstallId();
+    const state = await resolveState(config, {
+      newInstall: created,
+      run: runArguments(process.argv.slice(2)),
+    });
     process.stdout.write(`${report(state)}${configurationsReport(config)}${harnessReport()}\n`);
     process.exitCode = 0;
   } catch (error) {

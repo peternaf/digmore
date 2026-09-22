@@ -1,9 +1,10 @@
 /**
  * digmore configuration — the one file the plugin owns on the user's machine.
  *
- * Three kinds of field: how to reach the API (apiBaseUrl, apiKey), whether the user
- * declined a key (apiDeclined), and the run configurations — every number that bounds how
- * much work a run does. The plugin never touches the user's own Claude Code settings.
+ * Four kinds of field: how to reach the API (apiBaseUrl, apiKey), whether the user
+ * declined a key (apiDeclined), this install's id (installId), and the run configurations —
+ * every number that bounds how much work a run does. The plugin never touches the user's own
+ * Claude Code settings.
  *
  * Every configuration lives here rather than in brain prose for one reason: prose is read
  * and obeyed on trust, and two real runs on 2026-08-17 applied 20 and 8 for the same cap
@@ -25,10 +26,12 @@
  * The api key is never printed: stdout is the session transcript.
  */
 
+import { randomUUID } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pingApi, PING_REASONS } from './ping.mjs';
 
 export const DEFAULT_API_BASE_URL = 'https://api.digmore.ai';
 
@@ -240,12 +243,20 @@ function normaliseConfigurations(raw, defaults) {
   return result;
 }
 
-/** Keep exactly the known fields, in a stable order, whatever the file held. */
+const INSTALL_ID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Keep exactly the known fields, in a stable order, whatever the file held.
+ *
+ * `installId` is carried over when the file has one and is never made up here: reading the
+ * settings must not create an id, because only preflight does that (`ensureInstallId`).
+ */
 function normalise(raw) {
   return {
     apiBaseUrl: typeof raw?.apiBaseUrl === 'string' && raw.apiBaseUrl ? raw.apiBaseUrl : DEFAULT_API_BASE_URL,
     apiKey: typeof raw?.apiKey === 'string' && raw.apiKey ? raw.apiKey : null,
     apiDeclined: raw?.apiDeclined === true,
+    ...(typeof raw?.installId === 'string' && INSTALL_ID_SHAPE.test(raw.installId) ? { installId: raw.installId } : {}),
     ...normaliseConfigurations(raw, CONFIGURATION_DEFAULTS),
     fast: normaliseConfigurations(raw?.fast, FAST_DEFAULTS),
   };
@@ -290,14 +301,14 @@ function serialise(config) {
 }
 
 /**
- * Created on first run, mode 0600; if unparseable, reported and never overwritten.
- * Returns MALFORMED rather than throwing, because preflight has a state for it.
+ * Reads ~/.digmore/settings.json, creating it with the defaults when it does not exist.
  *
- * A readable file is also completed in place: if a later version adds a configuration, the
- * normalised shape carries it and the file on disk does not, so it is written back. Every
- * setting is then visible and editable without the user having to know it exists —
- * otherwise a knob added after install stays invisible forever. Existing values are kept,
- * since normalise() only replaces what is absent or invalid.
+ * - No file: written with the defaults, readable by this user only (mode 0600).
+ * - A file that cannot be parsed: returns MALFORMED and leaves the file untouched. It does
+ *   not throw, because preflight reports MALFORMED as one of its states.
+ * - A file that parses: settings that are missing or invalid are filled with their defaults
+ *   and the file is written back. A setting added in a later version then shows up in the
+ *   user's file, where they can see and edit it. Values the user set are kept.
  */
 export function loadOrCreateConfig() {
   const path = configPath();
@@ -329,6 +340,27 @@ export function loadOrCreateConfig() {
     }
   }
   return config;
+}
+
+/**
+ * The settings, with an install id in them — created here when the file has none.
+ *
+ * **Called by preflight only.** Every other script reads the settings through
+ * `loadOrCreateConfig`, which never creates an id, so the first preflight on a machine is
+ * the one place an id comes into being — and `created` tells it that this is that run.
+ *
+ * An id that cannot be written is not handed back. An id that lives only in memory would be
+ * a different one on every run, and each of those runs would look like a first one.
+ */
+export function ensureInstallId() {
+  const config = loadOrCreateConfig();
+  if (config === MALFORMED) return { config, created: false };
+  if (config.installId) return { config, created: false };
+  try {
+    return { config: writeConfig(normalise({ ...config, installId: randomUUID() })), created: true };
+  } catch {
+    return { config, created: false };
+  }
 }
 
 /**
@@ -365,17 +397,42 @@ function fail(message) {
   process.exit(1);
 }
 
-function main(argv) {
+/**
+ * Tell the API a key was set or declined. Only from the command line, and only after the
+ * write succeeded — `setKey()` and `decline()` themselves never touch the network, so a
+ * script or a test that imports them makes no call.
+ *
+ * Nothing here can change what the command prints or how it exits: the output is already
+ * written, and a ping never throws. An install with no id yet — the command run by hand
+ * before any preflight — sends nothing; the next preflight creates the id.
+ */
+async function pingKeyChoice(config, reason) {
+  if (!config.installId) return;
+  await pingApi({
+    apiBaseUrl: config.apiBaseUrl,
+    // A decline carries no key, even where an old one is still in the file.
+    apiKey: reason === PING_REASONS.KEY_SET ? config.apiKey : null,
+    installId: config.installId,
+    reason,
+  });
+}
+
+async function main(argv) {
   const [verb, ...rest] = argv;
   try {
     switch (verb) {
       case 'set-key': {
         const value = rest[0];
         if (!value) return fail('set-key needs the key as its argument');
-        return void process.stdout.write(`${JSON.stringify(report(setKey(value)))}\n`);
+        const config = setKey(value);
+        process.stdout.write(`${JSON.stringify(report(config))}\n`);
+        return void (await pingKeyChoice(config, PING_REASONS.KEY_SET));
       }
-      case 'decline':
-        return void process.stdout.write(`${JSON.stringify(report(decline()))}\n`);
+      case 'decline': {
+        const config = decline();
+        process.stdout.write(`${JSON.stringify(report(config))}\n`);
+        return void (await pingKeyChoice(config, PING_REASONS.KEY_DECLINED));
+      }
       case 'show': {
         const config = loadOrCreateConfig();
         if (config === MALFORMED) return fail(`cannot parse ${configPath()} — fix or delete it, then try again`);
@@ -390,5 +447,5 @@ function main(argv) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main(process.argv.slice(2));
+  await main(process.argv.slice(2));
 }

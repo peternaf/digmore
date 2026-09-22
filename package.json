@@ -1,6 +1,6 @@
 {
   "name": "digmore",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "description": "An LLM plugin that turns AI research into decision-ready data.",
   "license": "Apache-2.0",
   "type": "module",

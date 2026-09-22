@@ -31,8 +31,11 @@ afterEach(async () => {
 /** A stand-in for the digmore API. */
 async function stubApi(handler) {
   server = createServer((req, res) => {
+    const url = new URL(req.url, 'http://localhost');
     requests.push({
       url: req.url,
+      path: url.pathname,
+      query: Object.fromEntries(url.searchParams),
       key: req.headers['x-api-key'],
       authorization: req.headers.authorization,
     });
@@ -42,19 +45,36 @@ async function stubApi(handler) {
   return `http://127.0.0.1:${server.address().port}`;
 }
 
+/** An install that already has its id, so a test that is not about the first run makes no first-run ping. */
+const INSTALL_ID = '11111111-2222-4333-8444-555555555555';
+
+/** Nothing listens here, so a ping to it fails at once and never leaves the machine. */
+const NOWHERE = 'http://127.0.0.1:1';
+
 function writeSettings(config) {
   mkdirSync(join(home, '.digmore'), { recursive: true });
   writeFileSync(
     join(home, '.digmore', 'settings.json'),
-    typeof config === 'string' ? config : JSON.stringify(config),
+    typeof config === 'string' ? config : JSON.stringify({ installId: INSTALL_ID, ...config }),
   );
+}
+
+/** Settings exactly as given — no install id added — for the tests that are about the first run. */
+function writeFirstRunSettings(config) {
+  mkdirSync(join(home, '.digmore'), { recursive: true });
+  writeFileSync(join(home, '.digmore', 'settings.json'), JSON.stringify(config));
 }
 
 /**
  * Async on purpose: the stub API runs in this process, so a blocking spawnSync would
  * stop the event loop and the server could never accept the child's connection.
  */
-function run(overrides = {}) {
+function run(overrides = {}, args = []) {
+  // A home with no settings file is a first run, and a first run pings the API. Left alone it
+  // would ping the real one, so a fresh home is pointed at an address where nothing listens.
+  // The state is the same either way: no key, no id.
+  if (!existsSync(join(home, '.digmore', 'settings.json'))) writeFirstRunSettings({ apiBaseUrl: NOWHERE });
+
   return new Promise((resolveRun) => {
     // The limits are read from the environment as well as the settings files, and this
     // suite runs inside a session that may well have raised them. Strip them so a test
@@ -63,7 +83,7 @@ function run(overrides = {}) {
     for (const key of ['CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION', 'CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS']) {
       if (!(key in overrides)) delete env[key];
     }
-    const child = spawn(process.execPath, [PREFLIGHT], { env, cwd: home });
+    const child = spawn(process.execPath, [PREFLIGHT, ...args], { env, cwd: home });
     let out = '';
     let err = '';
     child.stdout.setEncoding('utf8').on('data', (chunk) => (out += chunk));
@@ -145,7 +165,7 @@ test('READY: a valid key makes Reddit and Twitter available', async () => {
   assert.match(out, /READY/);
   assert.ok(!out.includes(OFFER_FIRST_LINE), 'no offer when the key works');
   assert.equal(requests.length, 1);
-  assert.equal(requests[0].url, '/v1/ping');
+  assert.equal(requests[0].path, '/v1/ping');
   assert.equal(requests[0].key, 'sk-good', 'X-API-KEY, not Authorization');
   assert.equal(requests[0].authorization, undefined);
 });
@@ -308,6 +328,132 @@ test('a keyless run prints the README offer byte for byte', async () => {
     assert.ok(out.includes(line), `the run does not print this README line: ${line}`);
   }
   assert.ok(out.includes(OFFER), 'the offer is printed as one contiguous block, in README order');
+});
+
+// ---------------------------------------------------------------- the ping, branch by branch
+//
+// Two pings, never combined: one call has one reason. The first preflight on a machine gives the
+// install its id and sends the install ping, key or no key. The run ping is separate, comes after
+// it, and goes out only when a key is configured. Each test below is one of those branches.
+
+const settingsOnDisk = () => JSON.parse(readFileSync(join(home, '.digmore', 'settings.json'), 'utf8'));
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const okApi = () => stubApi((req, res) => res.writeHead(200).end());
+
+test('first run, no key: the install gets an id and sends the install ping, and no run ping', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await okApi() });
+  const { code, out } = await run();
+  assert.equal(code, 0);
+  assert.match(out, /NO_KEY/, 'the answer does not change the state');
+
+  const { installId } = settingsOnDisk();
+  assert.match(installId, UUID, 'the id is written to the settings file');
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].path, '/v1/ping');
+  assert.equal(requests[0].key, undefined, 'no key, so no key header');
+  const pkg = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'));
+  assert.deepEqual(requests[0].query, {
+    installId,
+    reason: 'install',
+    command: 'unknown',
+    model: 'unknown',
+    auto: 'false',
+    fast: 'false',
+    pluginVersion: pkg.version,
+    platform: process.platform,
+  });
+});
+
+test('a later run with no key makes no call, and the id does not change', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await okApi() });
+  await run();
+  const { installId } = settingsOnDisk();
+  requests.length = 0;
+
+  const { out } = await run();
+  assert.match(out, /NO_KEY/);
+  assert.equal(requests.length, 0, 'without a key, only the install ping ever goes out');
+  assert.equal(settingsOnDisk().installId, installId);
+});
+
+// One call has one reason. A first run that already has a key is two calls, in this order.
+test('first run with a key already in the file: the install ping, then the run ping', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await okApi(), apiKey: 'sk-good', apiDeclined: false });
+  const { out } = await run();
+  assert.match(out, /READY/);
+  assert.equal(requests.length, 2);
+
+  assert.equal(requests[0].query.reason, 'install');
+  assert.equal(requests[0].key, undefined, 'the install ping never carries the key');
+
+  assert.equal(requests[1].query.reason, 'run');
+  assert.equal(requests[1].key, 'sk-good');
+  assert.equal(requests[1].query.installId, requests[0].query.installId, 'both from the same install');
+});
+
+test('no call ever carries two reasons', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await okApi(), apiKey: 'sk-good', apiDeclined: false });
+  await run();
+  for (const request of requests) {
+    assert.ok(!('newInstall' in request.query));
+    assert.ok(['install', 'run'].includes(request.query.reason));
+  }
+});
+
+test('a later run with a key sends the run ping only', async () => {
+  writeSettings({ apiBaseUrl: await okApi(), apiKey: 'sk-good', apiDeclined: false });
+  const { out } = await run({}, ['--command', 'landscape', '--model', 'claude-opus-5[1m]', '--auto', '--fast']);
+  assert.match(out, /READY/);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].query.installId, INSTALL_ID);
+  assert.equal(requests[0].query.reason, 'run');
+  assert.equal(requests[0].query.command, 'landscape');
+  assert.equal(requests[0].query.model, 'claude-opus-5[1m]');
+  assert.equal(requests[0].query.auto, 'true');
+  assert.equal(requests[0].query.fast, 'true');
+});
+
+// The arguments are typed by the model. If it ever puts the request there, it must not leave.
+test('anything that is not a bare command word is sent as unknown', async () => {
+  writeSettings({ apiBaseUrl: await okApi(), apiKey: 'sk-good', apiDeclined: false });
+  await run({}, ['--command', 'who is winning in AI note taking', '--model', 'the one winning in AI']);
+  assert.equal(requests[0].query.command, 'unknown');
+  assert.equal(requests[0].query.model, 'unknown');
+  assert.ok(!requests[0].url.includes('winning'), 'the words are nowhere in the call');
+});
+
+test('the arguments change nothing preflight prints', async () => {
+  writeSettings({ apiBaseUrl: await okApi(), apiKey: 'sk-good', apiDeclined: false });
+  const bare = await run();
+  const withArguments = await run({}, ['--command', 'gtm', '--model', 'claude-opus-5', '--auto', '--fast']);
+  assert.equal(withArguments.out, bare.out);
+});
+
+test('a first-run ping that fails changes neither the output nor the exit code', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await stubApi((req, res) => res.writeHead(500).end()) });
+  const failed = await run();
+  const later = await run();
+  assert.equal(failed.code, 0);
+  assert.equal(failed.out, later.out, 'byte for byte what a run with no ping prints');
+});
+
+// Without a key nothing depends on the answer, so the wait is the short one.
+test('a first-run ping nobody answers gives up well before the 5s a key is given', async () => {
+  writeFirstRunSettings({ apiBaseUrl: await stubApi(() => {}) });
+  const started = Date.now();
+  const { code, out } = await run();
+  assert.equal(code, 0);
+  assert.match(out, /NO_KEY/);
+  assert.ok(Date.now() - started < 4500, 'the keyless timeout is 2s');
+  server.closeAllConnections?.();
+});
+
+test('an unreadable settings file gets no id and no call', async () => {
+  writeSettings('{ not json at all');
+  const { out } = await run();
+  assert.match(out, /MALFORMED/);
+  assert.equal(readFileSync(join(home, '.digmore', 'settings.json'), 'utf8'), '{ not json at all');
 });
 
 // ---------------------------------------------------------------- run configurations

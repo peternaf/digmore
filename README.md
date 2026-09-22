@@ -165,11 +165,8 @@ and source, how many people it vets per source, how many experts it follows afte
 reads a comment thread, and the rest. Each one appears twice — once at the top level for a full run,
 and once under `fast` for `--fast`.
 
-Four things worth knowing before you edit it:
+Things worth knowing before you edit it:
 
-- **Nothing is hidden.** The file is written out complete, every knob and its default, so you can see
-  what exists without having to know what to look for. When an update adds a new one, it is filled
-  into your file the next time Digmore runs and your own values are left alone.
 - **`--fast` never loosens what you tightened.** It takes the lower of the two, so if you set a
   full-mode number below the fast one you get yours in both modes. **One setting reads the other way
   round**, and says so in the file: `enrich.minPlayerDocuments` is a floor rather than a budget — how
