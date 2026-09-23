@@ -52,5 +52,5 @@ Small, one change each, in plain words. Say what changed and why, not how.
 Contributing creates no employment, contractor, partnership or agency relationship between you and
 digmore. You contribute voluntarily, unpaid, on your own time and equipment, and you confirm the
 work is yours to give — not owned by an employer or bound by any agreement of yours. Your
-contribution is licensed under the repo's Apache 2.0 licence, with no other rights promised or
+contribution is licensed under the repo's Apache 2.0 license, with no other rights promised or
 implied.
