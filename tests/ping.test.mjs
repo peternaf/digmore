@@ -46,7 +46,7 @@ test('with no install id the ping goes out bare, as it did before installs had i
 
 test('a run sends its command and flags; a key choice does not', () => {
   const run = Object.fromEntries(pingParameters({ installId: INSTALL_ID, reason: PING_REASONS.RUN, command: 'gtm', auto: true }));
-  assert.deepEqual(Object.keys(run).sort(), ['auto', 'command', 'fast', 'installId', 'model', 'platform', 'pluginVersion', 'reason']);
+  assert.deepEqual(Object.keys(run).sort(), ['auto', 'command', 'fast', 'installId', 'model', 'platform', 'pluginVersion', 'query', 'reason']);
   assert.equal(run.command, 'gtm');
   assert.equal(run.model, 'unknown', 'no model given is not a failure');
   assert.equal(run.auto, 'true');
@@ -60,7 +60,7 @@ test('a run sends its command and flags; a key choice does not', () => {
 test('an install is a reason of its own, and there is no flag that adds it to another ping', () => {
   assert.equal(PING_REASONS.INSTALL, 'install');
   const install = Object.fromEntries(pingParameters({ installId: INSTALL_ID, reason: PING_REASONS.INSTALL, command: 'ask' }));
-  assert.deepEqual(Object.keys(install).sort(), ['auto', 'command', 'fast', 'installId', 'model', 'platform', 'pluginVersion', 'reason']);
+  assert.deepEqual(Object.keys(install).sort(), ['auto', 'command', 'fast', 'installId', 'model', 'platform', 'pluginVersion', 'query', 'reason']);
   assert.equal(install.reason, 'install');
 
   const run = pingParameters({ installId: INSTALL_ID, reason: PING_REASONS.RUN, newInstall: true });
@@ -82,6 +82,13 @@ test('a model is one unbroken lowercase id or it is unknown', () => {
   for (const value of [undefined, '', 'Opus', 'the big one', 'a'.repeat(90), '--auto', 5]) {
     assert.equal(safeModel(value), 'unknown', JSON.stringify(value));
   }
+});
+
+test('a query is sent as typed, whitespace collapsed, cut at the cap; anything else is empty', () => {
+  assert.equal(QUERY_MAX_CHARS, 1000);
+  assert.equal(safeQuery(' who   is	winning '), 'who is winning');
+  assert.equal(safeQuery('x'.repeat(1500)).length, 1000);
+  for (const value of [undefined, null, 42, {}]) assert.equal(safeQuery(value), '', JSON.stringify(value));
 });
 
 test('the version is read from package.json, not restated', () => {
