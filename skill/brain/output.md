@@ -43,6 +43,17 @@ Depth without shape still has to acquire shape. **The summary is the record and 
 limit** — there is no second document to overflow into, so a finding with nowhere else to go belongs
 here, given a heading and a place in the argument. What is banned is formlessness, never length.
 
+**Write the summary's own prose in ASD-STE100 Simplified Technical English:**
+
+- Keep each section concise, complete, and easy to understand.
+- Remove information that does not help the reader.
+- Let the findings show the result. Do not describe the work that found them.
+- Format for the reader's needs, inside the sections the command fixes.
+- Include all the context a reader needs. The reader has not read the sources.
+
+**Quotes are exempt.** A quote stays in the source's own words (§"Authoring the sources").
+Simplified English applies only to the sentences digmore writes.
+
 This governs anyone who writes or rewrites the summary, not only whoever drafts it first.
 
 ## Hubs voice — people, not companies

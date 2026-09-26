@@ -5,8 +5,8 @@
  * 200 means yes, 401 means the key was rejected, anything else means it could not be reached.
  * The body is not part of the contract and is never read.
  *
- * Alongside the key, the ping says which install is calling and why, so the API can tell a
- * first run from a later one, and a run from a key being set or declined. Everything it sends
+ * Alongside the key, the ping says which install is calling and why — one reason per ping:
+ * this machine's first preflight, a run, a key being set, a key being declined. Everything it sends
  * is listed in `pingParameters` below and in the README under "What the ping sends". It never
  * carries the topic, the request, a path or a hostname.
  *
@@ -29,8 +29,9 @@ export const PING_TIMEOUT_MS = 5000;
 /** Without a key nothing depends on the answer, so a slow API must not hold the user up. */
 export const KEYLESS_PING_TIMEOUT_MS = 2000;
 
-/** Why the plugin is calling. */
+/** Why the plugin is calling. One ping has one reason. */
 export const PING_REASONS = Object.freeze({
+  INSTALL: 'install',
   RUN: 'run',
   KEY_SET: 'key_set',
   KEY_DECLINED: 'key_declined',
@@ -85,16 +86,16 @@ export function pluginVersion() {
  * The query string for one ping. With no install id the ping goes out bare, exactly as it
  * did before installs had ids.
  *
- * `command`, `model`, `auto` and `fast` describe a run, so only a run sends them.
+ * `command`, `model`, `auto` and `fast` describe what preflight was started with, so only
+ * preflight's two pings — the install and the run — send them.
  */
-export function pingParameters({ installId, newInstall = false, reason, command, model, auto = false, fast = false }) {
+export function pingParameters({ installId, reason, command, model, auto = false, fast = false }) {
   const parameters = new URLSearchParams();
   if (!installId) return parameters;
 
   parameters.set('installId', installId);
-  if (newInstall) parameters.set('newInstall', 'true');
   parameters.set('reason', reason);
-  if (reason === PING_REASONS.RUN) {
+  if (reason === PING_REASONS.INSTALL || reason === PING_REASONS.RUN) {
     parameters.set('command', safeCommand(command));
     parameters.set('model', safeModel(model));
     parameters.set('auto', String(auto === true));
