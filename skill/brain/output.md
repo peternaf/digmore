@@ -20,6 +20,28 @@ These three govern how source content reaches the page. They are absolute.
 
 > Every substantive claim, figure or quote MUST carry an in-text citation.
 
+### How a citation is rendered
+
+One parenthesis at the end of the sentence or paragraph it supports, holding the links, any note on
+the source, and the confidence — in that order:
+
+    …<claim> ([<source name>, vendor blog](url), medium confidence).
+    …<claim> ([<source name>](url) +1 more, unvetted accounts, medium confidence).
+
+- **Link text is the source's name, one to three words** — the subreddit (`r/<name>`),
+  `Hacker News`, or the site's own name. Never a description of the page.
+- **At most two links**: the representative citation, then the highest-`pageQuality` of the rest.
+  Never the same page twice. `+N more` for the rest; omit it where there is none.
+- **A note on the source goes inside the parenthesis, never in its own sentence**, and only where it
+  changes how much to trust the claim: `vendor blog`, `the vendor's own figure`, `unvetted accounts`.
+  One per parenthesis.
+- **A `promoter` label stays beside the quote it qualifies**, not in the parenthesis — it changes how
+  the quote reads, not how the claim is sourced.
+- **Confidence is plain words, last**: `high confidence`, never a code span. Its tiers are in
+  `vetting.md` §"Confidence tag rule".
+- **One claim, one parenthesis**, at the end of its own sentence. Consecutive sentences resting on the
+  same citations share one parenthesis, at the end of the last of them.
+
 ### What "do not condense" does and does not forbid
 
 The rule is about **rephrasing, not length**:
@@ -42,6 +64,19 @@ That is a kind of document, not just a filename. It is written for someone who h
 Depth without shape still has to acquire shape. **The summary is the record and has no length
 limit** — there is no second document to overflow into, so a finding with nowhere else to go belongs
 here, given a heading and a place in the argument. What is banned is formlessness, never length.
+
+**Write the summary so a reader new to the market can follow it on one pass:**
+
+- Write full sentences with a subject, a verb and an object. Cut ideas that do not help the
+  reader; never cut the words that connect ideas ("because", "so", "but").
+- One idea per sentence, about 25 words at most. Do not join two claims with a semicolon.
+- Define a market term the first time it appears, in the same sentence: "<term> (<what it
+  means, in plain words>)". No position metaphors ("layer", "sits above") unless explained.
+- Put what the reader needs in the sentence, not in parentheses.
+- Say why a finding matters, where the sources support it.
+- State findings; do not describe the work that found them.
+
+**Quotes are exempt** — they stay in the source's own words (§"Authoring the sources").
 
 This governs anyone who writes or rewrites the summary, not only whoever drafts it first.
 

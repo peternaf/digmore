@@ -69,7 +69,8 @@ content farm; a marketer can cite a regulatory filing. Tag both, separately.
 ## Confidence tag rule
 
 Each finding in the summary gets a `high` / `medium` / `low` confidence tag, **rendered with its word
-spelled out** — `` `confidence: high` ``, never `` `[high]` ``. A bare `[high]` in a report is a tier
+spelled out** — `high confidence`, never `` `[high]` ``, and placed as `output.md` §"How a citation is
+rendered" says. A bare `[high]` in a report is a tier
 name with no key beside it, and a reader who has not opened this file cannot tell whether it scores
 confidence, severity or priority. `output.md` rule 2 bans exactly that.
 

@@ -42,10 +42,8 @@ Three phases carry command-specific weight:
 
 Sections in this exact order.
 
-**Every finding in every section carries its inline URL**, rendered as `landscape.md` §1 specifies —
-the representative citation's URL, then the next-highest `pageQuality`, then `+N more` for the
-remainder. The confidence tag spells its word out: `` `confidence: high` ``. A section's own spec
-below adds to this; none of them replaces it.
+**Every finding in every section carries its inline URL**, rendered as `../brain/output.md`
+§"How a citation is rendered". A section's own spec below adds to this; none of them replaces it.
 
 1. **Verdict** — 3–5 bullets, each cited:
    - **Authenticity stance** — transparent / mixed / covert / deceptive.

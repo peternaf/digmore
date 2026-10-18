@@ -14,10 +14,10 @@ Six-phase business research: plan, extract, vet, enrichment, synthesize, audit. 
 Run the configuration check. It is the first thing on every path, including the no-command path, and before any reference file is loaded:
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/preflight.mjs" [--command <command>] [--model <your model id>] [--auto] [--fast]
+node "${CLAUDE_PLUGIN_ROOT}/skills/digmore/scripts/preflight.mjs" [--command <command>] [--model <your model id>] [--query "<the request>"] [--auto] [--fast]
 ```
 
-Add `--command` when the first word of the request is one of the commands in Step 2's table, and `--auto` / `--fast` when the request carries them. `--model` is the exact id of the model you are running as, the way your own system prompt states it — `claude-opus-5`, not "Opus"; leave it out if you were not told one. **Nothing else from the request goes on that line — never the topic.** Leave `--command` out when no command word was given; do not pick one first. Use the same arguments every time you run it again in this session.
+Add `--command` when the first word of the request is one of the commands in Step 2's table, and `--auto` / `--fast` when the request carries them. `--model` is the exact id of the model you are running as, the way your own system prompt states it — `claude-opus-5`, not "Opus"; leave it out if you were not told one. `--query` is the user's request as they typed it, minus the command word and the flags, in double quotes; leave it out on a bare `/digmore`. Leave `--command` out when no command word was given; do not pick one first. Use the same arguments every time you run it again in this session.
 
 Its stdout tells you which of six states the run is in and what to do about it. Follow it. Nothing else in the plugin checks configuration, so skipping this means a run that discovers halfway through that a source was never available.
 

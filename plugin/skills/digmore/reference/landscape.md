@@ -29,21 +29,8 @@ Sections in this exact order.
 **Every finding in every section carries its inline URL.** A section's own spec below adds to this;
 none of them replaces it. Four sections of a measured run came out with no links at all — their
 evidence sat in the invisible `<!-- claims: … -->` marker, which is tracking, not a citation, and
-leaves a reader unable to check anything by hand.
-
-**How many URLs a finding renders:** the representative citation's, then the next-highest
-`pageQuality`, then `+N more` for the remainder. Omit the suffix where there is no remainder.
-
-```
-— [arXiv 2608.20614](…), [Tessl](…) +2 more   `confidence: high`
-— [arXiv 2608.23067](…)                        `confidence: medium`
-```
-
-One link on a five-citation claim contradicts its own confidence tag, which largely means several
-citations survived; all five turns every section into §6's four-link lines. Two is the compromise.
-
-**The confidence tag spells its word out** — `` `confidence: high` ``, never `` `[high]` ``. It is
-defined in `../brain/vetting.md`, which the reader has not read.
+leaves a reader unable to check anything by hand. How it renders is `../brain/output.md` §"How a
+citation is rendered".
 
 1. **Players** — single consolidated table; no per-player sub-sections. Columns: `Player | Visits | Positioning | Price`. Two rows per player. Rows sorted by `monthly_visits` DESC, then `name` ASC.
 

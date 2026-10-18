@@ -122,8 +122,7 @@ the command's reference file, for an invented one its render rule from `scope.se
 pointed at a file instead of given the spec defaults to the shortest plausible content.
 
 **And inline the citation rule with them, in the same breath**: every finding in every section
-carries its inline URL — the representative citation's, then the next-highest `pageQuality`, then
-`+N more` for the remainder — and the confidence tag spells its word out, `confidence: high`.
+carries its inline URL, followed by `../output.md` §"How a citation is rendered" pasted in full.
 
 That rule is in `../output.md` and governs every section, so it should not need repeating here. It
 does, for the reason the paragraph above gives: the per-section spec arrives as text and `output.md`
