@@ -12,13 +12,16 @@
   "scripts": {
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
-    "dev": "tsx watch --env-file=.env src/index.ts",    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "typecheck": "tsc --noEmit",
     "test": "tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "axios": "^1.20.0"
+    "axios": "^1.20.0",
+    "express": "^5.3.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
