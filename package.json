@@ -9,7 +9,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=4",
+    "test": "node --test --test-concurrency=4 tests/*.test.mjs",
     "build": "node scripts/build.js"
   },
   "dependencies": {

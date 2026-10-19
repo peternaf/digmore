@@ -6,3 +6,8 @@ package-lock.json
 # Anchored on purpose: unanchored `digmore/` also matches plugin/skills/digmore/, which
 # would keep the committed plugin build out of git entirely.
 /digmore/
+
+# server/ is a standalone service: it commits its own lock file, never its secrets.
+!server/package-lock.json
+server/.env
+server/dist/
