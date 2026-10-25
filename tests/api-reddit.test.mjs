@@ -483,7 +483,7 @@ test('user writes one cache file per handle, holding the whole response', async 
   const { json } = await sandbox.run('api.mjs', 'reddit', 'user', 'someone', '--topic', 'demo');
   assert.equal(sandbox.requests.length, 1, 'the verdict costs no extra request');
   assert.equal(sandbox.requests[0].path, '/v1/reddit/users');
-  assert.equal(sandbox.requests[0].query.names, 'someone');
+  assert.equal(sandbox.requests[0].query.names, 'someone', 'no saved threads, so no account id');
 
   const vetted = sandbox.cached('demo', 'reddit', 'reddit-vet-someone.json');
   assert.equal(vetted.comment_karma, 900, 'the profile');
@@ -502,6 +502,35 @@ test('user writes one cache file per handle, holding the whole response', async 
   );
 
   assert.deepEqual(json.users.someone, userFor('someone'), 'stdout carries the whole body');
+});
+
+// Users found in already-downloaded threads are sent as name:account_id, and the answer is
+// still read and cached under the plain name.
+test('user sends the account ids its saved threads carry', async () => {
+  const { THREAD_CACHE_NAME } = await import('../skill/scripts/api.mjs');
+  // The API answers under the plain name, whatever id came with it.
+  const base = await sandbox.api((req, res, url) => {
+    const sentNames = url.searchParams.get('names').split(',').map((entry) => entry.split(':')[0]);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(Object.fromEntries(sentNames.map((name) => [name, userFor(name)]))));
+  });
+  sandbox.configured(base);
+  sandbox.writeCache('demo', 'reddit', THREAD_CACHE_NAME('abc'), {
+    author: 'alice',
+    author_fullname: 't2_alice',
+    comments: [
+      { author: 'bob', author_fullname: 't2_bob' },
+      { author: 'zed', author_fullname: 't2_zed' },
+    ],
+  });
+  const { json } = await sandbox.run('api.mjs', 'reddit', 'user', 'alice', 'bob', 'carol', '--topic', 'demo');
+  assert.equal(
+    sandbox.requests[0].query.names,
+    'alice:t2_alice,bob:t2_bob,carol',
+    'carol has no id, and zed was not asked for',
+  );
+  assert.equal(json.users.alice.name, 'alice');
+  assert.equal(sandbox.cached('demo', 'reddit', 'reddit-vet-alice.json').name, 'alice');
 });
 
 // A Handle Vetter serving a range of ten spends one request and leaves ten files.

@@ -457,13 +457,18 @@ const reddit = {
    * Many handles per call, one file each: the vetting record for one handle is its profile,
    * its comments and its verdict together, whatever size batch fetched it. A Handle Vetter
    * serving a range of ten spends one request and leaves ten files.
+   *
+   * A name is sent as `name:account_id` when the threads this run already downloaded
+   * include that user's account id.
    */
   async user(ctx, names) {
     if (!names.length) throw new ApiError('reddit user needs one or more names', EXIT.USAGE);
+    const accountIds = threadAccountIds(ctx.dir);
     const users = await keyedBatch(ctx, names, {
       cacheName: USER_CACHE_NAME,
       path: '/v1/reddit/users',
       param: 'names',
+      wireKey: (name) => (accountIds.has(name) ? `${name}:${accountIds.get(name)}` : name),
       perCall: MAX_USER_NAMES_PER_CALL,
     });
     return { users };
@@ -598,8 +603,10 @@ async function cached(ctx, key, fetcher) {
  *
  * A key the API omits entirely is treated as `unavailable` rather than skipped, because the
  * alternative is an item that is neither a record nor a failure and never becomes either.
+ *
+ * `wireKey` is how a key is written in the request, when it carries more than the key itself.
  */
-async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perCall }) {
+async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perCall, wireKey = (key) => key }) {
   const found = {};
   const missing = [];
   for (const key of keys) {
@@ -613,7 +620,7 @@ async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perC
     const payload = await request(
       ctx.config,
       path,
-      { ...params, [param]: batch.join(',') },
+      { ...params, [param]: batch.map(wireKey).join(',') },
       batchTimeoutMs(batch.length),
     );
     for (const key of batch) {
@@ -628,6 +635,23 @@ async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perC
   }
 
   return found;
+}
+
+/** Account ids by author name, from the threads this run already downloaded. */
+function threadAccountIds(dir) {
+  const threadPrefix = THREAD_CACHE_NAME('*').split('*')[0];
+  const accountIds = new Map();
+  for (const file of existsSync(dir) ? readdirSync(dir) : []) {
+    // Claims files share this prefix too. They have no authors, so they add nothing.
+    if (!file.startsWith(threadPrefix)) continue;
+    const thread = readCache(dir, file);
+    for (const entry of [thread, ...(Array.isArray(thread?.comments) ? thread.comments : [])]) {
+      if (entry?.author && entry.author_fullname) {
+        accountIds.set(entry.author, entry.author_fullname);
+      }
+    }
+  }
+  return accountIds;
 }
 
 /**
