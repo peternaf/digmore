@@ -37,14 +37,13 @@ export const REQUEST_TIMEOUT_MS = 30000;
  * reached", which reads as the API being down when it is answering perfectly well.
  *
  * Measured against `/v1/reddit/users`: 5 profiles in 14.9s, 25 in 40.3s — about 9s fixed
- * and 1.3s per profile. 4s each is roughly three times that, which is the headroom for an
- * account whose history is long or a session that has to clear a challenge first.
+ * and 1.3s per profile. 15s each leaves room for a batch that has to wait out a slow source.
  *
  * MAX_BATCH_TIMEOUT_MS bounds the worst hang, because a timeout that scales without a
  * ceiling stops being a timeout. At the largest batch either endpoint accepts it is still
  * twice the measured time.
  */
-export const BATCH_TIMEOUT_PER_ITEM_MS = 4000;
+export const BATCH_TIMEOUT_PER_ITEM_MS = 15000;
 export const MAX_BATCH_TIMEOUT_MS = 300000;
 
 /** What one batched call of `count` items is allowed before it is called unreachable. */
@@ -68,12 +67,13 @@ export function batchTimeoutMs(count) {
 export const BACKOFF_MS = Object.freeze([5000, 15000, 45000]);
 
 /**
- * What one call to each batched endpoint accepts, straight from the API's own limits.
+ * What one call to each batched endpoint is sent. Users go 3 at a time so a call finishes
+ * within the request time limit.
  * A longer list is split into as many calls as it takes; the caller never chunks.
  */
 const MAX_TWEET_IDS_PER_CALL = 100;
 const MAX_THREAD_IDS_PER_CALL = 20;
-const MAX_USER_NAMES_PER_CALL = 100;
+const MAX_USER_NAMES_PER_CALL = 3;
 
 /** The most results one Reddit search returns, which is also the endpoint's own maximum. */
 const MAX_SEARCH_LIMIT = 20;
@@ -456,7 +456,7 @@ const reddit = {
    *
    * Many handles per call, one file each: the vetting record for one handle is its profile,
    * its comments and its verdict together, whatever size batch fetched it. A Handle Vetter
-   * serving a range of ten spends one request and leaves ten files.
+   * serving a range of ten spends four requests and leaves ten files.
    *
    * A name is sent as `name:account_id` when the threads this run already downloaded
    * include that user's account id.

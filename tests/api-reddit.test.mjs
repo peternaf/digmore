@@ -448,7 +448,7 @@ test('a batched call gets longer than a single one, up to a ceiling', async () =
   const { batchTimeoutMs, REQUEST_TIMEOUT_MS, MAX_BATCH_TIMEOUT_MS } = await import('../skill/scripts/api.mjs');
   assert.ok(batchTimeoutMs(1) > REQUEST_TIMEOUT_MS, 'even one item gets more than the flat timeout');
   assert.ok(batchTimeoutMs(25) > 40_300, 'above the measured 25-profile time');
-  assert.ok(batchTimeoutMs(100) > batchTimeoutMs(25), 'it grows with the batch');
+  assert.ok(batchTimeoutMs(10) > batchTimeoutMs(5), 'it grows with the batch');
   assert.equal(batchTimeoutMs(10_000), MAX_BATCH_TIMEOUT_MS, 'and stops growing, or it is not a timeout');
 });
 
