@@ -74,6 +74,7 @@ export const BACKOFF_MS = Object.freeze([5000, 15000, 45000]);
 const MAX_TWEET_IDS_PER_CALL = 100;
 const MAX_THREAD_IDS_PER_CALL = 20;
 const MAX_USER_NAMES_PER_CALL = 3;
+const USER_CALL_TIMEOUT_MS = 120000;
 
 /** The most results one Reddit search returns, which is also the endpoint's own maximum. */
 const MAX_SEARCH_LIMIT = 20;
@@ -470,6 +471,7 @@ const reddit = {
       param: 'names',
       wireKey: (name) => (accountIds.has(name) ? `${name}:${accountIds.get(name)}` : name),
       perCall: MAX_USER_NAMES_PER_CALL,
+      callTimeoutMs: () => USER_CALL_TIMEOUT_MS,
     });
     return { users };
   },
@@ -606,7 +608,7 @@ async function cached(ctx, key, fetcher) {
  *
  * `wireKey` is how a key is written in the request, when it carries more than the key itself.
  */
-async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perCall, wireKey = (key) => key }) {
+async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perCall, wireKey = (key) => key, callTimeoutMs = batchTimeoutMs }) {
   const found = {};
   const missing = [];
   for (const key of keys) {
@@ -621,7 +623,7 @@ async function keyedBatch(ctx, keys, { cacheName, path, param, params = {}, perC
       ctx.config,
       path,
       { ...params, [param]: batch.map(wireKey).join(',') },
-      batchTimeoutMs(batch.length),
+      callTimeoutMs(batch.length),
     );
     for (const key of batch) {
       const value = payload?.[key];
