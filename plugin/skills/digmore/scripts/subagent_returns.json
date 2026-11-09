@@ -944,7 +944,6 @@
         "equals": false,
         "require": [
           "url",
-          "repo_url",
           "monthly_visits",
           "offerings",
           "positioning",

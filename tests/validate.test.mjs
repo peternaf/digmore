@@ -1018,6 +1018,26 @@ test('two rows for one player are caught', async () => {
   assert.deepEqual(paths(result), ['players[1].name']);
 });
 
+// Most players are vendors with no public repo. Requiring repo_url failed every one of their
+// profiles, and pushed a profiler that wanted to pass towards inventing a URL.
+test('a profile with no public repo passes — repo_url is optional', async () => {
+  const profile = {
+    fetch_failed: false,
+    url: 'https://crustdata.com/',
+    monthly_visits: '99.3K',
+    offerings: 'People Search API; Company Enrichment API',
+    positioning: 'Real-time people and company data for AI agents',
+    pricing_model: 'credit-based usage',
+    entry_tier_price_usd: 'free',
+    funding_stage: 'seed',
+    funding_raised_usd: '$6.5M total',
+    recent_moves: '2026-10-13: launched Watcher for sales teams',
+    top_user_sentiment: 'mostly positive: real-time search praised, price questioned',
+  };
+  assert.equal((await check('player-profile', profile)).code, 0);
+  assert.equal((await check('player-profile', { ...profile, repo_url: 'https://github.com/crustdata' })).code, 0);
+});
+
 // One handle per file, so there is no array of handles to check. Adding it there would be a
 // keyword with nothing to compare.
 test('handle-vetting carries no uniqueBy, because one file is one handle', () => {
